@@ -296,8 +296,8 @@ fn run_server(port: u16) -> ExitCode {
                 }
             }
         } else if path == "/" || path == "/index.html" {
-            // Serve the UI HTML.
-            let ui = include_str!("../falco_ui.html");
+            // Serve a minimal built-in UI (no external file required).
+            let ui = FALCO_UI_HTML;
             let resp = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\n\r\n{}", ui.len(), ui);
             let _ = stream.write_all(resp.as_bytes());
         } else {
@@ -333,3 +333,114 @@ fn url_decode(s: &str) -> String {
     }
     result
 }
+
+/// Built-in HTML for the `--server` mode UI (served at `/`).
+///
+/// This is intentionally minimal — a single text input + an `<img>` that
+/// fetches from `/render?url=...`. Kept inline so the binary has no
+/// external file dependency.
+const FALCO_UI_HTML: &str = r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Falco — render server</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+    }
+    h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+    p  { color: #8b949e; font-size: 13px; margin: 0 0 24px; }
+    form {
+      width: min(720px, 100%);
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    input[type="url"] {
+      flex: 1;
+      padding: 10px 14px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      font-size: 14px;
+      outline: none;
+    }
+    input[type="url"]:focus { border-color: #58a6ff; }
+    button {
+      padding: 10px 22px;
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button:hover { background: #2ea043; }
+    .out {
+      width: min(1200px, 100%);
+      max-width: 100%;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    img { display: block; max-width: 100%; height: auto; }
+    .empty { padding: 64px; text-align: center; color: #6e7681; }
+    .author {
+      margin-top: 32px;
+      font-size: 12px;
+      color: #6e7681;
+    }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Falco render server</h1>
+  <p>Enter a URL — Falco will render it server-side and stream back the PNG.</p>
+
+  <form id="f">
+    <input id="url" type="url" placeholder="https://example.com" value="https://example.com" autofocus>
+    <button type="submit">Render</button>
+  </form>
+
+  <div class="out" id="out">
+    <div class="empty">No render yet.</div>
+  </div>
+
+  <div class="author">
+    Logo by <strong>Sanya</strong> —
+    <a href="https://t.me/SanyochekDev" target="_blank" rel="noopener">t.me/SanyochekDev</a>
+  </div>
+
+  <script>
+    const form = document.getElementById('f');
+    const url  = document.getElementById('url');
+    const out  = document.getElementById('out');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const u = encodeURIComponent(url.value.trim());
+      if (!u) return;
+      out.innerHTML = '<div class="empty">Rendering…</div>';
+      const img = new Image();
+      img.onload = () => { out.replaceChildren(img); };
+      img.onerror = () => { out.innerHTML = '<div class="empty">Render failed.</div>'; };
+      img.src = '/render?url=' + u;
+    });
+  </script>
+</body>
+</html>"#;
+

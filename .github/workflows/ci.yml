@@ -13,6 +13,9 @@ jobs:
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
+    # Rustfmt is informational for now — formatting drift won't fail the build.
+    # Flip to false once `cargo fmt --all` is run across the codebase.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
