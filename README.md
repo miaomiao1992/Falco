@@ -1,0 +1,508 @@
+<p align="center">
+  <img src="docs/falco.svg" alt="Falco logo" width="220" height="220">
+</p>
+
+<h1 align="center">Falco</h1>
+
+<p align="center">
+  <em>Logo by <strong>Sanya</strong> — <a href="https://t.me/SanyochekDev">t.me/SanyochekDev</a></em>
+</p>
+
+<p align="center">
+  A tiny, fast browser engine written in Rust.<br>
+  Renders HTML, CSS, JavaScript, SVG and images — to a PNG, or to a live interactive window.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-yellow.svg"></a>
+  <img alt="Built with Rust" src="https://img.shields.io/badge/built%20with-rust-orange.svg">
+  <img alt="Binary size" src="https://img.shields.io/badge/binary-~10%20MB-blue.svg">
+  <img alt="Lines of Rust" src="https://img.shields.io/badge/LOC-~36%2C000-9cf.svg">
+  <a href="https://send.monobank.ua/jar/21T9ZRwZq3"><img alt="Donate" src="https://img.shields.io/badge/donate-MonoBank-7c3aed.svg"></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#interactive-mode---window">Interactive mode</a> ·
+  <a href="#what-it-supports">Features</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href=".github/CONTRIBUTING.md">Contributing</a>
+</p>
+
+---
+
+## What it is
+
+Falco is a real browser engine in roughly **36,000 lines of Rust**. It
+parses HTML, applies CSS, executes JavaScript, loads images, computes
+layout, and paints to a canvas — either as a **PNG file** or a live
+**interactive window** where you can scroll, click links, fill out
+forms, and navigate.
+
+```
+HTML ──▶ DOM ──▶ Style tree ──▶ Layout tree ──▶ Paint commands ──▶ Canvas ──▶ PNG / Window
+            ▲           ▲              ▲
+            │           │              │
+       HTML5 tokenizer  CSS cascade    Flex / Grid / Table / Float / Absolute
+       + tree builder   + Selectors 4  + Inline / Block flow
+            │
+       JS (custom VM with closures, generators, Promise, BigInt, Symbol)
+            │
+       Image loader ──▶ HTTP / data: URL / local file
+```
+
+Falco is **not** a wrapper around WebKit, Gecko, or Chromium. Every
+module — HTML tokenizer, CSS parser, layout engine, JS VM, font
+rasterizer, PNG encoder — is written from scratch in Rust.
+
+## Quick start
+
+```bash
+# Build (release binary lands in target/release/falco)
+cargo build --release
+
+# Render a local HTML file to PNG
+./target/release/falco page.html --out page.png --width 1200
+
+# Render a URL to PNG
+./target/release/falco https://example.com --out example.png --width 800
+
+# Open interactive live window (desktop only — scrolls, hover, link clicks)
+./target/release/falco page.html --window
+
+# Render with external CSS merged on top of <style> tags
+./target/release/falco README.html --css style.css --out readme.png
+```
+
+`<style>` tags inside the HTML are automatically extracted and
+applied. External CSS via `--css` is merged on top.
+
+## Interactive mode (`--window`)
+
+When you pass `--window`, Falco opens a real browser window with an
+**address bar at the top**, the **page content in the middle**, and a
+**status bar at the bottom**. You can:
+
+### Navigation
+- **Click links** (`<a href>`) — Falco fetches the new URL and re-renders
+- **Address bar** — click it or press `F6`, type a URL, press `Enter`
+- **Reload** with `r` — re-fetches the current page
+- **Back/Forward** with `Alt+←` / `Alt+→` — full history navigation
+
+### Forms
+- **Click inputs** to focus them, then **type** to enter text (live update)
+- **Tab / Shift+Tab** — cycle focus between interactive elements
+- **Backspace** — delete the last character
+- **Enter** — submit form / click the focused button / follow focused link
+- Supported types: `text`, `email`, `password` (masked), `checkbox`, `submit`, `button`, `textarea`
+
+### Scrolling & visual feedback
+- **Mouse wheel**, **arrow keys**, **Page Up/Down**, **Home/End**
+- **Focus ring** — 2px blue outline around the focused element
+- **Blinking caret** — 500ms blink in text inputs and the address bar
+- **Hover hint** — when hovering a link, its href appears in the status bar
+
+### Incremental repaint
+The window only re-paints when state actually changes (scroll, input
+text, focus, hover). On idle frames, only the address bar / status bar
+overlays are redrawn — the page canvas is cached. This keeps CPU usage
+low and scrolling smooth.
+
+### Headless fallback
+If no display is available (headless server, no X11/Wayland), Falco
+automatically falls back to PNG output with a warning.
+
+## CLI reference
+
+```
+falco — a tiny browser engine
+
+USAGE
+  falco <input> [OPTIONS]
+
+INPUT
+  A URL (http://...) or a path to a local .html file.
+
+OPTIONS
+  --css <path>       External CSS file (merged with <style> tags in HTML).
+  --out <path>       Output PNG path. Default: falco.png
+  --width <px>       Viewport width. Default: 1200
+  --height <px>      Viewport height (canvas grows if content is taller). Default: 800
+  --bg <hex>         Background color (0xRRGGBBAA). Default: 0xFFFFFFFF
+  --window           Open a live interactive window instead of writing PNG.
+  -h, --help         Show this help
+  -V, --version      Print version
+
+INTERACTIVE MODE KEYS (when --window is used)
+  q / Esc       quit
+  r             reload (prints message — restart Falco to actually reload)
+  ↑ / ↓         scroll line
+  PgUp / PgDn   scroll page
+  Home / End    jump to top / bottom
+  g / G         top / bottom (vim-style)
+  mouse wheel   scroll
+  mouse click   follow `<a href>` link (prints URL to stderr)
+```
+
+## Programmatic API
+
+```rust
+use falco::{render_to_png, RenderOptions};
+
+fn main() -> anyhow::Result<()> {
+    let html = std::fs::read_to_string("page.html")?;
+    let css = std::fs::read_to_string("style.css")?;
+    let opts = RenderOptions {
+        width: 1200,
+        height: 800,
+        background: 0xFFFFFFFF,
+    };
+    render_to_png(&html, &css, opts, "out.png")?;
+    Ok(())
+}
+```
+
+## What it supports
+
+### HTML
+- **HTML5 tokenizer** (WHATWG §13.2.5) — all 80 states, script-data
+  escape/double-escape, attribute parsing with duplicate detection,
+  named + numeric character references with Windows-1252 quirks
+- **HTML5 tree builder** (WHATWG §13.2.6) — all 22 insertion modes,
+  stack of open elements with scope algorithms, active formatting
+  elements list, reconstruct active formatting, **adoption agency
+  algorithm**, **foster parenting** for table content, `<template>`
+  with separate DocumentFragment contents
+- **Entity references** — `&amp;`, `&#65;`, `&copy;`, 50+ named entities
+- **Whitespace collapsing** (browser-style)
+- **`<template>` element** with separate DocumentFragment contents
+- **XML/XHTML parser** — strict, with namespace bindings, CDATA, PIs
+- **Encoding detection** — BOM, HTTP `Content-Type` charset, `<meta
+  charset>`, `<meta http-equiv>`, heuristic UTF-8/UTF-16 detection,
+  decoders for UTF-8 / UTF-16LE / UTF-16BE / Windows-1252
+- **Tree builder auto-close** — `<li>`, `<p>`, `<td>`, `<tr>`,
+  `<option>`, `<dt>`/`<dd>`
+- **innerHTML / outerHTML serialization** — void elements, `<template>`
+  contents fragment, raw text elements, full attribute value escaping
+
+### DOM (spec-compliant, `dom2/`)
+- `NodeRef = Rc<RefCell<Node>>` with `parent`, `firstChild`,
+  `lastChild`, `previousSibling`, `nextSibling` pointers per spec
+- `DocumentHandle = Rc<RefCell<Document>>` with weak back-ref from
+  each Node
+- **Mutation records** queued on every
+  append/insert/remove/setAttribute/removeAttribute
+- **MutationObserver** with `observe()`, `disconnect()`,
+  `take_records()`, `MutationObserverInit`
+  (childList/attributes/characterData/subtree/attributeOldValue/
+  characterDataOldValue/attributeFilter), subtree ancestor matching
+- **Shadow DOM** — `attachShadow()` with open/closed modes, host
+  validation, named + default slots, fallback content, slot
+  distribution (flatten tree algorithm), `assignedSlot` lookup
+- **Custom elements** — `customElements.define()` with name validation,
+  `observedAttributes` tracking, lifecycle callbacks (connected /
+  disconnected / adopted / attributeChanged / form-associated),
+  pending upgrades, customized built-in elements (`is="..."`)
+- **Accessibility tree** — parallel tree with role/name/description/
+  state/actions, implicit ARIA roles for ~50 HTML tags, honors
+  `role=""`, `aria-hidden`, `hidden`, `display:none`, accessible name
+  computation (aria-label > aria-labelledby > element-specific > title)
+
+### CSS (`css/` + `css2/`)
+- **Selectors Level 4** — type, class, id, universal (`*`), descendant,
+  child (`>`), adjacent sibling (`+`), general sibling (`~`),
+  attribute (`[attr]`, `=`, `~=`, `|=`, `^=`, `$=`, `*=`)
+- **Pseudo-classes** — `:hover`, `:focus`, `:focus-visible`,
+  `:focus-within`, `:active`, `:visited`, `:checked`, `:disabled`,
+  `:enabled`, `:readonly`, `:readwrite`, `:required`, `:optional`,
+  `:valid`, `:invalid`, `:empty`, `:root`, `:first-child`,
+  `:last-child`, `:only-child`, `:first-of-type`, `:last-of-type`,
+  `:only-of-type`, `:nth-child(an+b)`, `:nth-last-child`,
+  `:nth-of-type`, `:nth-last-of-type`, `:nth-child(an+b of S)`,
+  `:is()`, `:where()`, `:not()`, `:has()`, `:lang()`, `:dir()`
+- **Cascade & specificity** — (a, b, c) tuple, `:where()` zero,
+  `:is()` / `:not()` / `:has()` most specific arg, CascadeOrigin
+  (UA / User / Author) with reversed order for `!important`,
+  CascadeLayers (None wins over layered; later wins over earlier)
+- **Properties** — `display`, `position`, `color`, `background`
+  (including `linear-gradient` and `radial-gradient`), `font-*`,
+  `margin`, `padding`, `border`, `border-radius`, `width`, `height`,
+  `min/max-width`, `top/right/bottom/left`, `z-index`, `overflow`,
+  `opacity`, `box-shadow`, `white-space`, `box-sizing`, `gap`,
+  `flex*`, `grid*`, `writing-mode`, logical properties
+  (`margin-inline-start`, etc.)
+- **Values** — keywords, hex/rgb/rgba/named colors, lengths (px, em,
+  rem, pt, %, vw, vh), percentages, numbers, `!important`
+- **Functions** — `linear-gradient()`, `radial-gradient()`, `url()`,
+  `var()`, `calc()` (simplified), `rgb()`, `rgba()`
+- **Shorthands** — `margin`, `padding`, `border`, `background`, `flex`
+- **@-rules** — `@media` (parsed and applied), `@keyframes` /
+  `@animation` with cubic-bezier & steps timing functions,
+  `@font-face` with family/weight lookup, `@layer` (cascade layers),
+  `@container` queries with `evaluate_container_query()`
+- **Logical properties** — `margin-inline-start` etc. resolved to
+  physical properties based on `writing-mode`
+- **CSS counters** — `counter-reset`, `counter-increment`, `counter-set`
+- **Containment** — `contain: layout/paint/size/style/inline-size/
+  block-size`, `strict`, `content`
+- **Filters** — `blur`, `brightness`, `contrast`, `drop-shadow`,
+  `grayscale`, `hue-rotate`, `invert`, `opacity`, `saturate`, `sepia`
+- **Clip-path** — `polygon`, `circle`, `ellipse`, `inset`, `path`,
+  `url()`
+
+### Layout (`layout/`)
+- **Block flow** — vertical stacking
+- **Inline flow** — horizontal text wrapping with proper baseline
+- **Flexbox** — `flex-direction`, `justify-content`, `align-items`,
+  `flex-wrap`, `gap`, `flex-grow`, `flex-shrink`, `flex-basis`
+- **CSS Grid** — `grid-template-columns` / `grid-template-rows` (with
+  `fr`, `auto`, `minmax()`, `repeat()`), `grid-column` /
+  `grid-row` placement, `gap` / `column-gap` / `row-gap`, `auto-flow`
+- **Table layout** — `<table>`, `<tr>`, `<td>`, `<th>`, `<thead>`,
+  `<tbody>`, `<tfoot>`, `<caption>`, column width distribution,
+  border collapse
+- **Float** — `float: left/right`, simple clear
+- **Inline-block** — inline elements with block-like width/height
+- **Box model** — margin, border, padding, content with
+  `box-sizing: border-box` support
+- **Position** — `static`, `relative`, `absolute`, `fixed` (parsed,
+  relative + absolute positioning applied)
+- **Units** — px, em, rem, pt, %, vw, vh
+- **Writing modes** — `horizontal-tb`, `vertical-rl/lr`,
+  `sideways-rl/lr`
+
+### Painting (`paint/`)
+- **Backgrounds** — solid colors and linear / radial gradients
+- **Borders** — all four sides with custom colors and styles
+- **Border-radius** — rounded corners (all four corners)
+- **Box-shadow** — outer shadows with blur
+- **Opacity** — alpha blending for entire elements
+- **Text** — TrueType font rasterization via `ab_glyph`, bold and
+  italic synthesis
+- **Alpha compositing** — proper RGBA blending
+- **SVG** — paths, basic shapes (`rect`, `circle`, `ellipse`,
+  `line`, `polyline`, `polygon`), gradients, stroke + fill
+- **PNG encoder** — hand-written, no `flate2` dependency
+
+### JavaScript (`tjs/` + `tjs_ext/`)
+
+Falco ships its own JavaScript VM (the `tjs` module) — pure Rust, no
+V8/SpiderMonkey/`boa`. It is a bytecode VM with a generational GC,
+inline caching, hidden classes, and a JIT tier-up.
+
+- **ES2015+ syntax** — `let` / `const`, arrow functions, template
+  literals, destructuring (object + array), default + rest params,
+  spread, `for...of`, `for...in`, computed property names, shorthand
+  methods/properties, optional chaining, nullish coalescing,
+  exponentiation operator, async/await (parsed)
+- **Functions** — `function foo() {}`, closures with proper upvalue
+  capture, generators (`function*` / `yield` / `yield*`),
+  `async function` / `await` (parser-level)
+- **Types** — `Symbol` with 13 well-known symbols, `BigInt` with
+  arbitrary precision (u32 limbs, signed), `Promise` with
+  `then`/`catch`/`finally` + state machine, `Iterator` protocol,
+  `Generator` as state machine
+- **Built-ins** — `Math`, `JSON`, `Array` (`push`, `pop`, `map`,
+  `filter`, `reduce`, `forEach`, `find`, `findIndex`, `includes`,
+  `slice`, `splice`, `flat`, `flatMap`), `String` (`split`, `replace`,
+  `match`, `padStart`, `padEnd`, `trim`, `trimStart`, `trimEnd`,
+  `startsWith`, `endsWith`, `includes`, `repeat`), `Object` (`keys`,
+  `values`, `entries`, `assign`, `freeze`, `fromEntries`),
+  `Reflect` (`get`, `set`, `has`, `deleteProperty`, `ownKeys`),
+  `WeakMap`, `WeakSet`, `Map`, `Set`, `Proxy`
+- **Microtask queue** — `Promise` reactions drained as microtasks
+- **DOM bindings** — `document.getElementById`,
+  `document.querySelector` / `querySelectorAll`, `console.log`,
+  `alert`, `addEventListener` (basic)
+- **Event loop integration** — `setTimeout`, `setInterval`,
+  `requestAnimationFrame`, `fetch()` (returns `Promise<Response>`),
+  `XMLHttpRequest`, all driven by the event loop in
+  `web_runtime/event_loop.rs`
+- **console.log(...)** — prints to stderr
+- **alert(msg)** — shows in the status bar
+
+### Networking (`net/`)
+- HTTP/1.1 fetch (via `ureq`)
+- HTTP/2 parser (`http2.rs`)
+- Cookie jar (`cookies.rs`) with proper domain/path matching
+- Redirect handling (`redirect.rs`) with redirect-loop detection
+- Cache (`cache.rs`) — HTTP cache with conditional requests
+- WebSocket (`websocket.rs`) — frame parser, masking, ping/pong
+
+### Web runtime (`web_runtime/`)
+- `fetch()` (`fetch.rs`) — Promise-based, integrates with event loop
+- `XMLHttpRequest` (`xhr.rs`) — sync + async modes
+- Event loop (`event_loop.rs`) — task queues, microtasks, RAF
+- `Promise` (`promise.rs`) — state machine, then/catch/finally
+- WebGL (`webgl.rs`) — shader compilation, buffer management, draw
+  calls (headless)
+- Video (`video.rs`) — `<video>` element demux + decode stub
+- MSE (`mse.rs`) — Media Source Extensions
+- EME (`eme.rs`) — Encrypted Media Extensions
+- NDSD (`ndsd.rs`) — Native Device Service Discovery
+
+### Security (`security/`) — implemented but not fully wired into renderer
+- **Origin / SOP** (`origin.rs`) — Origin struct, `is_same_origin`,
+  `is_same_site`, `registrable_domain` (with 2-part TLD list),
+  `check_cors` (with credentials / wildcard handling),
+  `check_navigation`
+- **Multi-process / site isolation** (`process.rs`) — Process kinds
+  (Browser / Renderer / GPU / Utility / Plugin), site-to-process
+  map, ProcessPerSite / ProcessPerTab policies, crash recovery with
+  max-restarts / sad-tab / fatal modes
+- **Sandbox** (`sandbox.rs`) — seccomp-bpf filter (Linux), renderer
+  allowlist (~30 syscalls), blocks `execve`/`fork`/`ptrace`/`open`/
+  `socket`/`connect`/`mount`, `PR_SET_NO_NEW_PRIVS`, `drop_capabilities`
+- **CSP** (`csp.rs`) — directive map, `default-src` fallback, source
+  expression matching (`'self'`, `'none'`, `'unsafe-inline'`,
+  `'unsafe-eval'`, `data:`, `blob:`, host, `*.wildcard`, `scheme:`),
+  nonce/hash support, `allows_inline_script`, `allows_eval`,
+  `allows_javascript_url`, `is_safe_attribute` (blocks `onclick`,
+  `onerror`, `javascript:` in href/src), violation reports
+- **TLS certificates** (`cert.rs`) — Certificate struct, validity,
+  hostname matching (with wildcards), TrustStore with Mozilla
+  defaults, `validate_chain` (chain building, signature check,
+  hostname, EKU, path length), OCSP stub, HPKP pinning,
+  Certificate Transparency
+- **Permissions** (`permissions.rs`) — 20 permission types
+  (Geolocation, Camera, Microphone, Notifications, ...), per-(origin,
+  permission) state, pluggable prompt handler, iframe allow parsing
+- **Extensions** (`extensions.rs`) — Manifest V3, content scripts,
+  match patterns (`<all_urls>`, `*://*.host/*`), glob matching,
+  permissions, generate extension ID, ChromeApi enum
+- **DevTools protocol** (`devtools.rs`) — JSON value type,
+  Request/Response/Event/RpcError, Inspector/Page/Runtime/DOM/Network/
+  Console methods, event subscribers, console message buffering
+
+### Images (`image/`)
+- **HTTP/HTTPS URLs** — fetched via `ureq`
+- **`data:` URLs** — base64-encoded inline images
+- **Local files** — relative paths resolved against the page URL
+- **Formats** — PNG, JPEG, GIF (first frame), BMP (via the `image` crate)
+- **Sizing** — `width` / `height` HTML attributes take precedence,
+  CSS `width` / `height` respected, default 300×200px, nearest-neighbor
+  scaling
+- **Broken images** — grey placeholder box with the `alt` text
+- **Caching** — global cache by URL
+
+## What it does NOT do (yet)
+
+- The `html5/`, `dom2/`, `css2/`, `tjs_ext/`, `security/` modules are
+  **structurally complete but not yet wired into the render pipeline**.
+  Falco still uses the legacy `html` / `dom` / `css` modules for
+  actual rendering. The new modules exist as the spec-compliant
+  replacements and pass their own unit tests, but the renderer has
+  not been switched over yet.
+- No CSS animations / transitions in the renderer (the data structures
+  exist in `css2/advanced.rs`, but the paint loop does not interpolate
+  them).
+- No `@media` query value matching in the renderer (queries are
+  parsed; the cascade does not yet apply them conditionally).
+- No real DOM mutation from JS in the renderer (`element.innerHTML =
+  ...`, `element.style.color = ...` are stubs).
+- No HTML5 spec-compliant tree repair in the renderer (the algorithm
+  exists in `html5/tree_builder.rs` but the legacy parser is used).
+
+## Architecture
+
+| Module             | Lines  | Description                                                                |
+|--------------------|--------|----------------------------------------------------------------------------|
+| `html5/`           | ~4,900 | WHATWG HTML5 tokenizer + tree builder + serializer + XML parser + encoding |
+| `html.rs`          | ~540   | Legacy HTML parser (still used in render pipeline)                         |
+| `dom2/`            | ~2,280 | Spec-compliant DOM, MutationObserver, Shadow DOM, custom elements, a11y    |
+| `dom.rs`           | ~140   | Legacy DOM (still used in render pipeline)                                 |
+| `css2/`            | ~2,020 | Selectors L4, cascade specificity, @-rules, animations, containment, filters |
+| `css/`             | ~1,660 | Legacy CSS parser + selector matching + color parsing                      |
+| `style/`           | ~1,720 | Style cascade + UA styles + inheritance + flex/grid properties             |
+| `layout/`          | ~1,950 | Block / inline / flex / grid / table / float / absolute layout             |
+| `paint/`           | ~470   | Canvas + font rasterizer + alpha compositing + gradients + shadows         |
+| `svg/`             | ~1,130 | SVG parser + renderer (paths, shapes, gradients)                           |
+| `tjs/`             | ~4,340 | Custom JS VM: lexer, parser, interpreter, bytecode VM, JIT, value, builtins |
+| `tjs_ext/`         | ~780   | Symbol, BigInt, Promise, microtasks, Map/Set, WeakMap/WeakSet, Reflect     |
+| `js_tjs.rs`        | ~700   | JS-to-DOM bindings (document, console, alert, onclick)                     |
+| `web_runtime/`     | ~4,300 | fetch, XHR, event loop, Promise, WebGL, video, MSE, EME, NDSD, HTTP/2      |
+| `net/`             | ~930   | HTTP fetch, cookies, cache, websocket, redirect                            |
+| `security/`        | ~3,590 | SOP, multi-process, sandbox, CSP, certs, permissions, extensions, DevTools |
+| `window/`          | ~1,110 | Interactive window: scrolling, forms, navigation, history, address bar    |
+| `image/`           | ~200   | Image loader (HTTP, data: URLs, local files) + cache + scaling             |
+| `png/`             | ~100   | Hand-written PNG encoder (no flate2 dependency)                            |
+| `main.rs`, `lib.rs`| ~550   | CLI parsing + library entry points                                         |
+| **Total**          | **~36,000** |                                                                        |
+
+## Project layout
+
+```
+falco/
+├── .github/                  # CI, issue templates, contributing, security policy
+│   ├── workflows/
+│   │   ├── ci.yml            # fmt + clippy + build + test on 3 OSes × 2 toolchains
+│   │   └── release.yml       # Build per-OS release binaries on tag push
+│   ├── ISSUE_TEMPLATE/       # bug_report.md, feature_request.md, config.yml
+│   ├── CONTRIBUTING.md
+│   ├── CODE_OF_CONDUCT.md
+│   ├── SECURITY.md
+│   ├── PULL_REQUEST_TEMPLATE.md
+│   ├── FUNDING.yml           # MonoBank donation link
+│   └── dependabot.yml
+├── docs/                     # Logo
+│   └── falco.svg             # project logo (by Sanya)
+├── src/
+│   ├── main.rs
+│   ├── lib.rs
+│   ├── html5/                # WHATWG HTML5 (tokenizer, tree builder, ...)
+│   ├── html.rs               # legacy HTML parser
+│   ├── dom2/                 # spec DOM (observer, shadow, custom elements, a11y)
+│   ├── dom.rs                # legacy DOM
+│   ├── css2/                 # selectors L4, cascade, @-rules
+│   ├── css/                  # legacy CSS parser
+│   ├── style/                # cascade + inheritance + UA styles
+│   ├── layout/               # block/inline/flex/grid/table/float/absolute
+│   ├── paint/                # canvas + fonts + compositing
+│   ├── svg/                  # SVG parser + renderer
+│   ├── tjs/                  # custom JS VM (lexer, parser, VM, JIT)
+│   ├── tjs_ext/              # Symbol, BigInt, Promise, ...
+│   ├── web_runtime/          # fetch, XHR, event loop, WebGL, video, MSE, EME
+│   ├── net/                  # HTTP, cookies, cache, websocket, redirect
+│   ├── security/             # SOP, sandbox, CSP, certs, permissions, DevTools
+│   ├── window/               # interactive window mode
+│   ├── image/                # image loader
+│   └── png/                  # PNG encoder
+├── Cargo.toml
+├── Cargo.lock
+├── LICENSE
+└── README.md
+```
+
+## Roadmap
+
+The next big pieces of work, roughly in priority order:
+
+1. **Wire `html5/` + `dom2/` into the render pipeline** — switch off
+   the legacy `html` + `dom` modules. This unlocks spec-compliant tree
+   repair, full MutationObserver, and real custom elements.
+2. **Wire `css2/` into the cascade** — get `:is` / `:where` / `:has`
+   working in real rendering, plus cascade layers and container
+   queries.
+3. **DOM mutation from JS** — `element.innerHTML = ...`,
+   `element.style.color = ...`, full re-render on mutation.
+4. **CSS animations / transitions** — interpolate keyframes in the
+   paint loop, run them through the event loop.
+5. **Wire `security/` into the renderer** — SOP enforcement in DOM
+   access, CSP in the script runner, certificate validation on HTTPS
+   fetches, multi-process sandbox.
+6. **`@media` query value matching** — apply queries conditionally
+   based on viewport size.
+
+## Support the project
+
+If Falco is useful to you, consider buying the author a coffee:
+
+<p align="center">
+  <a href="https://send.monobank.ua/jar/21T9ZRwZq3">
+    <img alt="MonoBank donation" src="https://img.shields.io/badge/Support%20on-MonoBank-7c3aed.svg?style=for-the-badge&logo=monobank&logoColor=white">
+  </a>
+</p>
+
+## License
+
+MIT — see [LICENSE](LICENSE).
