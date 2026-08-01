@@ -25,8 +25,6 @@
 //! The `openh264` Rust crate downloads and links against Cisco's
 //! prebuilt binary automatically on first build.
 
-use std::sync::Arc;
-
 /// A decoded video frame — raw pixel data.
 #[derive(Debug, Clone)]
 pub struct VideoFrame {
@@ -123,13 +121,21 @@ pub enum Container {
 impl Container {
     pub fn from_mime(mime: &str) -> Option<Self> {
         let m = mime.to_lowercase();
-        if m.contains("mp4") { Some(Self::Mp4) }
-        else if m.contains("webm") { Some(Self::WebM) }
-        else if m.contains("ogg") { Some(Self::Ogg) }
-        else if m.contains("matroska") || m.contains("mkv") { Some(Self::Matroska) }
-        else if m.contains("flv") { Some(Self::Flv) }
-        else if m.contains("mpegurl") || m.contains("ts") { Some(Self::Ts) }
-        else { None }
+        if m.contains("mp4") {
+            Some(Self::Mp4)
+        } else if m.contains("webm") {
+            Some(Self::WebM)
+        } else if m.contains("ogg") {
+            Some(Self::Ogg)
+        } else if m.contains("matroska") || m.contains("mkv") {
+            Some(Self::Matroska)
+        } else if m.contains("flv") {
+            Some(Self::Flv)
+        } else if m.contains("mpegurl") || m.contains("ts") {
+            Some(Self::Ts)
+        } else {
+            None
+        }
     }
 }
 
@@ -161,12 +167,13 @@ impl std::fmt::Debug for Decoder {
 impl Decoder {
     /// Create a new decoder for the given codec.
     pub fn new(codec: DecodeCodec) -> Result<Self, String> {
-        let real_decoding = cfg!(feature = "real-video") && matches!(codec, DecodeCodec::Video(VideoCodec::H264));
+        let real_decoding =
+            cfg!(feature = "real-video") && matches!(codec, DecodeCodec::Video(VideoCodec::H264));
 
         #[cfg(feature = "real-video")]
         let h264_decoder = if matches!(codec, DecodeCodec::Video(VideoCodec::H264)) {
             // Initialize the openh264 decoder.
-            let mut decoder = openh264::decoder::Decoder::new()
+            let decoder = openh264::decoder::Decoder::new()
                 .map_err(|e| format!("Failed to create openh264 decoder: {:?}", e))?;
             Some(decoder)
         } else {
@@ -238,7 +245,9 @@ impl Decoder {
 
     #[cfg(feature = "real-video")]
     fn decode_h264(&mut self, packet: &[u8]) -> Result<Vec<DecodedFrame>, String> {
-        let decoder = self.h264_decoder.as_mut()
+        let decoder = self
+            .h264_decoder
+            .as_mut()
             .ok_or("H.264 decoder not initialized")?;
 
         let mut frames = Vec::new();
@@ -272,7 +281,8 @@ impl Decoder {
         #[cfg(feature = "real-video")]
         {
             if let Some(decoder) = self.h264_decoder.as_mut() {
-                let remaining = decoder.flush_remaining()
+                let remaining = decoder
+                    .flush_remaining()
                     .map_err(|e| format!("openh264 flush error: {:?}", e))?;
                 return Ok(remaining.iter().map(yuv_to_frame).collect());
             }
@@ -414,7 +424,10 @@ mod tests {
         let vd = Decoder::new(DecodeCodec::Video(VideoCodec::H264)).unwrap();
         assert_eq!(vd.codec, DecodeCodec::Video(VideoCodec::H264));
         #[cfg(feature = "real-video")]
-        assert!(vd.real_decoding, "H.264 should have real decoding via openh264");
+        assert!(
+            vd.real_decoding,
+            "H.264 should have real decoding via openh264"
+        );
         #[cfg(not(feature = "real-video"))]
         assert!(!vd.real_decoding);
     }

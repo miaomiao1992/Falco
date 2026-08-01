@@ -169,7 +169,7 @@ impl AsyncPromise {
         F: Fn(PromiseValue) -> PromiseValue + Send + 'static,
     {
         let next = AsyncPromise::new();
-        let mut state = self.state.lock().unwrap();
+        let state = self.state.lock().unwrap();
         if *state == PromiseState::Pending {
             // Still pending — queue the callback.
             self.pending.lock().unwrap().push(PendingCallback {
@@ -201,7 +201,7 @@ impl AsyncPromise {
         F: Fn(PromiseValue) -> PromiseValue + Send + 'static,
     {
         let next = AsyncPromise::new();
-        let mut state = self.state.lock().unwrap();
+        let state = self.state.lock().unwrap();
         if *state == PromiseState::Pending {
             self.pending.lock().unwrap().push(PendingCallback {
                 callback: Box::new(callback),
@@ -227,11 +227,9 @@ impl AsyncPromise {
             let value = self.value.lock().unwrap().clone().unwrap();
             let next_clone = next.clone();
             let el = event_loop.clone();
-            event_loop.enqueue_micro(move || {
-                match value {
-                    PromiseValue::Resolved(v) => next_clone.resolve(v, el.clone()),
-                    PromiseValue::Rejected(v) => next_clone.reject(v, el),
-                }
+            event_loop.enqueue_micro(move || match value {
+                PromiseValue::Resolved(v) => next_clone.resolve(v, el.clone()),
+                PromiseValue::Rejected(v) => next_clone.reject(v, el),
             });
         }
         drop(state);
@@ -243,7 +241,13 @@ impl AsyncPromise {
     where
         F: Fn() + Send + 'static,
     {
-        self.then(move |v| { callback(); v }, event_loop)
+        self.then(
+            move |v| {
+                callback();
+                v
+            },
+            event_loop,
+        )
     }
 
     /// Get the current state (for inspection).
@@ -253,7 +257,10 @@ impl AsyncPromise {
 }
 
 /// Promise.all — resolves when all input promises resolve, rejects on first rejection.
-pub fn promise_all(promises: Vec<Arc<AsyncPromise>>, event_loop: Arc<EventLoop>) -> Arc<AsyncPromise> {
+pub fn promise_all(
+    promises: Vec<Arc<AsyncPromise>>,
+    event_loop: Arc<EventLoop>,
+) -> Arc<AsyncPromise> {
     let result = AsyncPromise::new();
     if promises.is_empty() {
         result.resolve("[]".to_string(), event_loop);
@@ -270,47 +277,59 @@ pub fn promise_all(promises: Vec<Arc<AsyncPromise>>, event_loop: Arc<EventLoop>)
         let result = result_clone.clone();
         let el = event_loop_clone.clone();
         let el_for_then = event_loop_clone.clone();
-        p.then(move |v| {
-            if let PromiseValue::Resolved(ref val) = v {
-                values.lock().unwrap()[i] = val.clone();
-                let mut rem = remaining.lock().unwrap();
-                *rem -= 1;
-                if *rem == 0 {
-                    let vals = values.lock().unwrap().clone();
-                    let joined = vals.join(",");
-                    result.resolve(format!("[{}]", joined), el.clone());
+        p.then(
+            move |v| {
+                if let PromiseValue::Resolved(ref val) = v {
+                    values.lock().unwrap()[i] = val.clone();
+                    let mut rem = remaining.lock().unwrap();
+                    *rem -= 1;
+                    if *rem == 0 {
+                        let vals = values.lock().unwrap().clone();
+                        let joined = vals.join(",");
+                        result.resolve(format!("[{}]", joined), el.clone());
+                    }
                 }
-            }
-            PromiseValue::Resolved(String::new())
-        }, el_for_then);
+                PromiseValue::Resolved(String::new())
+            },
+            el_for_then,
+        );
         let result = result_clone.clone();
         let el = event_loop_clone.clone();
         let el_for_catch = event_loop_clone.clone();
-        p.catch(move |reason| {
-            if let PromiseValue::Rejected(ref r) = reason {
-                result.reject(r.clone(), el.clone());
-            }
-            PromiseValue::Resolved(String::new())
-        }, el_for_catch);
+        p.catch(
+            move |reason| {
+                if let PromiseValue::Rejected(ref r) = reason {
+                    result.reject(r.clone(), el.clone());
+                }
+                PromiseValue::Resolved(String::new())
+            },
+            el_for_catch,
+        );
     }
     result
 }
 
 /// Promise.race — resolves/rejects with the first promise to settle.
-pub fn promise_race(promises: Vec<Arc<AsyncPromise>>, event_loop: Arc<EventLoop>) -> Arc<AsyncPromise> {
+pub fn promise_race(
+    promises: Vec<Arc<AsyncPromise>>,
+    event_loop: Arc<EventLoop>,
+) -> Arc<AsyncPromise> {
     let result = AsyncPromise::new();
     let result_clone = result.clone();
     let el = event_loop.clone();
     for p in promises {
         let r = result_clone.clone();
         let el_inner = el.clone();
-        p.then(move |v| {
-            match &v {
-                PromiseValue::Resolved(val) => r.resolve(val.clone(), el_inner.clone()),
-                PromiseValue::Rejected(reason) => r.reject(reason.clone(), el_inner.clone()),
-            }
-            v
-        }, event_loop.clone());
+        p.then(
+            move |v| {
+                match &v {
+                    PromiseValue::Resolved(val) => r.resolve(val.clone(), el_inner.clone()),
+                    PromiseValue::Rejected(reason) => r.reject(reason.clone(), el_inner.clone()),
+                }
+                v
+            },
+            event_loop.clone(),
+        );
     }
     result
 }
@@ -328,21 +347,27 @@ mod tests {
         let f = fired.clone();
 
         // Register then BEFORE resolving.
-        p.then(move |v| {
-            if let PromiseValue::Resolved(ref val) = v {
-                if val == "hello" {
-                    f.store(true, Ordering::SeqCst);
+        p.then(
+            move |v| {
+                if let PromiseValue::Resolved(ref val) = v {
+                    if val == "hello" {
+                        f.store(true, Ordering::SeqCst);
+                    }
                 }
-            }
-            PromiseValue::Resolved(String::new())
-        }, el.clone());
+                PromiseValue::Resolved(String::new())
+            },
+            el.clone(),
+        );
 
         // Resolve AFTER registering.
         p.resolve("hello".to_string(), el.clone());
 
         // Run the loop — the then callback fires as a microtask.
         el.run();
-        assert!(fired.load(Ordering::SeqCst), "then callback should have fired");
+        assert!(
+            fired.load(Ordering::SeqCst),
+            "then callback should have fired"
+        );
     }
 
     #[test]
@@ -352,24 +377,30 @@ mod tests {
         let result = Arc::new(Mutex::new(String::new()));
         let r = result.clone();
 
-        p.then(move |v| {
-            // First then: double the value.
-            if let PromiseValue::Resolved(val) = &v {
-                let n: i32 = val.parse().unwrap_or(0);
-                return PromiseValue::Resolved((n * 2).to_string());
-            }
-            v
-        }, el.clone())
-        .then(move |v| {
-            // Second then: add 1.
-            if let PromiseValue::Resolved(val) = &v {
-                let n: i32 = val.parse().unwrap_or(0);
-                let result = n + 1;
-                *r.lock().unwrap() = result.to_string();
-                return PromiseValue::Resolved(result.to_string());
-            }
-            v
-        }, el.clone());
+        p.then(
+            move |v| {
+                // First then: double the value.
+                if let PromiseValue::Resolved(val) = &v {
+                    let n: i32 = val.parse().unwrap_or(0);
+                    return PromiseValue::Resolved((n * 2).to_string());
+                }
+                v
+            },
+            el.clone(),
+        )
+        .then(
+            move |v| {
+                // Second then: add 1.
+                if let PromiseValue::Resolved(val) = &v {
+                    let n: i32 = val.parse().unwrap_or(0);
+                    let result = n + 1;
+                    *r.lock().unwrap() = result.to_string();
+                    return PromiseValue::Resolved(result.to_string());
+                }
+                v
+            },
+            el.clone(),
+        );
 
         p.resolve("5".to_string(), el.clone());
         el.run();
@@ -383,13 +414,19 @@ mod tests {
         let caught = Arc::new(Mutex::new(String::new()));
         let c = caught.clone();
 
-        p.then(move |_| PromiseValue::Resolved("should not run".into()), el.clone())
-         .catch(move |v| {
-             if let PromiseValue::Rejected(ref reason) = v {
-                 *c.lock().unwrap() = reason.clone();
-             }
-             PromiseValue::Resolved(String::new())
-         }, el.clone());
+        p.then(
+            move |_| PromiseValue::Resolved("should not run".into()),
+            el.clone(),
+        )
+        .catch(
+            move |v| {
+                if let PromiseValue::Rejected(ref reason) = v {
+                    *c.lock().unwrap() = reason.clone();
+                }
+                PromiseValue::Resolved(String::new())
+            },
+            el.clone(),
+        );
 
         p.reject("network error".to_string(), el.clone());
         el.run();
@@ -406,12 +443,15 @@ mod tests {
 
         let result = Arc::new(Mutex::new(String::new()));
         let r = result.clone();
-        all.then(move |v| {
-            if let PromiseValue::Resolved(ref val) = v {
-                *r.lock().unwrap() = val.clone();
-            }
-            v
-        }, el.clone());
+        all.then(
+            move |v| {
+                if let PromiseValue::Resolved(ref val) = v {
+                    *r.lock().unwrap() = val.clone();
+                }
+                v
+            },
+            el.clone(),
+        );
 
         // Resolve in any order.
         p2.resolve("b".into(), el.clone());
@@ -431,12 +471,15 @@ mod tests {
 
         let caught = Arc::new(Mutex::new(String::new()));
         let c = caught.clone();
-        all.catch(move |v| {
-            if let PromiseValue::Rejected(ref reason) = v {
-                *c.lock().unwrap() = reason.clone();
-            }
-            v
-        }, el.clone());
+        all.catch(
+            move |v| {
+                if let PromiseValue::Rejected(ref reason) = v {
+                    *c.lock().unwrap() = reason.clone();
+                }
+                v
+            },
+            el.clone(),
+        );
 
         p1.reject("fail".into(), el.clone());
         p2.resolve("ok".into(), el.clone());
@@ -452,10 +495,13 @@ mod tests {
 
         let p = AsyncPromise::new();
         let o1 = order.clone();
-        p.then(move |_| {
-            o1.lock().unwrap().push("promise");
-            PromiseValue::Resolved(String::new())
-        }, el.clone());
+        p.then(
+            move |_| {
+                o1.lock().unwrap().push("promise");
+                PromiseValue::Resolved(String::new())
+            },
+            el.clone(),
+        );
 
         let o2 = order.clone();
         el.enqueue_macro(move || {

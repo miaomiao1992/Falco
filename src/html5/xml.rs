@@ -15,7 +15,7 @@
 //! XHTML documents (`Content-Type: application/xhtml+xml`) use this parser
 //! instead of the HTML5 tree builder.
 
-use crate::dom2::{DocumentHandle, Document, NodeRef, Node, NodeKind, ElementData, Attribute, append_child, set_attribute};
+use crate::dom2::{append_child, set_attribute, Document, DocumentHandle, NodeRef};
 use std::collections::HashMap;
 
 /// XML parsing error.
@@ -131,7 +131,9 @@ impl<'a> XmlParser<'a> {
 
     fn parse_element(&mut self) -> Result<(), XmlError> {
         if self.peek_byte() != Some(b'<') {
-            return Err(XmlError::UnexpectedChar(self.peek_byte().unwrap_or(b'?') as char));
+            return Err(XmlError::UnexpectedChar(
+                self.peek_byte().unwrap_or(b'?') as char
+            ));
         }
         self.pos += 1; // <
         let tag = self.parse_name()?;
@@ -150,7 +152,11 @@ impl<'a> XmlParser<'a> {
                     self.pos += 1;
                     // Self-closing — create element and return.
                     let el = self.create_element_with_ns(&tag, &attrs, &ns_bindings);
-                    let parent = self.open.last().cloned().unwrap_or_else(|| self.doc.borrow().root.clone());
+                    let parent = self
+                        .open
+                        .last()
+                        .cloned()
+                        .unwrap_or_else(|| self.doc.borrow().root.clone());
                     append_child(&parent, el);
                     return Ok(());
                 }
@@ -184,8 +190,12 @@ impl<'a> XmlParser<'a> {
         }
         // Push ns scope.
         self.ns_stack.push(ns_bindings);
-        let el = self.create_element_with_ns(&tag, &attrs, &self.ns_stack.last().unwrap());
-        let parent = self.open.last().cloned().unwrap_or_else(|| self.doc.borrow().root.clone());
+        let el = self.create_element_with_ns(&tag, &attrs, self.ns_stack.last().unwrap());
+        let parent = self
+            .open
+            .last()
+            .cloned()
+            .unwrap_or_else(|| self.doc.borrow().root.clone());
         append_child(&parent, el.clone());
         self.open.push(el);
         // Parse content until matching end tag.
@@ -240,7 +250,11 @@ impl<'a> XmlParser<'a> {
             if &self.input[self.pos..self.pos + 3] == b"]]>" {
                 let data = String::from_utf8_lossy(&self.input[start..self.pos]).to_string();
                 let text = Document::create_text(&self.doc, &data);
-                let parent = self.open.last().cloned().unwrap_or_else(|| self.doc.borrow().root.clone());
+                let parent = self
+                    .open
+                    .last()
+                    .cloned()
+                    .unwrap_or_else(|| self.doc.borrow().root.clone());
                 append_child(&parent, text);
                 self.pos += 3;
                 return Ok(());
@@ -259,7 +273,11 @@ impl<'a> XmlParser<'a> {
             let raw = String::from_utf8_lossy(&self.input[start..self.pos]).to_string();
             let decoded = decode_xml_entities(&raw)?;
             let text = Document::create_text(&self.doc, &decoded);
-            let parent = self.open.last().cloned().unwrap_or_else(|| self.doc.borrow().root.clone());
+            let parent = self
+                .open
+                .last()
+                .cloned()
+                .unwrap_or_else(|| self.doc.borrow().root.clone());
             append_child(&parent, text);
         }
         Ok(())
@@ -276,7 +294,9 @@ impl<'a> XmlParser<'a> {
             }
         }
         if self.pos == start {
-            return Err(XmlError::UnexpectedChar(self.peek_byte().unwrap_or(b'?') as char));
+            return Err(XmlError::UnexpectedChar(
+                self.peek_byte().unwrap_or(b'?') as char
+            ));
         }
         Ok(String::from_utf8_lossy(&self.input[start..self.pos]).to_string())
     }
@@ -299,14 +319,21 @@ impl<'a> XmlParser<'a> {
         decode_xml_entities(&raw)
     }
 
-    fn create_element_with_ns(&self, tag: &str, attrs: &[(String, String)], ns_bindings: &HashMap<String, String>) -> NodeRef {
+    fn create_element_with_ns(
+        &self,
+        tag: &str,
+        attrs: &[(String, String)],
+        ns_bindings: &HashMap<String, String>,
+    ) -> NodeRef {
         let el = Document::create_element(&self.doc, tag);
         for (k, v) in attrs {
             set_attribute(&el, k, v);
         }
         // Store namespace info via user_data (simpler than adding fields to ElementData).
         if let Some(default_ns) = ns_bindings.get("") {
-            el.borrow_mut().user_data.insert("__xml_default_ns".into(), default_ns.clone());
+            el.borrow_mut()
+                .user_data
+                .insert("__xml_default_ns".into(), default_ns.clone());
         }
         el
     }
@@ -331,7 +358,9 @@ impl<'a> XmlParser<'a> {
 /// and numeric character references. XML does NOT support HTML named entities
 /// beyond these five unless declared in a DTD.
 fn decode_xml_entities(s: &str) -> Result<String, XmlError> {
-    if !s.contains('&') { return Ok(s.to_string()); }
+    if !s.contains('&') {
+        return Ok(s.to_string());
+    }
     let mut out = String::with_capacity(s.len());
     let bytes = s.as_bytes();
     let mut i = 0;
@@ -343,16 +372,22 @@ fn decode_xml_entities(s: &str) -> Result<String, XmlError> {
                 j += 1;
             }
             if j >= bytes.len() || bytes[j] != b';' {
-                return Err(XmlError::UndeclaredEntity(String::from_utf8_lossy(&bytes[i..]).to_string()));
+                return Err(XmlError::UndeclaredEntity(
+                    String::from_utf8_lossy(&bytes[i..]).to_string(),
+                ));
             }
             let entity = &s[i + 1..j];
             if let Some(rest) = entity.strip_prefix('#') {
-                let code = if let Some(hex) = rest.strip_prefix('x').or_else(|| rest.strip_prefix('X')) {
-                    u32::from_str_radix(hex, 16).map_err(|_| XmlError::UndeclaredEntity(entity.to_string()))?
-                } else {
-                    rest.parse::<u32>().map_err(|_| XmlError::UndeclaredEntity(entity.to_string()))?
-                };
-                let c = char::from_u32(code).ok_or(XmlError::UndeclaredEntity(entity.to_string()))?;
+                let code =
+                    if let Some(hex) = rest.strip_prefix('x').or_else(|| rest.strip_prefix('X')) {
+                        u32::from_str_radix(hex, 16)
+                            .map_err(|_| XmlError::UndeclaredEntity(entity.to_string()))?
+                    } else {
+                        rest.parse::<u32>()
+                            .map_err(|_| XmlError::UndeclaredEntity(entity.to_string()))?
+                    };
+                let c =
+                    char::from_u32(code).ok_or(XmlError::UndeclaredEntity(entity.to_string()))?;
                 out.push(c);
             } else {
                 match entity {

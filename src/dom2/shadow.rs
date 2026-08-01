@@ -17,9 +17,9 @@
 //! Layout / paint walk the *flattened tree* (light + shadow merged) rather
 //! than the raw DOM.
 
-use crate::dom2::{NodeRef, NodeKind, ElementData, ShadowRootData, ShadowRootMode, Document, DocumentHandle, append_child};
+use crate::dom2::{append_child, NodeKind, NodeRef, ShadowRootData, ShadowRootMode};
 use std::cell::RefCell;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 /// Errors that can occur when calling attachShadow.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,10 +35,7 @@ pub enum AttachShadowError {
 /// Attach a shadow root to an element.
 ///
 /// Spec: `Element.prototype.attachShadow({ mode: "open" | "closed" })`.
-pub fn attach_shadow(
-    host: &NodeRef,
-    mode: &str,
-) -> Result<NodeRef, AttachShadowError> {
+pub fn attach_shadow(host: &NodeRef, mode: &str) -> Result<NodeRef, AttachShadowError> {
     let shadow_mode = match mode {
         "open" => ShadowRootMode::Open,
         "closed" => ShadowRootMode::Closed,
@@ -53,11 +50,34 @@ pub fn attach_shadow(
                 return Err(AttachShadowError::AlreadyHasShadow);
             }
             // Some tags don't allow shadow DOM.
-            if matches!(e.tag.as_str(),
-                "area" | "base" | "br" | "col" | "embed" | "hr" | "img" |
-                "input" | "link" | "meta" | "param" | "source" | "track" | "wbr" |
-                "caption" | "col" | "colgroup" | "tbody" | "td" | "tfoot" |
-                "thead" | "tr" | "option" | "optgroup" | "select") {
+            if matches!(
+                e.tag.as_str(),
+                "area"
+                    | "base"
+                    | "br"
+                    | "col"
+                    | "embed"
+                    | "hr"
+                    | "img"
+                    | "input"
+                    | "link"
+                    | "meta"
+                    | "param"
+                    | "source"
+                    | "track"
+                    | "wbr"
+                    | "caption"
+                    | "col"
+                    | "colgroup"
+                    | "tbody"
+                    | "td"
+                    | "tfoot"
+                    | "thead"
+                    | "tr"
+                    | "option"
+                    | "optgroup"
+                    | "select"
+            ) {
                 return Err(AttachShadowError::InvalidHost);
             }
         } else {
@@ -134,7 +154,9 @@ pub fn register_slot(shadow_root: &NodeRef, slot_name: &str) {
 pub fn flatten_tree(host: &NodeRef) -> Vec<NodeRef> {
     let shadow = if let NodeKind::Element(e) = &host.borrow().kind {
         e.shadow.clone()
-    } else { None };
+    } else {
+        None
+    };
     if let Some(shadow) = shadow {
         // Walk the shadow tree's children, replacing <slot> with assigned light DOM.
         flatten_with_shadow(&shadow, host)
@@ -144,7 +166,11 @@ pub fn flatten_tree(host: &NodeRef) -> Vec<NodeRef> {
         let mut cursor = host.borrow().first_child.clone();
         while let Some(child) = cursor {
             children.push(child.clone());
-            cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+            cursor = child
+                .borrow()
+                .next_sibling
+                .clone()
+                .and_then(|w| w.upgrade());
         }
         children
     }
@@ -157,7 +183,10 @@ fn flatten_with_shadow(shadow_root: &NodeRef, host: &NodeRef) -> Vec<NodeRef> {
         if let NodeKind::Element(e) = &child.borrow().kind {
             if e.tag == "slot" {
                 // Find the slot's name attribute.
-                let slot_name = e.attrs.iter().find(|a| a.name == "name")
+                let slot_name = e
+                    .attrs
+                    .iter()
+                    .find(|a| a.name == "name")
                     .map(|a| a.value.clone())
                     .unwrap_or_default();
                 // Find matching children in the host's light DOM.
@@ -175,12 +204,20 @@ fn flatten_with_shadow(shadow_root: &NodeRef, host: &NodeRef) -> Vec<NodeRef> {
                     }
                 }
                 // Move to next sibling.
-                cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+                cursor = child
+                    .borrow()
+                    .next_sibling
+                    .clone()
+                    .and_then(|w| w.upgrade());
                 continue;
             }
         }
         out.push(child.clone());
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
     out
 }
@@ -193,14 +230,23 @@ fn find_assigned_nodes(host: &NodeRef, slot_name: &str) -> Vec<NodeRef> {
     let mut cursor = host.borrow().first_child.clone();
     while let Some(child) = cursor {
         let child_slot = if let NodeKind::Element(e) = &child.borrow().kind {
-            e.attrs.iter().find(|a| a.name == "slot").map(|a| a.value.clone())
-        } else { None };
+            e.attrs
+                .iter()
+                .find(|a| a.name == "slot")
+                .map(|a| a.value.clone())
+        } else {
+            None
+        };
         match (slot_name, child_slot) {
             ("", None) => out.push(child.clone()),
             (name, Some(s)) if name == s => out.push(child.clone()),
             _ => {}
         }
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
     out
 }
@@ -210,25 +256,41 @@ pub fn assigned_slot(node: &NodeRef) -> Option<NodeRef> {
     let parent = node.borrow().parent.as_ref().and_then(|w| w.upgrade())?;
     let shadow = if let NodeKind::Element(e) = &parent.borrow().kind {
         e.shadow.clone()
-    } else { None };
+    } else {
+        None
+    };
     let shadow = shadow?;
     // Get the node's slot attribute.
     let slot_name = if let NodeKind::Element(e) = &node.borrow().kind {
-        e.attrs.iter().find(|a| a.name == "slot").map(|a| a.value.clone()).unwrap_or_default()
-    } else { String::new() };
+        e.attrs
+            .iter()
+            .find(|a| a.name == "slot")
+            .map(|a| a.value.clone())
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
     // Walk shadow tree's slots.
     let mut cursor = shadow.borrow().first_child.clone();
     while let Some(child) = cursor {
         if let NodeKind::Element(e) = &child.borrow().kind {
             if e.tag == "slot" {
-                let this_name = e.attrs.iter().find(|a| a.name == "name")
-                    .map(|a| a.value.clone()).unwrap_or_default();
+                let this_name = e
+                    .attrs
+                    .iter()
+                    .find(|a| a.name == "name")
+                    .map(|a| a.value.clone())
+                    .unwrap_or_default();
                 if this_name == slot_name {
                     return Some(child.clone());
                 }
             }
         }
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
     None
 }
@@ -236,7 +298,7 @@ pub fn assigned_slot(node: &NodeRef) -> Option<NodeRef> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom2::{Document, set_attribute, tag_name};
+    use crate::dom2::{set_attribute, tag_name, Document};
 
     #[test]
     fn attaches_open_shadow_root() {
@@ -248,7 +310,10 @@ mod tests {
         let shadow = attach_shadow(&host, "open").unwrap();
         assert!(get_shadow_root(&host).is_some());
         // The shadow root should be the same as what we got.
-        assert_eq!(shadow.borrow().id, get_shadow_root(&host).unwrap().borrow().id);
+        assert_eq!(
+            shadow.borrow().id,
+            get_shadow_root(&host).unwrap().borrow().id
+        );
     }
 
     #[test]

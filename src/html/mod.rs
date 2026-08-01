@@ -13,43 +13,100 @@
 //! engine handles block/inline flow and doesn't depend on HTML5's exotic
 //! tree-repair rules.
 
-use crate::dom::{Node, ElementData, DocumentData, TextData, DoctypeData};
-use std::collections::HashMap;
+use crate::dom::{DoctypeData, DocumentData, ElementData, Node, TextData};
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 const COMMON_ENTITIES: &[(&str, &str)] = &[
-    ("amp", "&"), ("lt", "<"), ("gt", ">"), ("quot", "\""), ("apos", "'"),
-    ("nbsp", "\u{00A0}"), ("copy", "\u{00A9}"), ("reg", "\u{00AE}"),
-    ("trade", "\u{2122}"), ("mdash", "\u{2014}"), ("ndash", "\u{2013}"),
-    ("hellip", "\u{2026}"), ("laquo", "\u{00AB}"), ("raquo", "\u{00BB}"),
-    ("ldquo", "\u{201C}"), ("rdquo", "\u{201D}"), ("lsquo", "\u{2018}"),
-    ("rsquo", "\u{2019}"), ("euro", "\u{20AC}"), ("pound", "\u{00A3}"),
-    ("yen", "\u{00A5}"), ("cent", "\u{00A2}"), ("sect", "\u{00A7}"),
-    ("para", "\u{00B6}"), ("middot", "\u{00B7}"), ("bull", "\u{2022}"),
-    ("deg", "\u{00B0}"), ("plusmn", "\u{00B1}"), ("times", "\u{00D7}"),
-    ("divide", "\u{00F7}"), ("frac12", "\u{00BD}"), ("frac14", "\u{00BC}"),
-    ("frac34", "\u{00BE}"), ("sup1", "\u{00B9}"), ("sup2", "\u{00B2}"),
-    ("sup3", "\u{00B3}"), ("micro", "\u{00B5}"), ("alpha", "\u{03B1}"),
-    ("beta", "\u{03B2}"), ("gamma", "\u{03B3}"), ("delta", "\u{03B4}"),
-    ("Alpha", "\u{0391}"), ("Beta", "\u{0392}"), ("Gamma", "\u{0393}"),
-    ("Delta", "\u{0394}"), ("pi", "\u{03C0}"), ("Pi", "\u{03A0}"),
-    ("sigma", "\u{03C3}"), ("Sigma", "\u{03A3}"), ("omega", "\u{03C9}"),
-    ("Omega", "\u{03A9}"), ("infin", "\u{221E}"), ("ne", "\u{2260}"),
-    ("le", "\u{2264}"), ("ge", "\u{2265}"), ("larr", "\u{2190}"),
-    ("rarr", "\u{2192}"), ("uarr", "\u{2191}"), ("darr", "\u{2193}"),
-    ("harr", "\u{2194}"), ("lArr", "\u{21D0}"), ("rArr", "\u{21D2}"),
-    ("uArr", "\u{21D1}"), ("dArr", "\u{21D3}"), ("hArr", "\u{21D4}"),
-    ("spades", "\u{2660}"), ("clubs", "\u{2663}"), ("hearts", "\u{2665}"),
-    ("diams", "\u{2666}"), ("check", "\u{2713}"), ("cross", "\u{2717}"),
-    ("star", "\u{2605}"), ("sigma", "\u{03C3}"),
+    ("amp", "&"),
+    ("lt", "<"),
+    ("gt", ">"),
+    ("quot", "\""),
+    ("apos", "'"),
+    ("nbsp", "\u{00A0}"),
+    ("copy", "\u{00A9}"),
+    ("reg", "\u{00AE}"),
+    ("trade", "\u{2122}"),
+    ("mdash", "\u{2014}"),
+    ("ndash", "\u{2013}"),
+    ("hellip", "\u{2026}"),
+    ("laquo", "\u{00AB}"),
+    ("raquo", "\u{00BB}"),
+    ("ldquo", "\u{201C}"),
+    ("rdquo", "\u{201D}"),
+    ("lsquo", "\u{2018}"),
+    ("rsquo", "\u{2019}"),
+    ("euro", "\u{20AC}"),
+    ("pound", "\u{00A3}"),
+    ("yen", "\u{00A5}"),
+    ("cent", "\u{00A2}"),
+    ("sect", "\u{00A7}"),
+    ("para", "\u{00B6}"),
+    ("middot", "\u{00B7}"),
+    ("bull", "\u{2022}"),
+    ("deg", "\u{00B0}"),
+    ("plusmn", "\u{00B1}"),
+    ("times", "\u{00D7}"),
+    ("divide", "\u{00F7}"),
+    ("frac12", "\u{00BD}"),
+    ("frac14", "\u{00BC}"),
+    ("frac34", "\u{00BE}"),
+    ("sup1", "\u{00B9}"),
+    ("sup2", "\u{00B2}"),
+    ("sup3", "\u{00B3}"),
+    ("micro", "\u{00B5}"),
+    ("alpha", "\u{03B1}"),
+    ("beta", "\u{03B2}"),
+    ("gamma", "\u{03B3}"),
+    ("delta", "\u{03B4}"),
+    ("Alpha", "\u{0391}"),
+    ("Beta", "\u{0392}"),
+    ("Gamma", "\u{0393}"),
+    ("Delta", "\u{0394}"),
+    ("pi", "\u{03C0}"),
+    ("Pi", "\u{03A0}"),
+    ("sigma", "\u{03C3}"),
+    ("Sigma", "\u{03A3}"),
+    ("omega", "\u{03C9}"),
+    ("Omega", "\u{03A9}"),
+    ("infin", "\u{221E}"),
+    ("ne", "\u{2260}"),
+    ("le", "\u{2264}"),
+    ("ge", "\u{2265}"),
+    ("larr", "\u{2190}"),
+    ("rarr", "\u{2192}"),
+    ("uarr", "\u{2191}"),
+    ("darr", "\u{2193}"),
+    ("harr", "\u{2194}"),
+    ("lArr", "\u{21D0}"),
+    ("rArr", "\u{21D2}"),
+    ("uArr", "\u{21D1}"),
+    ("dArr", "\u{21D3}"),
+    ("hArr", "\u{21D4}"),
+    ("spades", "\u{2660}"),
+    ("clubs", "\u{2663}"),
+    ("hearts", "\u{2665}"),
+    ("diams", "\u{2666}"),
+    ("check", "\u{2713}"),
+    ("cross", "\u{2717}"),
+    ("star", "\u{2605}"),
+    ("sigma", "\u{03C3}"),
 ];
 
 /// Token emitted by the tokenizer.
 #[derive(Debug, Clone)]
 enum Token {
-    Doctype { name: String },
-    StartTag { name: String, attrs: HashMap<String, String>, self_closing: bool },
-    EndTag { name: String },
+    Doctype {
+        name: String,
+    },
+    StartTag {
+        name: String,
+        attrs: HashMap<String, String>,
+        self_closing: bool,
+    },
+    EndTag {
+        name: String,
+    },
     Text(String),
     Comment(String),
 }
@@ -63,7 +120,11 @@ struct Tokenizer<'a> {
 
 impl<'a> Tokenizer<'a> {
     fn new(src: &'a str) -> Self {
-        Self { src: src.as_bytes(), pos: 0, tokens: Vec::new() }
+        Self {
+            src: src.as_bytes(),
+            pos: 0,
+            tokens: Vec::new(),
+        }
     }
 
     fn run(mut self) -> Vec<Token> {
@@ -83,16 +144,21 @@ impl<'a> Tokenizer<'a> {
         self.tokens
     }
 
-    fn current(&self) -> u8 { self.src[self.pos] }
+    fn current(&self) -> u8 {
+        self.src[self.pos]
+    }
 
     fn starts_with(&self, s: &str) -> bool {
         let bytes = s.as_bytes();
-        self.pos + bytes.len() <= self.src.len() && &self.src[self.pos..self.pos + bytes.len()] == bytes
+        self.pos + bytes.len() <= self.src.len()
+            && &self.src[self.pos..self.pos + bytes.len()] == bytes
     }
 
     fn peek_is_name(&self, offset: usize) -> bool {
         let i = self.pos + offset;
-        if i >= self.src.len() { return false; }
+        if i >= self.src.len() {
+            return false;
+        }
         let c = self.src[i];
         c.is_ascii_alphabetic() || c == b'_'
     }
@@ -112,15 +178,21 @@ impl<'a> Tokenizer<'a> {
 
     fn consume_doctype(&mut self) {
         self.pos += 2; // skip "<!"
-        // Read until '>'
+                       // Read until '>'
         let start = self.pos;
         while self.pos < self.src.len() && self.src[self.pos] != b'>' {
             self.pos += 1;
         }
         let raw = String::from_utf8_lossy(&self.src[start..self.pos]).to_string();
-        if self.pos < self.src.len() { self.pos += 1; } // skip '>'
-        // Extract the name (first whitespace-separated word after "doctype").
-        let name = raw.split_whitespace().nth(1).unwrap_or("html").to_lowercase();
+        if self.pos < self.src.len() {
+            self.pos += 1;
+        } // skip '>'
+          // Extract the name (first whitespace-separated word after "doctype").
+        let name = raw
+            .split_whitespace()
+            .nth(1)
+            .unwrap_or("html")
+            .to_lowercase();
         self.tokens.push(Token::Doctype { name });
     }
 
@@ -131,8 +203,12 @@ impl<'a> Tokenizer<'a> {
         while self.pos < self.src.len() && self.src[self.pos] != b'>' {
             self.pos += 1;
         }
-        if self.pos < self.src.len() { self.pos += 1; }
-        self.tokens.push(Token::EndTag { name: name.to_lowercase() });
+        if self.pos < self.src.len() {
+            self.pos += 1;
+        }
+        self.tokens.push(Token::EndTag {
+            name: name.to_lowercase(),
+        });
     }
 
     fn consume_start_tag(&mut self) {
@@ -143,7 +219,9 @@ impl<'a> Tokenizer<'a> {
 
         loop {
             self.skip_whitespace();
-            if self.pos >= self.src.len() { break; }
+            if self.pos >= self.src.len() {
+                break;
+            }
             let c = self.src[self.pos];
             if c == b'>' {
                 self.pos += 1;
@@ -175,7 +253,11 @@ impl<'a> Tokenizer<'a> {
             }
             attrs.insert(attr_name.to_lowercase(), decode_entities(&value));
         }
-        self.tokens.push(Token::StartTag { name, attrs, self_closing });
+        self.tokens.push(Token::StartTag {
+            name,
+            attrs,
+            self_closing,
+        });
     }
 
     fn consume_name(&mut self) -> String {
@@ -204,7 +286,9 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn consume_attr_value(&mut self) -> String {
-        if self.pos >= self.src.len() { return String::new(); }
+        if self.pos >= self.src.len() {
+            return String::new();
+        }
         let quote = self.src[self.pos];
         if quote == b'"' || quote == b'\'' {
             self.pos += 1;
@@ -213,14 +297,18 @@ impl<'a> Tokenizer<'a> {
                 self.pos += 1;
             }
             let val = String::from_utf8_lossy(&self.src[start..self.pos]).to_string();
-            if self.pos < self.src.len() { self.pos += 1; }
+            if self.pos < self.src.len() {
+                self.pos += 1;
+            }
             val
         } else {
             // Unquoted value — read until whitespace or '>'.
             let start = self.pos;
             while self.pos < self.src.len() {
                 let c = self.src[self.pos];
-                if c.is_ascii_whitespace() || c == b'>' { break; }
+                if c.is_ascii_whitespace() || c == b'>' {
+                    break;
+                }
                 self.pos += 1;
             }
             String::from_utf8_lossy(&self.src[start..self.pos]).to_string()
@@ -231,7 +319,9 @@ impl<'a> Tokenizer<'a> {
         let start = self.pos;
         while self.pos < self.src.len() {
             let c = self.src[self.pos];
-            if c == b'<' { break; }
+            if c == b'<' {
+                break;
+            }
             self.pos += 1;
         }
         if self.pos > start {
@@ -253,7 +343,9 @@ impl<'a> Tokenizer<'a> {
 
 /// Decode HTML entity references (`&amp;`, `&#65;`, `&copy;`, etc.).
 fn decode_entities(s: &str) -> String {
-    if !s.contains('&') { return s.to_string(); }
+    if !s.contains('&') {
+        return s.to_string();
+    }
     let mut out = String::with_capacity(s.len());
     let bytes = s.as_bytes();
     let mut i = 0;
@@ -261,7 +353,11 @@ fn decode_entities(s: &str) -> String {
         if bytes[i] == b'&' {
             // Find ';'
             let mut j = i + 1;
-            while j < bytes.len() && j < i + 12 && bytes[j] != b';' && !bytes[j].is_ascii_whitespace() {
+            while j < bytes.len()
+                && j < i + 12
+                && bytes[j] != b';'
+                && !bytes[j].is_ascii_whitespace()
+            {
                 j += 1;
             }
             if j < bytes.len() && bytes[j] == b';' && j > i + 1 {
@@ -293,7 +389,10 @@ fn decode_one(entity: &str) -> Option<Cow<'static, str>> {
         };
         return char::from_u32(code).map(|c| Cow::Owned(c.to_string()));
     }
-    COMMON_ENTITIES.iter().find(|(name, _)| *name == entity).map(|(_, val)| Cow::Borrowed(*val))
+    COMMON_ENTITIES
+        .iter()
+        .find(|(name, _)| *name == entity)
+        .map(|(_, val)| Cow::Borrowed(*val))
 }
 
 /// Parse an HTML source string into a DOM tree rooted at Document.
@@ -321,7 +420,9 @@ struct TreeBuilder {
 impl TreeBuilder {
     fn new() -> Self {
         let mut nodes = Vec::new();
-        nodes.push(Node::Document(DocumentData { children: Vec::new() }));
+        nodes.push(Node::Document(DocumentData {
+            children: Vec::new(),
+        }));
         Self {
             nodes,
             stack: vec![0],
@@ -350,15 +451,27 @@ impl TreeBuilder {
                     self.append_child(Node::Text(TextData { text: collapsed }));
                 }
             }
-            Token::StartTag { name, attrs, self_closing } => {
+            Token::StartTag {
+                name,
+                attrs,
+                self_closing,
+            } => {
                 if Node::is_void_tag(&name) || self_closing {
-                    let node = Node::Element(ElementData { tag: name, attrs, children: Vec::new() });
+                    let node = Node::Element(ElementData {
+                        tag: name,
+                        attrs,
+                        children: Vec::new(),
+                    });
                     self.append_child(node);
                     return;
                 }
                 // Auto-close common tags before pushing.
                 self.maybe_auto_close(&name);
-                let node = Node::Element(ElementData { tag: name, attrs, children: Vec::new() });
+                let node = Node::Element(ElementData {
+                    tag: name,
+                    attrs,
+                    children: Vec::new(),
+                });
                 let idx = self.nodes.len();
                 self.nodes.push(node);
                 let parent = self.current_idx();
@@ -403,7 +516,9 @@ impl TreeBuilder {
             "dt" | "dd" => &["dt", "dd"],
             _ => &[],
         };
-        if close_when.is_empty() { return; }
+        if close_when.is_empty() {
+            return;
+        }
         // Find the closest matching open tag.
         let mut found = None;
         for (i, idx) in self.stack.iter().enumerate().rev() {
@@ -413,7 +528,10 @@ impl TreeBuilder {
                     break;
                 }
                 // Stop at block boundaries (don't close across block elements).
-                if matches!(e.tag.as_str(), "ul" | "ol" | "table" | "div" | "section" | "article") {
+                if matches!(
+                    e.tag.as_str(),
+                    "ul" | "ol" | "table" | "div" | "section" | "article"
+                ) {
                     break;
                 }
             }
@@ -430,7 +548,8 @@ impl TreeBuilder {
 
     fn assemble(&mut self, idx: usize) -> Node {
         let child_indices = self.children.remove(&idx).unwrap_or_default();
-        let children: Vec<Node> = child_indices.into_iter()
+        let children: Vec<Node> = child_indices
+            .into_iter()
             .map(|c| self.assemble(c))
             .collect();
         // Take the node out of storage (we replace it with a placeholder).
@@ -470,7 +589,8 @@ mod tests {
 
     #[test]
     fn parses_simple_document() {
-        let html = r#"<!DOCTYPE html><html><body><h1>Title</h1><p>Hello <b>world</b></p></body></html>"#;
+        let html =
+            r#"<!DOCTYPE html><html><body><h1>Title</h1><p>Hello <b>world</b></p></body></html>"#;
         let dom = parse(html);
         assert!(matches!(dom, Node::Document(_)));
     }
@@ -509,7 +629,9 @@ mod tests {
         let dom = parse(html);
         if let Node::Document(d) = dom {
             let p = find_first_tag(&d.children, "p").unwrap();
-            let text: String = p.children.iter()
+            let text: String = p
+                .children
+                .iter()
                 .filter_map(|c| c.as_text().map(|t| t.text.as_str()))
                 .collect();
             assert_eq!(text, "a & b < c © A");
@@ -532,7 +654,9 @@ mod tests {
     fn find_first_tag<'a>(nodes: &'a [Node], tag: &str) -> Option<&'a ElementData> {
         for n in nodes {
             if let Node::Element(e) = n {
-                if e.tag == tag { return Some(e); }
+                if e.tag == tag {
+                    return Some(e);
+                }
                 if let Some(found) = find_first_tag(&e.children, tag) {
                     return Some(found);
                 }

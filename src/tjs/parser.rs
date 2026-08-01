@@ -23,7 +23,7 @@ pub enum Expr {
     PrivateIdentifier(String),
     Binary(Box<Expr>, String, Box<Expr>),
     Unary(String, Box<Expr>),
-    Update(String, Box<Expr>, bool), // op, expr, is_prefix
+    Update(String, Box<Expr>, bool),      // op, expr, is_prefix
     Assign(Box<Expr>, String, Box<Expr>), // target, op, value
     Call(Box<Expr>, Vec<Expr>),
     /// Optional call: f?.() — returns undefined if callee is null/undefined.
@@ -41,7 +41,7 @@ pub enum Expr {
     /// Async generator: async function* name() { ... }
     AsyncGeneratorFunction(Vec<String>, Vec<Stmt>),
     Arrow(Vec<String>, Box<Stmt>), // params, body (expression or block)
-    Object(Vec<(String, Expr)>), // key-value pairs
+    Object(Vec<(String, Expr)>),   // key-value pairs
     Array(Vec<Expr>),
     This,
     Super,
@@ -176,7 +176,9 @@ impl<'a> Parser<'a> {
 
     fn advance(&mut self) -> Token {
         let t = self.tokens[self.pos].clone();
-        if !matches!(t, Token::EOF) { self.pos += 1; }
+        if !matches!(t, Token::EOF) {
+            self.pos += 1;
+        }
         t
     }
 
@@ -242,7 +244,10 @@ impl<'a> Parser<'a> {
                 }
                 "return" => {
                     self.advance();
-                    if matches!(self.peek(), Token::Punct(';') | Token::Punct('}') | Token::EOF) {
+                    if matches!(
+                        self.peek(),
+                        Token::Punct(';') | Token::Punct('}') | Token::EOF
+                    ) {
                         self.match_punct(';');
                         Ok(Stmt::Return(None))
                     } else {
@@ -251,8 +256,16 @@ impl<'a> Parser<'a> {
                         Ok(Stmt::Return(Some(e)))
                     }
                 }
-                "break" => { self.advance(); self.match_punct(';'); Ok(Stmt::Break) }
-                "continue" => { self.advance(); self.match_punct(';'); Ok(Stmt::Continue) }
+                "break" => {
+                    self.advance();
+                    self.match_punct(';');
+                    Ok(Stmt::Break)
+                }
+                "continue" => {
+                    self.advance();
+                    self.match_punct(';');
+                    Ok(Stmt::Continue)
+                }
                 "throw" => {
                     self.advance();
                     let e = self.expression()?;
@@ -271,7 +284,10 @@ impl<'a> Parser<'a> {
                 self.match_punct('}');
                 Ok(Stmt::Block(stmts))
             }
-            Token::Punct(';') => { self.advance(); Ok(Stmt::Empty) }
+            Token::Punct(';') => {
+                self.advance();
+                Ok(Stmt::Empty)
+            }
             _ => self.expr_stmt(),
         }
     }
@@ -284,7 +300,7 @@ impl<'a> Parser<'a> {
 
     fn var_decl(&mut self, kind: &str) -> Result<Stmt, String> {
         self.advance(); // skip var/let/const
-        // Check for destructuring: { ... } or [ ... ]
+                        // Check for destructuring: { ... } or [ ... ]
         match self.peek() {
             Token::Punct('{') => return self.parse_destructuring_object(kind),
             Token::Punct('[') => return self.parse_destructuring_array(kind),
@@ -292,7 +308,12 @@ impl<'a> Parser<'a> {
         }
         let name = match self.advance() {
             Token::Identifier(s) => s,
-            other => return Err(format!("Expected identifier after {}, got {:?}", kind, other)),
+            other => {
+                return Err(format!(
+                    "Expected identifier after {}, got {:?}",
+                    kind, other
+                ))
+            }
         };
         let init = if self.match_op("=") {
             self.expression()?
@@ -311,7 +332,12 @@ impl<'a> Parser<'a> {
             loop {
                 let name2 = match self.advance() {
                     Token::Identifier(s) => s,
-                    other => return Err(format!("Expected identifier in multi-decl, got {:?}", other)),
+                    other => {
+                        return Err(format!(
+                            "Expected identifier in multi-decl, got {:?}",
+                            other
+                        ))
+                    }
                 };
                 let init2 = if self.match_op("=") {
                     self.expression()?
@@ -324,7 +350,9 @@ impl<'a> Parser<'a> {
                     "const" => Stmt::Const(name2, init2),
                     _ => unreachable!(),
                 });
-                if !self.match_punct(',') { break; }
+                if !self.match_punct(',') {
+                    break;
+                }
             }
             self.match_punct(';');
             return Ok(Stmt::Block(stmts));
@@ -348,7 +376,12 @@ impl<'a> Parser<'a> {
                 Token::Identifier(s) => s,
                 Token::String(s) => s,
                 Token::Keyword(s) => s,
-                other => return Err(format!("Expected property name in destructuring, got {:?}", other)),
+                other => {
+                    return Err(format!(
+                        "Expected property name in destructuring, got {:?}",
+                        other
+                    ))
+                }
             };
             let local_name = if self.match_punct(':') {
                 match self.advance() {
@@ -364,7 +397,9 @@ impl<'a> Parser<'a> {
                 None
             };
             fields.push((prop_name, Some(local_name), default));
-            if !self.match_punct(',') { break; }
+            if !self.match_punct(',') {
+                break;
+            }
         }
         self.match_punct('}');
         self.match_op("="); // expect '='
@@ -427,10 +462,17 @@ impl<'a> Parser<'a> {
             }
             let name = match self.advance() {
                 Token::Identifier(s) => s,
-                other => return Err(format!("Expected name in array destructuring, got {:?}", other)),
+                other => {
+                    return Err(format!(
+                        "Expected name in array destructuring, got {:?}",
+                        other
+                    ))
+                }
             };
             fields.push((name, false));
-            if !self.match_punct(',') { break; }
+            if !self.match_punct(',') {
+                break;
+            }
         }
         self.match_punct(']');
         self.match_op("="); // expect '='
@@ -482,7 +524,7 @@ impl<'a> Parser<'a> {
 
     fn function_decl(&mut self) -> Result<Stmt, String> {
         self.advance(); // skip 'function'
-        // Check for generator: function*
+                        // Check for generator: function*
         let is_generator = self.match_op("*");
         let name = match self.advance() {
             Token::Identifier(s) => s,
@@ -537,10 +579,19 @@ impl<'a> Parser<'a> {
             self.parse_class_member(&mut fields, &mut methods)?;
         }
         self.match_punct('}');
-        Ok(ClassDef { name, extends, fields, methods })
+        Ok(ClassDef {
+            name,
+            extends,
+            fields,
+            methods,
+        })
     }
 
-    fn parse_class_member(&mut self, fields: &mut Vec<ClassField>, methods: &mut Vec<ClassMethod>) -> Result<(), String> {
+    fn parse_class_member(
+        &mut self,
+        fields: &mut Vec<ClassField>,
+        methods: &mut Vec<ClassMethod>,
+    ) -> Result<(), String> {
         // Optional 'static'.
         let is_static = self.match_keyword("static");
 
@@ -644,24 +695,18 @@ impl<'a> Parser<'a> {
             if matches!(self.peek(), Token::Punct('`')) {
                 // Template expression start.
                 self.advance(); // skip Punct('`')
-                // Parse the expression.
+                                // Parse the expression.
                 let expr = self.assignment()?;
                 // Expect Punct('~') — template expression end.
                 if !matches!(self.peek(), Token::Punct('~')) {
                     return Err("Expected '~' after template expression".to_string());
                 }
                 self.advance(); // skip Punct('~')
-                // Concatenate: result + String(expr)
-                // We use a Call to String(expr) to convert to string.
-                let to_string_call = Expr::Call(
-                    Box::new(Expr::Identifier("String".to_string())),
-                    vec![expr],
-                );
-                result = Expr::Binary(
-                    Box::new(result),
-                    "+".to_string(),
-                    Box::new(to_string_call),
-                );
+                                // Concatenate: result + String(expr)
+                                // We use a Call to String(expr) to convert to string.
+                let to_string_call =
+                    Expr::Call(Box::new(Expr::Identifier("String".to_string())), vec![expr]);
+                result = Expr::Binary(Box::new(result), "+".to_string(), Box::new(to_string_call));
                 // Now check if there's another string part (the text after `}`).
                 if let Token::String(s) = self.peek().clone() {
                     self.advance();
@@ -705,7 +750,9 @@ impl<'a> Parser<'a> {
                     Token::Identifier(s) => Expr::String(s),
                     Token::PrivateIdentifier(s) => Expr::String(format!("#{}", s)),
                     Token::Keyword(k) => Expr::String(k),
-                    other => return Err(format!("Expected property name after '.', got {:?}", other)),
+                    other => {
+                        return Err(format!("Expected property name after '.', got {:?}", other))
+                    }
                 };
                 expr = Expr::Member(Box::new(expr), Box::new(prop), false);
             } else if self.match_op("?.") {
@@ -714,7 +761,12 @@ impl<'a> Parser<'a> {
                     let prop = match self.advance() {
                         Token::Identifier(s) => Expr::String(s),
                         Token::Keyword(k) => Expr::String(k),
-                        other => return Err(format!("Expected property name after '?.', got {:?}", other)),
+                        other => {
+                            return Err(format!(
+                                "Expected property name after '?.', got {:?}",
+                                other
+                            ))
+                        }
                     };
                     expr = Expr::OptionalMember(Box::new(expr), Box::new(prop), false);
                 }
@@ -736,7 +788,9 @@ impl<'a> Parser<'a> {
             if let Token::Identifier(s) = self.advance() {
                 params.push(s);
             }
-            if !self.match_punct(',') { break; }
+            if !self.match_punct(',') {
+                break;
+            }
         }
         self.match_punct(')');
         Ok(params)
@@ -778,7 +832,7 @@ impl<'a> Parser<'a> {
 
     fn for_stmt(&mut self) -> Result<Stmt, String> {
         self.advance(); // skip 'for'
-        // Optional 'await' for `for await...of`.
+                        // Optional 'await' for `for await...of`.
         let for_await = self.match_keyword("await");
         self.match_punct('(');
 
@@ -799,7 +853,8 @@ impl<'a> Parser<'a> {
         let saved_pos = self.pos;
 
         // Try for-in / for-of.
-        let is_var_decl = matches!(self.peek(), Token::Keyword(k) if k == "var" || k == "let" || k == "const");
+        let is_var_decl =
+            matches!(self.peek(), Token::Keyword(k) if k == "var" || k == "let" || k == "const");
         if is_var_decl {
             self.advance(); // skip var/let/const
             let name = match self.advance() {
@@ -838,7 +893,11 @@ impl<'a> Parser<'a> {
                 } else {
                     vec![self.statement()?]
                 };
-                let kind = if for_await { ForInOfKind::ForAwaitOf } else { ForInOfKind::ForOf };
+                let kind = if for_await {
+                    ForInOfKind::ForAwaitOf
+                } else {
+                    ForInOfKind::ForOf
+                };
                 return Ok(Stmt::ForInOf(kind, name, iterable, body));
             }
             // Not for-in/of — restore and parse as traditional for with var decl.
@@ -855,9 +914,17 @@ impl<'a> Parser<'a> {
         if matches!(self.peek(), Token::Identifier(_)) {
             // Check if the token AFTER the identifier is `in` or `of`.
             if matches!(self.peek_at(1), Token::Keyword(k) if k == "in" || k == "of") {
-                let name = if let Token::Identifier(s) = self.advance() { s } else { unreachable!() };
+                let name = if let Token::Identifier(s) = self.advance() {
+                    s
+                } else {
+                    unreachable!()
+                };
                 let is_in = self.match_keyword("in");
-                let is_of = if !is_in { self.match_keyword("of") } else { false };
+                let is_of = if !is_in {
+                    self.match_keyword("of")
+                } else {
+                    false
+                };
                 if is_in || is_of {
                     let iterable = self.expression()?;
                     while !matches!(self.peek(), Token::Punct(')') | Token::EOF) {
@@ -894,7 +961,11 @@ impl<'a> Parser<'a> {
             } else {
                 vec![self.statement()?]
             };
-            let name = if let Expr::Identifier(s) = &init_expr { s.clone() } else { String::new() };
+            let name = if let Expr::Identifier(s) = &init_expr {
+                s.clone()
+            } else {
+                String::new()
+            };
             return Ok(Stmt::ForInOf(ForInOfKind::ForIn, name, iterable, body));
         }
         if self.match_keyword("of") {
@@ -908,8 +979,16 @@ impl<'a> Parser<'a> {
             } else {
                 vec![self.statement()?]
             };
-            let name = if let Expr::Identifier(s) = &init_expr { s.clone() } else { String::new() };
-            let kind = if for_await { ForInOfKind::ForAwaitOf } else { ForInOfKind::ForOf };
+            let name = if let Expr::Identifier(s) = &init_expr {
+                s.clone()
+            } else {
+                String::new()
+            };
+            let kind = if for_await {
+                ForInOfKind::ForAwaitOf
+            } else {
+                ForInOfKind::ForOf
+            };
             return Ok(Stmt::ForInOf(kind, name, iterable, body));
         }
         // Traditional for with expression init.
@@ -1022,8 +1101,13 @@ impl<'a> Parser<'a> {
 
     fn assignment(&mut self) -> Result<Expr, String> {
         let left = self.conditional()?;
-        if matches!(self.peek(), Token::Operator(o) if o == "=" || o == "+=" || o == "-=" || o == "*=" || o == "/=" || o == "%=") {
-            let op = if let Token::Operator(o) = self.advance() { o } else { unreachable!() };
+        if matches!(self.peek(), Token::Operator(o) if o == "=" || o == "+=" || o == "-=" || o == "*=" || o == "/=" || o == "%=")
+        {
+            let op = if let Token::Operator(o) = self.advance() {
+                o
+            } else {
+                unreachable!()
+            };
             let right = self.assignment()?;
             Ok(Expr::Assign(Box::new(left), op, Box::new(right)))
         } else {
@@ -1041,7 +1125,11 @@ impl<'a> Parser<'a> {
             // Expect ':' — lexer tokenizes as Punct(':').
             self.match_punct(':');
             let alternate = self.assignment()?;
-            Ok(Expr::Conditional(Box::new(test), Box::new(consequent), Box::new(alternate)))
+            Ok(Expr::Conditional(
+                Box::new(test),
+                Box::new(consequent),
+                Box::new(alternate),
+            ))
         } else {
             Ok(test)
         }
@@ -1050,7 +1138,11 @@ impl<'a> Parser<'a> {
     fn logical_or(&mut self) -> Result<Expr, String> {
         let mut left = self.logical_and()?;
         while matches!(self.peek(), Token::Operator(o) if o == "||" || o == "??") {
-            let op = if let Token::Operator(o) = self.advance() { o } else { unreachable!() };
+            let op = if let Token::Operator(o) = self.advance() {
+                o
+            } else {
+                unreachable!()
+            };
             let right = self.logical_and()?;
             left = Expr::Binary(Box::new(left), op, Box::new(right));
         }
@@ -1060,7 +1152,11 @@ impl<'a> Parser<'a> {
     fn logical_and(&mut self) -> Result<Expr, String> {
         let mut left = self.bitwise_or()?;
         while matches!(self.peek(), Token::Operator(o) if o == "&&") {
-            let op = if let Token::Operator(o) = self.advance() { o } else { unreachable!() };
+            let op = if let Token::Operator(o) = self.advance() {
+                o
+            } else {
+                unreachable!()
+            };
             let right = self.bitwise_or()?;
             left = Expr::Binary(Box::new(left), op, Box::new(right));
         }
@@ -1079,8 +1175,13 @@ impl<'a> Parser<'a> {
 
     fn equality(&mut self) -> Result<Expr, String> {
         let mut left = self.comparison()?;
-        while matches!(self.peek(), Token::Operator(o) if o == "==" || o == "!=" || o == "===" || o == "!==") {
-            let op = if let Token::Operator(o) = self.advance() { o } else { unreachable!() };
+        while matches!(self.peek(), Token::Operator(o) if o == "==" || o == "!=" || o == "===" || o == "!==")
+        {
+            let op = if let Token::Operator(o) = self.advance() {
+                o
+            } else {
+                unreachable!()
+            };
             let right = self.comparison()?;
             left = Expr::Binary(Box::new(left), op, Box::new(right));
         }
@@ -1091,8 +1192,13 @@ impl<'a> Parser<'a> {
         let mut left = self.additive()?;
         loop {
             // Relational operators: <, >, <=, >=, instanceof, in
-            if matches!(self.peek(), Token::Operator(o) if o == "<" || o == ">" || o == "<=" || o == ">=") {
-                let op = if let Token::Operator(o) = self.advance() { o } else { unreachable!() };
+            if matches!(self.peek(), Token::Operator(o) if o == "<" || o == ">" || o == "<=" || o == ">=")
+            {
+                let op = if let Token::Operator(o) = self.advance() {
+                    o
+                } else {
+                    unreachable!()
+                };
                 let right = self.additive()?;
                 left = Expr::Binary(Box::new(left), op, Box::new(right));
             } else if matches!(self.peek(), Token::Keyword(k) if k == "instanceof") {
@@ -1113,7 +1219,11 @@ impl<'a> Parser<'a> {
     fn additive(&mut self) -> Result<Expr, String> {
         let mut left = self.multiplicative()?;
         while matches!(self.peek(), Token::Operator(o) if o == "+" || o == "-") {
-            let op = if let Token::Operator(o) = self.advance() { o } else { unreachable!() };
+            let op = if let Token::Operator(o) = self.advance() {
+                o
+            } else {
+                unreachable!()
+            };
             let right = self.multiplicative()?;
             left = Expr::Binary(Box::new(left), op, Box::new(right));
         }
@@ -1123,7 +1233,11 @@ impl<'a> Parser<'a> {
     fn multiplicative(&mut self) -> Result<Expr, String> {
         let mut left = self.unary()?;
         while matches!(self.peek(), Token::Operator(o) if o == "*" || o == "/" || o == "%") {
-            let op = if let Token::Operator(o) = self.advance() { o } else { unreachable!() };
+            let op = if let Token::Operator(o) = self.advance() {
+                o
+            } else {
+                unreachable!()
+            };
             let right = self.unary()?;
             left = Expr::Binary(Box::new(left), op, Box::new(right));
         }
@@ -1131,8 +1245,13 @@ impl<'a> Parser<'a> {
     }
 
     fn unary(&mut self) -> Result<Expr, String> {
-        if matches!(self.peek(), Token::Operator(o) if o == "!" || o == "-" || o == "+" || o == "~") {
-            let op = if let Token::Operator(o) = self.advance() { o } else { unreachable!() };
+        if matches!(self.peek(), Token::Operator(o) if o == "!" || o == "-" || o == "+" || o == "~")
+        {
+            let op = if let Token::Operator(o) = self.advance() {
+                o
+            } else {
+                unreachable!()
+            };
             let expr = self.unary()?;
             return Ok(Expr::Unary(op, Box::new(expr)));
         }
@@ -1153,7 +1272,11 @@ impl<'a> Parser<'a> {
         }
         // Prefix ++ / --
         if matches!(self.peek(), Token::Operator(o) if o == "++" || o == "--") {
-            let op = if let Token::Operator(o) = self.advance() { o } else { unreachable!() };
+            let op = if let Token::Operator(o) = self.advance() {
+                o
+            } else {
+                unreachable!()
+            };
             let expr = self.unary()?;
             return Ok(Expr::Update(op, Box::new(expr), true));
         }
@@ -1163,7 +1286,11 @@ impl<'a> Parser<'a> {
     fn postfix(&mut self) -> Result<Expr, String> {
         let mut expr = self.call_member()?;
         if matches!(self.peek(), Token::Operator(o) if o == "++" || o == "--") {
-            let op = if let Token::Operator(o) = self.advance() { o } else { unreachable!() };
+            let op = if let Token::Operator(o) = self.advance() {
+                o
+            } else {
+                unreachable!()
+            };
             expr = Expr::Update(op, Box::new(expr), false);
         }
         Ok(expr)
@@ -1182,19 +1309,29 @@ impl<'a> Parser<'a> {
                         Expr::String(format!("#{}", s))
                     }
                     Token::Keyword(k) => Expr::String(k), // e.g. obj.length, obj.constructor
-                    other => return Err(format!("Expected property name after '.', got {:?}", other)),
+                    other => {
+                        return Err(format!("Expected property name after '.', got {:?}", other))
+                    }
                 };
                 expr = Expr::Member(Box::new(expr), Box::new(prop), false);
             }
             // Optional member access: a?.b  (note: ?.' already includes the dot)
             else if self.match_op("?.") {
                 // After ?. we can have: identifier (a?.b), [b] (a?.[b]), or (args) (a?.())
-                if matches!(self.peek(), Token::Identifier(_) | Token::Keyword(_) | Token::PrivateIdentifier(_)) {
+                if matches!(
+                    self.peek(),
+                    Token::Identifier(_) | Token::Keyword(_) | Token::PrivateIdentifier(_)
+                ) {
                     let prop = match self.advance() {
                         Token::Identifier(s) => Expr::String(s),
                         Token::PrivateIdentifier(s) => Expr::String(format!("#{}", s)),
                         Token::Keyword(k) => Expr::String(k),
-                        other => return Err(format!("Expected property name after '?.', got {:?}", other)),
+                        other => {
+                            return Err(format!(
+                                "Expected property name after '?.', got {:?}",
+                                other
+                            ))
+                        }
                     };
                     expr = Expr::OptionalMember(Box::new(expr), Box::new(prop), false);
                 } else if self.match_punct('[') {
@@ -1237,7 +1374,9 @@ impl<'a> Parser<'a> {
             } else {
                 args.push(self.assignment()?);
             }
-            if !self.match_punct(',') { break; }
+            if !self.match_punct(',') {
+                break;
+            }
         }
         self.match_punct(')');
         Ok(args)
@@ -1245,8 +1384,14 @@ impl<'a> Parser<'a> {
 
     fn primary(&mut self) -> Result<Expr, String> {
         match self.peek().clone() {
-            Token::Number(n) => { self.advance(); Ok(Expr::Number(n)) }
-            Token::BigInt(s) => { self.advance(); Ok(Expr::BigInt(s)) }
+            Token::Number(n) => {
+                self.advance();
+                Ok(Expr::Number(n))
+            }
+            Token::BigInt(s) => {
+                self.advance();
+                Ok(Expr::BigInt(s))
+            }
             Token::String(s) => {
                 self.advance();
                 // Check for template literal: String + Punct('`') means ${expr}
@@ -1255,9 +1400,18 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Expr::String(s))
             }
-            Token::Boolean(b) => { self.advance(); Ok(Expr::Boolean(b)) }
-            Token::Null => { self.advance(); Ok(Expr::Null) }
-            Token::Undefined => { self.advance(); Ok(Expr::Undefined) }
+            Token::Boolean(b) => {
+                self.advance();
+                Ok(Expr::Boolean(b))
+            }
+            Token::Null => {
+                self.advance();
+                Ok(Expr::Null)
+            }
+            Token::Undefined => {
+                self.advance();
+                Ok(Expr::Undefined)
+            }
             Token::Identifier(s) => {
                 self.advance();
                 // Arrow function: (params) => ... or x => ...
@@ -1323,19 +1477,32 @@ impl<'a> Parser<'a> {
                             if let Token::Identifier(s) = self.advance() {
                                 ps.push(s);
                             }
-                            if !self.match_punct(',') { break; }
+                            if !self.match_punct(',') {
+                                break;
+                            }
                         }
                         self.match_punct(')');
-                        if self.match_op("=>") { is_arrow = true; }
+                        if self.match_op("=>") {
+                            is_arrow = true;
+                        }
                         if !is_arrow {
                             self.pos = saved;
                         }
-                        if is_arrow { ps } else { Vec::new() }
+                        if is_arrow {
+                            ps
+                        } else {
+                            Vec::new()
+                        }
                     } else {
                         // x => ...
                         let name = match self.advance() {
                             Token::Identifier(s) => s,
-                            other => return Err(format!("Expected identifier after 'async', got {:?}", other)),
+                            other => {
+                                return Err(format!(
+                                    "Expected identifier after 'async', got {:?}",
+                                    other
+                                ))
+                            }
                         };
                         if !self.match_op("=>") {
                             return Err("Expected '=>' after async identifier".to_string());
@@ -1388,7 +1555,15 @@ impl<'a> Parser<'a> {
             Token::Keyword(k) if k == "yield" => {
                 self.advance();
                 // yield (no value) or yield value or yield* value
-                if matches!(self.peek(), Token::Punct(';') | Token::Punct(')') | Token::Punct(',') | Token::Punct(']') | Token::Punct('}') | Token::EOF) {
+                if matches!(
+                    self.peek(),
+                    Token::Punct(';')
+                        | Token::Punct(')')
+                        | Token::Punct(',')
+                        | Token::Punct(']')
+                        | Token::Punct('}')
+                        | Token::EOF
+                ) {
                     return Ok(Expr::Yield(None));
                 }
                 let _ = self.match_op("*"); // yield* — delegate, ignored for now
@@ -1413,10 +1588,14 @@ impl<'a> Parser<'a> {
                         if let Token::Identifier(s) = self.peek().clone() {
                             params.push(s);
                             self.advance();
-                            if self.match_punct(',') { continue; }
+                            if self.match_punct(',') {
+                                continue;
+                            }
                             if matches!(self.peek(), Token::Punct(')')) {
                                 self.advance();
-                                if self.match_op("=>") { is_arrow = true; }
+                                if self.match_op("=>") {
+                                    is_arrow = true;
+                                }
                                 break;
                             } else {
                                 try_params = false;
@@ -1433,7 +1612,9 @@ impl<'a> Parser<'a> {
                     }
                 } else {
                     self.advance(); // skip ')'
-                    if self.match_op("=>") { is_arrow = true; }
+                    if self.match_op("=>") {
+                        is_arrow = true;
+                    }
                 }
 
                 if is_arrow {
@@ -1461,7 +1642,9 @@ impl<'a> Parser<'a> {
                     } else {
                         elements.push(self.assignment()?);
                     }
-                    if !self.match_punct(',') { break; }
+                    if !self.match_punct(',') {
+                        break;
+                    }
                 }
                 self.match_punct(']');
                 Ok(Expr::Array(elements))
@@ -1480,7 +1663,9 @@ impl<'a> Parser<'a> {
                     self.match_punct(':');
                     let value = self.assignment()?;
                     properties.push((key, value));
-                    if !self.match_punct(',') { break; }
+                    if !self.match_punct(',') {
+                        break;
+                    }
                 }
                 self.match_punct('}');
                 Ok(Expr::Object(properties))

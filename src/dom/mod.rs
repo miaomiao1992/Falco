@@ -54,15 +54,27 @@ impl Node {
     }
 
     pub fn as_element(&self) -> Option<&ElementData> {
-        if let Node::Element(e) = self { Some(e) } else { None }
+        if let Node::Element(e) = self {
+            Some(e)
+        } else {
+            None
+        }
     }
 
     pub fn as_element_mut(&mut self) -> Option<&mut ElementData> {
-        if let Node::Element(e) = self { Some(e) } else { None }
+        if let Node::Element(e) = self {
+            Some(e)
+        } else {
+            None
+        }
     }
 
     pub fn as_text(&self) -> Option<&TextData> {
-        if let Node::Text(t) = self { Some(t) } else { None }
+        if let Node::Text(t) = self {
+            Some(t)
+        } else {
+            None
+        }
     }
 
     /// True if this node is "inline" by default (per HTML spec heuristics).
@@ -70,11 +82,38 @@ impl Node {
     pub fn is_inline(&self) -> bool {
         match self {
             Node::Text(_) => true,
-            Node::Element(e) => matches!(e.tag.as_str(),
-                "a" | "abbr" | "b" | "bdi" | "bdo" | "br" | "cite" | "code" |
-                "dfn" | "em" | "i" | "kbd" | "label" | "mark" | "q" | "rp" |
-                "rt" | "ruby" | "s" | "samp" | "small" | "span" | "strong" |
-                "sub" | "sup" | "time" | "u" | "var" | "wbr" | "img" | "input"
+            Node::Element(e) => matches!(
+                e.tag.as_str(),
+                "a" | "abbr"
+                    | "b"
+                    | "bdi"
+                    | "bdo"
+                    | "br"
+                    | "cite"
+                    | "code"
+                    | "dfn"
+                    | "em"
+                    | "i"
+                    | "kbd"
+                    | "label"
+                    | "mark"
+                    | "q"
+                    | "rp"
+                    | "rt"
+                    | "ruby"
+                    | "s"
+                    | "samp"
+                    | "small"
+                    | "span"
+                    | "strong"
+                    | "sub"
+                    | "sup"
+                    | "time"
+                    | "u"
+                    | "var"
+                    | "wbr"
+                    | "img"
+                    | "input"
             ),
             _ => false,
         }
@@ -82,9 +121,22 @@ impl Node {
 
     /// Tag is a "void" element — has no closing tag and no children.
     pub fn is_void_tag(tag: &str) -> bool {
-        matches!(tag,
-            "area" | "base" | "br" | "col" | "embed" | "hr" | "img" |
-            "input" | "link" | "meta" | "param" | "source" | "track" | "wbr"
+        matches!(
+            tag,
+            "area"
+                | "base"
+                | "br"
+                | "col"
+                | "embed"
+                | "hr"
+                | "img"
+                | "input"
+                | "link"
+                | "meta"
+                | "param"
+                | "source"
+                | "track"
+                | "wbr"
         )
     }
 }
@@ -107,7 +159,8 @@ impl ElementData {
     }
 
     pub fn classes(&self) -> Vec<&str> {
-        self.attrs.get("class")
+        self.attrs
+            .get("class")
             .map(|c| c.split_whitespace().collect())
             .unwrap_or_default()
     }
@@ -120,10 +173,14 @@ pub struct NodeBuilder {
 
 impl NodeBuilder {
     pub fn element(tag: &str) -> Self {
-        Self { node: Node::element(tag) }
+        Self {
+            node: Node::element(tag),
+        }
     }
     pub fn text(s: &str) -> Self {
-        Self { node: Node::text(s) }
+        Self {
+            node: Node::text(s),
+        }
     }
     pub fn attr(mut self, k: &str, v: &str) -> Self {
         if let Node::Element(e) = &mut self.node {

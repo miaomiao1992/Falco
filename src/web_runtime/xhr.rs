@@ -108,50 +108,56 @@ impl Xhr {
         // Set up callbacks to update XHR state.
         let xhr = self.clone();
         let el = event_loop.clone();
-        promise.then(move |v| {
-            if let PromiseValue::Resolved(ref serialized) = v {
-                let response = deserialize_response(serialized);
-                *xhr.response.lock().unwrap() = Some(response);
-                *xhr.ready_state.lock().unwrap() = 4; // DONE
-                // Fire callbacks via the event loop (avoid holding locks).
-                let has_rsc = xhr.on_ready_state_change.lock().unwrap().is_some();
-                if has_rsc {
-                    let xhr2 = xhr.clone();
-                    el.clone().enqueue_macro(move || {
-                        if let Some(cb) = xhr2.on_ready_state_change.lock().unwrap().as_ref() {
-                            cb(4);
-                        }
-                    });
+        promise.then(
+            move |v| {
+                if let PromiseValue::Resolved(ref serialized) = v {
+                    let response = deserialize_response(serialized);
+                    *xhr.response.lock().unwrap() = Some(response);
+                    *xhr.ready_state.lock().unwrap() = 4; // DONE
+                                                          // Fire callbacks via the event loop (avoid holding locks).
+                    let has_rsc = xhr.on_ready_state_change.lock().unwrap().is_some();
+                    if has_rsc {
+                        let xhr2 = xhr.clone();
+                        el.clone().enqueue_macro(move || {
+                            if let Some(cb) = xhr2.on_ready_state_change.lock().unwrap().as_ref() {
+                                cb(4);
+                            }
+                        });
+                    }
+                    let has_load = xhr.on_load.lock().unwrap().is_some();
+                    if has_load {
+                        let xhr2 = xhr.clone();
+                        el.enqueue_macro(move || {
+                            if let Some(cb) = xhr2.on_load.lock().unwrap().as_ref() {
+                                cb();
+                            }
+                        });
+                    }
                 }
-                let has_load = xhr.on_load.lock().unwrap().is_some();
-                if has_load {
+                v
+            },
+            event_loop.clone(),
+        );
+
+        let xhr = self.clone();
+        let el = event_loop.clone();
+        promise.catch(
+            move |reason| {
+                *xhr.ready_state.lock().unwrap() = 4;
+                let has_err = xhr.on_error.lock().unwrap().is_some();
+                if has_err {
                     let xhr2 = xhr.clone();
                     el.enqueue_macro(move || {
-                        if let Some(cb) = xhr2.on_load.lock().unwrap().as_ref() {
+                        if let Some(cb) = xhr2.on_error.lock().unwrap().as_ref() {
                             cb();
                         }
                     });
                 }
-            }
-            v
-        }, event_loop.clone());
-
-        let xhr = self.clone();
-        let el = event_loop.clone();
-        promise.catch(move |reason| {
-            *xhr.ready_state.lock().unwrap() = 4;
-            let has_err = xhr.on_error.lock().unwrap().is_some();
-            if has_err {
-                let xhr2 = xhr.clone();
-                el.enqueue_macro(move || {
-                    if let Some(cb) = xhr2.on_error.lock().unwrap().as_ref() {
-                        cb();
-                    }
-                });
-            }
-            let _ = reason;
-            PromiseValue::Resolved(String::new())
-        }, event_loop);
+                let _ = reason;
+                PromiseValue::Resolved(String::new())
+            },
+            event_loop,
+        );
     }
 
     /// abort() — cancel the request.
@@ -161,7 +167,9 @@ impl Xhr {
 
     /// Get the response text.
     pub fn response_text(&self) -> String {
-        self.response.lock().unwrap()
+        self.response
+            .lock()
+            .unwrap()
             .as_ref()
             .map(|r| r.body.clone())
             .unwrap_or_default()
@@ -169,7 +177,9 @@ impl Xhr {
 
     /// Get the status code.
     pub fn status(&self) -> u16 {
-        self.response.lock().unwrap()
+        self.response
+            .lock()
+            .unwrap()
             .as_ref()
             .map(|r| r.status)
             .unwrap_or(0)
@@ -222,7 +232,7 @@ fn deserialize_response(serialized: &str) -> Response {
     if body.ends_with('\n') {
         body.pop();
     }
-    let ok = status >= 200 && status < 300;
+    let ok = (200..300).contains(&status);
     Response {
         status,
         status_text: String::new(),

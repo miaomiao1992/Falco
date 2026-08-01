@@ -17,8 +17,6 @@
 //!
 //! For anything it can't handle, it falls back to the VM interpreter.
 
-use crate::tjs::vm::Bytecode;
-use crate::tjs::value::Value;
 use std::collections::HashMap;
 
 /// x86-64 register names.
@@ -62,9 +60,17 @@ pub struct CodeEmitter {
     code: Vec<u8>,
 }
 
+impl Default for CodeEmitter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CodeEmitter {
     pub fn new() -> Self {
-        Self { code: Vec::with_capacity(4096) }
+        Self {
+            code: Vec::with_capacity(4096),
+        }
     }
 
     pub fn bytes(&self) -> &[u8] {
@@ -102,10 +108,18 @@ impl CodeEmitter {
     /// REX prefix for 64-bit operations.
     pub fn rex(&mut self, w: bool, r: u8, x: u8, b: u8) {
         let mut byte = 0x40;
-        if w { byte |= 0x08; }
-        if r >= 8 { byte |= 0x04; }
-        if x >= 8 { byte |= 0x02; }
-        if b >= 8 { byte |= 0x01; }
+        if w {
+            byte |= 0x08;
+        }
+        if r >= 8 {
+            byte |= 0x04;
+        }
+        if x >= 8 {
+            byte |= 0x02;
+        }
+        if b >= 8 {
+            byte |= 0x01;
+        }
         if byte != 0x40 {
             self.emit_byte(byte);
         }
@@ -252,8 +266,8 @@ impl CodeEmitter {
         self.rex(true, d, 0, b);
         self.emit_byte(0x8B);
         if offset == 0 {
-            self.emit_byte(0x00 | ((d & 7) << 3) | (b & 7));
-        } else if offset >= -128 && offset <= 127 {
+            self.emit_byte(((d & 7) << 3) | (b & 7));
+        } else if (-128..=127).contains(&offset) {
             self.emit_byte(0x40 | ((d & 7) << 3) | (b & 7));
             self.emit_byte(offset as u8);
         } else {
@@ -269,8 +283,8 @@ impl CodeEmitter {
         self.rex(true, s, 0, b);
         self.emit_byte(0x89);
         if offset == 0 {
-            self.emit_byte(0x00 | ((s & 7) << 3) | (b & 7));
-        } else if offset >= -128 && offset <= 127 {
+            self.emit_byte(((s & 7) << 3) | (b & 7));
+        } else if (-128..=127).contains(&offset) {
             self.emit_byte(0x40 | ((s & 7) << 3) | (b & 7));
             self.emit_byte(offset as u8);
         } else {
@@ -381,7 +395,7 @@ impl ExecMemory {
             {
                 let ptr = libc_mmap(size)?;
                 if ptr.is_null() || ptr == (-1isize as *mut u8) {
-                    return Err(io::Error::new(io::ErrorKind::Other, "mmap failed"));
+                    return Err(io::Error::other("mmap failed"));
                 }
                 Ok(Self { ptr, size })
             }
@@ -442,7 +456,14 @@ impl Drop for ExecMemory {
 #[cfg(unix)]
 unsafe fn libc_mmap(size: usize) -> std::io::Result<*mut u8> {
     extern "C" {
-        fn mmap(addr: *mut std::ffi::c_void, length: usize, prot: i32, flags: i32, fd: i32, offset: i64) -> *mut std::ffi::c_void;
+        fn mmap(
+            addr: *mut std::ffi::c_void,
+            length: usize,
+            prot: i32,
+            flags: i32,
+            fd: i32,
+            offset: i64,
+        ) -> *mut std::ffi::c_void;
     }
 
     const PROT_READ: i32 = 1;
@@ -493,9 +514,17 @@ pub struct JitCompiler {
     emitter: CodeEmitter,
 }
 
+impl Default for JitCompiler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JitCompiler {
     pub fn new() -> Self {
-        Self { emitter: CodeEmitter::new() }
+        Self {
+            emitter: CodeEmitter::new(),
+        }
     }
 
     /// Compile a simple counting loop: `for (i = start; i < end; i += step) { sum += i }`
@@ -505,8 +534,8 @@ impl JitCompiler {
     /// 2. Loads 0.0 into xmm1 (sum)
     /// 3. Loops: adds xmm0 to xmm1, adds `step` to xmm0, compares with `end`
     /// 4. Returns the sum in xmm1
-    pub fn compile_counting_loop(&mut self, start: f64, end: f64, step: f64) -> ExecMemory {
-        let mut e = &mut self.emitter;
+    pub fn compile_counting_loop(&mut self, _start: f64, _end: f64, _step: f64) -> ExecMemory {
+        let e = &mut self.emitter;
 
         // Function prologue.
         // Input: rdi = start, rsi = end (as f64 bits in rdi/rsi)
@@ -519,7 +548,7 @@ impl JitCompiler {
 
         // Load start into xmm0 from rdi.
         e.mov_reg(Reg::Rax, Reg::Rdi); // rax = start (as f64 bits)
-        // movq xmm0, rax
+                                       // movq xmm0, rax
         e.emit_byte(0x66);
         e.rex(true, 0, 0, 0);
         e.emit_byte(0x0F);
@@ -715,7 +744,8 @@ impl JitCompiler {
         // Overwrite the placeholder.
         let bytes = e.code.as_mut_slice();
         let jae_rel32_offset = jae_pos + 2; // after 0F 83
-        bytes[jae_rel32_offset..jae_rel32_offset + 4].copy_from_slice(&(jae_offset as u32).to_le_bytes());
+        bytes[jae_rel32_offset..jae_rel32_offset + 4]
+            .copy_from_slice(&(jae_offset as u32).to_le_bytes());
 
         // --- Handle remaining iterations (N % 4) ---
         // Loop: while i < N: sum += i; i++
@@ -775,7 +805,7 @@ impl JitCompiler {
     /// Generated function signature: `extern "C" fn(n: u64) -> u64`
     /// Where `n` is passed in `rdi` and the result (sum as f64 bits) is returned in `rax`.
     pub fn compile_arith_loop(&mut self, _n: u64, step: f64) -> ExecMemory {
-        let mut e = &mut self.emitter;
+        let e = &mut self.emitter;
 
         // Registers:
         //   rdi = N (iteration count, argument)
@@ -868,6 +898,12 @@ pub struct JitContext {
     threshold: u64,
 }
 
+impl Default for JitContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JitContext {
     pub fn new() -> Self {
         Self {
@@ -920,7 +956,11 @@ mod tests {
         let mut jit = JitContext::new();
         let sum = jit.run_counting_loop(10_000_000);
         // sum = 0 + 1 + 2 + ... + 9999999 = 49999995000000
-        assert!((sum - 49999995000000.0).abs() < 1.0, "expected 49999995000000, got {}", sum);
+        assert!(
+            (sum - 49999995000000.0).abs() < 1.0,
+            "expected 49999995000000, got {}",
+            sum
+        );
     }
 
     #[test]
@@ -936,6 +976,10 @@ mod tests {
         let mut jit = JitContext::new();
         let sum = jit.run_counting_loop(100_000_000);
         // sum = 0 + 1 + 2 + ... + 99999999 = 4999999950000000
-        assert!((sum - 4999999950000000.0).abs() < 1.0, "expected 4999999950000000, got {}", sum);
+        assert!(
+            (sum - 4999999950000000.0).abs() < 1.0,
+            "expected 4999999950000000, got {}",
+            sum
+        );
     }
 }

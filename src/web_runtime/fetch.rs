@@ -121,7 +121,10 @@ impl Default for Request {
 
 impl Request {
     pub fn new(url: impl Into<String>) -> Self {
-        Self { url: url.into(), ..Default::default() }
+        Self {
+            url: url.into(),
+            ..Default::default()
+        }
     }
 }
 
@@ -151,7 +154,8 @@ pub enum ResponseType {
 impl Response {
     /// Get a response header by name.
     pub fn get_header(&self, name: &str) -> Option<&str> {
-        self.headers.iter()
+        self.headers
+            .iter()
             .find(|(k, _)| k.eq_ignore_ascii_case(name))
             .map(|(_, v)| v.as_str())
     }
@@ -230,15 +234,14 @@ fn perform_request(request: &Request) -> Result<Response, String> {
             let status = resp.status();
             let status_text = resp.status_text().to_string();
             let url = resp.get_url().to_string();
-            let headers: Vec<(String, String)> = resp.headers_names()
+            let headers: Vec<(String, String)> = resp
+                .headers_names()
                 .iter()
-                .filter_map(|name| {
-                    resp.header(name).map(|v| (name.clone(), v.to_string()))
-                })
+                .filter_map(|name| resp.header(name).map(|v| (name.clone(), v.to_string())))
                 .collect();
             // Read the body.
             let body = resp.into_string().unwrap_or_default();
-            let ok = status >= 200 && status < 300;
+            let ok = (200..300).contains(&status);
             Ok(Response {
                 status,
                 status_text,
@@ -254,11 +257,10 @@ fn perform_request(request: &Request) -> Result<Response, String> {
             // Non-2xx status — still a valid response.
             let status_text = resp.status_text().to_string();
             let url = resp.get_url().to_string();
-            let headers: Vec<(String, String)> = resp.headers_names()
+            let headers: Vec<(String, String)> = resp
+                .headers_names()
                 .iter()
-                .filter_map(|name| {
-                    resp.header(name).map(|v| (name.clone(), v.to_string()))
-                })
+                .filter_map(|name| resp.header(name).map(|v| (name.clone(), v.to_string())))
                 .collect();
             let body = resp.into_string().unwrap_or_default();
             Ok(Response {
@@ -316,16 +318,22 @@ mod tests {
 
         let caught = Arc::new(std::sync::Mutex::new(String::new()));
         let c = caught.clone();
-        promise.catch(move |v| {
-            if let PromiseValue::Rejected(ref reason) = v {
-                *c.lock().unwrap() = reason.clone();
-            }
-            PromiseValue::Resolved(String::new())
-        }, el.clone());
+        promise.catch(
+            move |v| {
+                if let PromiseValue::Rejected(ref reason) = v {
+                    *c.lock().unwrap() = reason.clone();
+                }
+                PromiseValue::Resolved(String::new())
+            },
+            el.clone(),
+        );
 
         el.run();
         // Should have caught an error (network failure).
-        assert!(!caught.lock().unwrap().is_empty(), "fetch should have rejected");
+        assert!(
+            !caught.lock().unwrap().is_empty(),
+            "fetch should have rejected"
+        );
     }
 
     #[test]
@@ -337,16 +345,23 @@ mod tests {
 
         let result = Arc::new(std::sync::Mutex::new(String::new()));
         let r = result.clone();
-        promise.then(move |v| {
-            if let PromiseValue::Resolved(ref val) = v {
-                *r.lock().unwrap() = val.clone();
-            }
-            v
-        }, el.clone());
+        promise.then(
+            move |v| {
+                if let PromiseValue::Resolved(ref val) = v {
+                    *r.lock().unwrap() = val.clone();
+                }
+                v
+            },
+            el.clone(),
+        );
 
         el.run();
         let result = result.lock().unwrap();
         assert!(!result.is_empty(), "fetch should have resolved");
-        assert!(result.contains("200|"), "expected status 200, got: {}", *result);
+        assert!(
+            result.contains("200|"),
+            "expected status 200, got: {}",
+            *result
+        );
     }
 }

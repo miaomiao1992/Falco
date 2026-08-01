@@ -1,9 +1,9 @@
 //! Falco CLI — render an HTML file or URL to a PNG, or open an interactive window.
 
 use pico_args::Arguments;
-use std::process::ExitCode;
 use std::io::{Read, Write};
 use std::net::TcpListener;
+use std::process::ExitCode;
 
 fn main() -> ExitCode {
     let mut args = Arguments::from_env();
@@ -47,17 +47,35 @@ EXAMPLES
 
     // Server mode: start a simple HTTP server that renders URLs to PNG.
     if args.contains("--server") {
-        let port: u16 = args.opt_value_from_str("--port").ok().flatten().unwrap_or(8899);
+        let port: u16 = args
+            .opt_value_from_str("--port")
+            .ok()
+            .flatten()
+            .unwrap_or(8899);
         return run_server(port);
     }
 
     // Parse named args FIRST, then free args.
     let css_path: Option<String> = args.opt_value_from_str("--css").ok().flatten();
-    let out_path: String = args.opt_value_from_str("--out").ok().flatten()
+    let out_path: String = args
+        .opt_value_from_str("--out")
+        .ok()
+        .flatten()
         .unwrap_or_else(|| "falco.png".to_string());
-    let width: u32 = args.opt_value_from_str("--width").ok().flatten().unwrap_or(1200);
-    let height: u32 = args.opt_value_from_str("--height").ok().flatten().unwrap_or(800);
-    let bg: u32 = args.opt_value_from_str("--bg").ok().flatten()
+    let width: u32 = args
+        .opt_value_from_str("--width")
+        .ok()
+        .flatten()
+        .unwrap_or(1200);
+    let height: u32 = args
+        .opt_value_from_str("--height")
+        .ok()
+        .flatten()
+        .unwrap_or(800);
+    let bg: u32 = args
+        .opt_value_from_str("--bg")
+        .ok()
+        .flatten()
         .unwrap_or(0xFFFFFFFF);
     let want_window: bool = args.contains("--window");
     let js_run: Option<String> = args.opt_value_from_str("--js-run").ok().flatten();
@@ -117,10 +135,17 @@ EXAMPLES
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 let msg = format!("{e:#}");
-                if msg.contains("Failed to create window") || msg.contains("DISPLAY") || msg.contains("Wayland") {
+                if msg.contains("Failed to create window")
+                    || msg.contains("DISPLAY")
+                    || msg.contains("Wayland")
+                {
                     eprintln!("warning: cannot open interactive window (no display available)");
                     eprintln!("         falling back to PNG output. Run on a desktop machine to use --window.");
-                    let opts = falco::RenderOptions { width, height, background: bg };
+                    let opts = falco::RenderOptions {
+                        width,
+                        height,
+                        background: bg,
+                    };
                     match falco::render_to_png(&html_src, &css_src, opts, &out_path) {
                         Ok(()) => {
                             eprintln!("Rendered to {out_path}");
@@ -139,7 +164,11 @@ EXAMPLES
         }
     } else {
         // PNG output mode.
-        let opts = falco::RenderOptions { width, height, background: bg };
+        let opts = falco::RenderOptions {
+            width,
+            height,
+            background: bg,
+        };
         match falco::render_to_png(&html_src, &css_src, opts, &out_path) {
             Ok(()) => {
                 eprintln!("Rendered to {out_path}");
@@ -154,7 +183,13 @@ EXAMPLES
 }
 
 /// Open the interactive browser window.
-fn open_window(url: &str, html_src: &str, css_src: &str, width: u32, bg: u32) -> anyhow::Result<()> {
+fn open_window(
+    url: &str,
+    html_src: &str,
+    css_src: &str,
+    width: u32,
+    bg: u32,
+) -> anyhow::Result<()> {
     let bg_color = falco::css::Color::rgba(
         ((bg >> 24) & 0xff) as u8,
         ((bg >> 16) & 0xff) as u8,
@@ -180,9 +215,13 @@ fn extract_style_tags(html: &str) -> String {
     let mut search_from = 0;
     while let Some(open) = lower[search_from..].find("<style") {
         let open_abs = search_from + open;
-        let Some(close_rel) = lower[open_abs..].find('>') else { break };
+        let Some(close_rel) = lower[open_abs..].find('>') else {
+            break;
+        };
         let content_start = open_abs + close_rel + 1;
-        let Some(end_rel) = lower[content_start..].find("</style>") else { break };
+        let Some(end_rel) = lower[content_start..].find("</style>") else {
+            break;
+        };
         let content_end = content_start + end_rel;
         out.push_str(&html[content_start..content_end]);
         out.push('\n');
@@ -236,9 +275,11 @@ fn run_server(port: u16) -> ExitCode {
         // Handle /render?url=...
         if path.starts_with("/render") {
             // Extract URL from query string.
-            let url = path.split("url=").nth(1)
+            let url = path
+                .split("url=")
+                .nth(1)
                 .map(|s| s.split('&').next().unwrap_or(""))
-                .map(|s| url_decode(s))
+                .map(url_decode)
                 .unwrap_or_default();
 
             if url.is_empty() {
@@ -298,7 +339,11 @@ fn run_server(port: u16) -> ExitCode {
         } else if path == "/" || path == "/index.html" {
             // Serve a minimal built-in UI (no external file required).
             let ui = FALCO_UI_HTML;
-            let resp = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\n\r\n{}", ui.len(), ui);
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\n\r\n{}",
+                ui.len(),
+                ui
+            );
             let _ = stream.write_all(resp.as_bytes());
         } else {
             let resp = "HTTP/1.1 404 Not Found\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: text/plain\r\n\r\nNot found";
@@ -443,4 +488,3 @@ const FALCO_UI_HTML: &str = r#"<!DOCTYPE html>
   </script>
 </body>
 </html>"#;
-

@@ -21,7 +21,6 @@
 //! * Hand-parse DER-encoded ASN.1 structures.
 //! * Hand-implement path-building algorithms.
 
-use crate::security::origin::Origin;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// A view of an X.509 certificate. Used for inspection and for storing
@@ -69,8 +68,12 @@ impl Certificate {
 
     /// Check if this cert allows being used as a server auth cert.
     pub fn allows_server_auth(&self) -> bool {
-        if self.ext_key_usage.is_empty() { return true; }
-        self.ext_key_usage.iter().any(|k| k == "1.3.6.1.5.5.7.3.1" || k == "serverAuth")
+        if self.ext_key_usage.is_empty() {
+            return true;
+        }
+        self.ext_key_usage
+            .iter()
+            .any(|k| k == "1.3.6.1.5.5.7.3.1" || k == "serverAuth")
     }
 }
 
@@ -99,7 +102,9 @@ pub struct TrustStore {
 }
 
 impl TrustStore {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Add a root CA (DER-encoded).
     pub fn add_root(&mut self, der: Vec<u8>) {
@@ -192,12 +197,13 @@ pub fn validate_chain(
 /// * Basic constraints / EKU enforcement.
 #[cfg(feature = "real-tls")]
 fn validate_chain_real(chain: &[Certificate], hostname: &str) -> Result<(), CertError> {
-    use rustls::pki_types::{ServerName, CertificateDer, UnixTime};
-    use std::sync::Arc;
     use rustls::client::danger::ServerCertVerifier as _;
+    use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+    use std::sync::Arc;
 
     // Collect the chain as DER bytes.
-    let der_chain: Vec<CertificateDer<'static>> = chain.iter()
+    let der_chain: Vec<CertificateDer<'static>> = chain
+        .iter()
         .map(|c| CertificateDer::from(c.der_bytes.clone()))
         .collect();
     if der_chain.is_empty() {
@@ -206,7 +212,7 @@ fn validate_chain_real(chain: &[Certificate], hostname: &str) -> Result<(), Cert
 
     // Build the root store from the Mozilla trust anchors.
     let root_store = rustls::RootCertStore {
-        roots: webpki_roots::TLS_SERVER_ROOTS.iter().cloned().collect(),
+        roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
     };
 
     // Use rustls's built-in WebPkiServerVerifier — this performs the real
@@ -216,16 +222,18 @@ fn validate_chain_real(chain: &[Certificate], hostname: &str) -> Result<(), Cert
         .map_err(|e| CertError::TlsBackendError(format!("verifier build: {:?}", e)))?;
 
     // Construct the ServerName for hostname verification.
-    let server_name: ServerName<'static> = hostname.to_string()
+    let server_name: ServerName<'static> = hostname
+        .to_string()
         .try_into()
-        .map_err(|e| CertError::HostnameMismatch)?;
+        .map_err(|_e| CertError::HostnameMismatch)?;
 
     // Now perform the verification.
     // We need to convert the unix timestamp to rustls's UnixTime.
     let now_unix = UnixTime::since_unix_epoch(std::time::Duration::from_secs(
-        SystemTime::now().duration_since(UNIX_EPOCH)
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
             .map_err(|e| CertError::TlsBackendError(format!("time: {:?}", e)))?
-            .as_secs()
+            .as_secs(),
     ));
 
     // Use the verifier's verify_server_cert method.
@@ -235,7 +243,7 @@ fn validate_chain_real(chain: &[Certificate], hostname: &str) -> Result<(), Cert
         &der_chain[0],
         &der_chain[1..],
         &server_name,
-        &[],  // no SCTs (Certificate Transparency) — would need a CT log
+        &[], // no SCTs (Certificate Transparency) — would need a CT log
         now_unix,
     );
     match verified {
@@ -261,7 +269,7 @@ fn validate_chain_real(chain: &[Certificate], hostname: &str) -> Result<(), Cert
 #[cfg(not(feature = "real-tls"))]
 fn validate_chain_real(_chain: &[Certificate], _hostname: &str) -> Result<(), CertError> {
     Err(CertError::TlsBackendError(
-        "real-tls feature disabled — cannot verify chain cryptographically".into()
+        "real-tls feature disabled — cannot verify chain cryptographically".into(),
     ))
 }
 
@@ -287,7 +295,7 @@ pub fn check_ocsp_real(cert: &Certificate) -> Result<(), CertError> {
             Ok(OcspStatus::Good) => return Ok(()),
             Ok(OcspStatus::Revoked) => return Err(CertError::OcspRevoked),
             Ok(OcspStatus::Unknown) => continue,
-            Err(_) => continue,  // try next responder
+            Err(_) => continue, // try next responder
         }
     }
     Err(CertError::OcspUnavailable)
@@ -315,7 +323,8 @@ pub enum OcspStatus {
 /// Send an OCSP request to a responder URL.
 ///
 /// OCSP requests are DER-encoded ASN.1. We build a minimal request:
-/// ```
+///
+/// ```text
 /// OCSPRequest ::= SEQUENCE {
 ///     tbsRequest      TBSRequest
 /// }
@@ -341,10 +350,10 @@ fn send_ocsp_request(responder_url: &str, _cert_der: &[u8]) -> std::io::Result<O
     // SEQUENCE { SEQUENCE { SEQUENCE { SEQUENCE { ... } } } }
     // This won't get a useful response, but it proves the HTTP plumbing works.
     let request_body = vec![
-        0x30, 0x05,  // SEQUENCE, length 5
-        0x30, 0x03,  // SEQUENCE, length 3
-        0x30, 0x01,  // SEQUENCE, length 1
-        0x00,        // BOOLEAN FALSE (placeholder)
+        0x30, 0x05, // SEQUENCE, length 5
+        0x30, 0x03, // SEQUENCE, length 3
+        0x30, 0x01, // SEQUENCE, length 1
+        0x00, // BOOLEAN FALSE (placeholder)
     ];
 
     // Send the request via HTTP POST.
@@ -362,12 +371,7 @@ fn send_ocsp_request(responder_url: &str, _cert_der: &[u8]) -> std::io::Result<O
             // Parse the OCSP response.
             parse_ocsp_response(&bytes)
         }
-        Err(e) => {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("OCSP request failed: {}", e),
-            ))
-        }
+        Err(e) => Err(std::io::Error::other(format!("OCSP request failed: {}", e))),
     }
 }
 
@@ -375,7 +379,7 @@ fn send_ocsp_request(responder_url: &str, _cert_der: &[u8]) -> std::io::Result<O
 ///
 /// Spec: https://tools.ietf.org/html/rfc6960#section-4.2.1
 ///
-/// ```
+/// ```text
 /// OCSPResponse ::= SEQUENCE {
 ///     responseStatus      OCSPResponseStatus,
 ///     responseBytes       [0] EXPLICIT ResponseBytes OPTIONAL
@@ -423,7 +427,10 @@ fn parse_ocsp_response(bytes: &[u8]) -> std::io::Result<OcspStatus> {
     if bytes[pos] != 0x0A {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
-            format!("expected ENUMERATED tag (0x0A) at pos {}, got 0x{:02X}", pos, bytes[pos]),
+            format!(
+                "expected ENUMERATED tag (0x0A) at pos {}, got 0x{:02X}",
+                pos, bytes[pos]
+            ),
         ));
     }
     pos += 1;
@@ -458,10 +465,15 @@ pub struct PinStore {
 }
 
 impl PinStore {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn add_pin(&mut self, host: &str, hash: &str) {
-        self.pins.entry(host.to_lowercase()).or_default().push(hash.to_string());
+        self.pins
+            .entry(host.to_lowercase())
+            .or_default()
+            .push(hash.to_string());
     }
 
     pub fn check_pins(&self, host: &str, chain: &[Certificate]) -> Result<(), CertError> {
@@ -516,7 +528,7 @@ mod tests {
             not_after,
             subject_alt_names: vec![host.to_string()],
             common_name: Some(host.to_string()),
-            der_bytes: vec![1, 2, 3, 4],  // placeholder
+            der_bytes: vec![1, 2, 3, 4], // placeholder
             serial: vec![1],
             is_ca: false,
             path_len: None,
@@ -599,8 +611,12 @@ mod tests {
         // — those were checked locally first.
         let err = result.unwrap_err();
         assert!(
-            matches!(err, CertError::TlsBackendError(_) | CertError::ParseError(_)),
-            "expected backend error, got: {:?}", err
+            matches!(
+                err,
+                CertError::TlsBackendError(_) | CertError::ParseError(_)
+            ),
+            "expected backend error, got: {:?}",
+            err
         );
     }
 

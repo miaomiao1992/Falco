@@ -84,7 +84,10 @@ impl MediaSource {
 
     /// Add a SourceBuffer with a specific MIME type and codec.
     /// Example: `addSourceBuffer('video/webm; codecs="vp9,opus"')`
-    pub fn add_source_buffer(self: &Arc<Self>, mime_type: &str) -> Result<Arc<SourceBuffer>, String> {
+    pub fn add_source_buffer(
+        self: &Arc<Self>,
+        mime_type: &str,
+    ) -> Result<Arc<SourceBuffer>, String> {
         // Validate the MIME type.
         let codec = parse_mime_type(mime_type)?;
         let sb = SourceBuffer::new(codec);
@@ -94,7 +97,10 @@ impl MediaSource {
 
     /// Remove a SourceBuffer.
     pub fn remove_source_buffer(self: &Arc<Self>, sb: &Arc<SourceBuffer>) {
-        self.source_buffers.lock().unwrap().retain(|s| !Arc::ptr_eq(s, sb));
+        self.source_buffers
+            .lock()
+            .unwrap()
+            .retain(|s| !Arc::ptr_eq(s, sb));
     }
 
     /// Signal that the stream has ended.
@@ -263,16 +269,36 @@ pub enum Codec {
 /// Parse a MIME type string like `video/webm; codecs="vp9,opus"` into a Codec.
 fn parse_mime_type(mime: &str) -> Result<Codec, String> {
     let lower = mime.to_lowercase();
-    if lower.contains("vp9") { return Ok(Codec::Vp9); }
-    if lower.contains("vp8") { return Ok(Codec::Vp8); }
-    if lower.contains("av1") { return Ok(Codec::Av1); }
-    if lower.contains("h264") || lower.contains("avc") { return Ok(Codec::H264); }
-    if lower.contains("h265") || lower.contains("hevc") { return Ok(Codec::H265); }
-    if lower.contains("opus") { return Ok(Codec::Opus); }
-    if lower.contains("vorbis") { return Ok(Codec::Vorbis); }
-    if lower.contains("aac") { return Ok(Codec::Aac); }
-    if lower.contains("mp3") { return Ok(Codec::Mp3); }
-    if lower.contains("flac") { return Ok(Codec::Flac); }
+    if lower.contains("vp9") {
+        return Ok(Codec::Vp9);
+    }
+    if lower.contains("vp8") {
+        return Ok(Codec::Vp8);
+    }
+    if lower.contains("av1") {
+        return Ok(Codec::Av1);
+    }
+    if lower.contains("h264") || lower.contains("avc") {
+        return Ok(Codec::H264);
+    }
+    if lower.contains("h265") || lower.contains("hevc") {
+        return Ok(Codec::H265);
+    }
+    if lower.contains("opus") {
+        return Ok(Codec::Opus);
+    }
+    if lower.contains("vorbis") {
+        return Ok(Codec::Vorbis);
+    }
+    if lower.contains("aac") {
+        return Ok(Codec::Aac);
+    }
+    if lower.contains("mp3") {
+        return Ok(Codec::Mp3);
+    }
+    if lower.contains("flac") {
+        return Ok(Codec::Flac);
+    }
     Err(format!("Unsupported MIME type: {}", mime))
 }
 
@@ -340,9 +366,18 @@ mod tests {
 
     #[test]
     fn parse_mime_types() {
-        assert_eq!(parse_mime_type("video/webm; codecs=\"vp9,opus\"").unwrap(), Codec::Vp9);
-        assert_eq!(parse_mime_type("video/mp4; codecs=\"avc1.42E01E\"").unwrap(), Codec::H264);
-        assert_eq!(parse_mime_type("audio/webm; codecs=\"opus\"").unwrap(), Codec::Opus);
+        assert_eq!(
+            parse_mime_type("video/webm; codecs=\"vp9,opus\"").unwrap(),
+            Codec::Vp9
+        );
+        assert_eq!(
+            parse_mime_type("video/mp4; codecs=\"avc1.42E01E\"").unwrap(),
+            Codec::H264
+        );
+        assert_eq!(
+            parse_mime_type("audio/webm; codecs=\"opus\"").unwrap(),
+            Codec::Opus
+        );
         assert!(parse_mime_type("application/octet-stream").is_err());
     }
 

@@ -8,10 +8,10 @@
 //! - Content-Type sniffing + charset detection
 //! - URL resolution
 
-pub mod cookies;
 pub mod cache;
-pub mod websocket;
+pub mod cookies;
 pub mod redirect;
+pub mod websocket;
 
 use std::path::Path;
 
@@ -79,7 +79,11 @@ pub fn fetch_with_options(url: &str, opts: FetchOptions) -> anyhow::Result<Strin
 pub fn fetch_bytes_with_options(url: &str, opts: FetchOptions) -> anyhow::Result<Vec<u8>> {
     let mut current_url = url.to_string();
     let mut redirects = 0;
-    let max = if opts.follow_redirects { opts.max_redirects } else { 0 };
+    let max = if opts.follow_redirects {
+        opts.max_redirects
+    } else {
+        0
+    };
 
     loop {
         // Check cache.
@@ -93,7 +97,10 @@ pub fn fetch_bytes_with_options(url: &str, opts: FetchOptions) -> anyhow::Result
         let mut req = ureq::get(&current_url)
             .timeout(std::time::Duration::from_secs(15))
             .set("User-Agent", &opts.user_agent)
-            .set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .set(
+                "Accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            )
             .set("Accept-Language", "en-US,en;q=0.9")
             .set("Accept-Encoding", "gzip, deflate")
             .set("Connection", "keep-alive")
@@ -160,26 +167,50 @@ pub fn read_file(path: &str) -> anyhow::Result<String> {
 
 /// Check if TLS support is compiled in.
 #[cfg(feature = "tls")]
-fn has_tls() -> bool { true }
+fn has_tls() -> bool {
+    true
+}
 
 #[cfg(not(feature = "tls"))]
-fn has_tls() -> bool { false }
+fn has_tls() -> bool {
+    false
+}
 
 /// Decide whether `s` looks like a URL.
 pub fn is_url(s: &str) -> bool {
-    s.starts_with("http://") || s.starts_with("https://") || s.starts_with("ws://") || s.starts_with("wss://")
+    s.starts_with("http://")
+        || s.starts_with("https://")
+        || s.starts_with("ws://")
+        || s.starts_with("wss://")
 }
 
 /// Sniff the content type from raw bytes.
 pub fn sniff_content_type(bytes: &[u8]) -> &'static str {
-    if bytes.starts_with(b"\x89PNG") { return "image/png"; }
-    if bytes.starts_with(b"\xFF\xD8\xFF") { return "image/jpeg"; }
-    if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") { return "image/gif"; }
-    if bytes.starts_with(b"RIFF") && bytes.len() > 11 && &bytes[8..12] == b"WEBP" { return "image/webp"; }
-    if bytes.starts_with(b"BM") { return "image/bmp"; }
-    if bytes.starts_with(b"<?xml") || bytes.starts_with(b"<svg") { return "image/svg+xml"; }
-    if bytes.starts_with(b"<!DOCTYPE") || bytes.starts_with(b"<html") || bytes.starts_with(b"<HTML") { return "text/html"; }
-    if bytes.starts_with(b"{") || bytes.starts_with(b"[") { return "application/json"; }
+    if bytes.starts_with(b"\x89PNG") {
+        return "image/png";
+    }
+    if bytes.starts_with(b"\xFF\xD8\xFF") {
+        return "image/jpeg";
+    }
+    if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+        return "image/gif";
+    }
+    if bytes.starts_with(b"RIFF") && bytes.len() > 11 && &bytes[8..12] == b"WEBP" {
+        return "image/webp";
+    }
+    if bytes.starts_with(b"BM") {
+        return "image/bmp";
+    }
+    if bytes.starts_with(b"<?xml") || bytes.starts_with(b"<svg") {
+        return "image/svg+xml";
+    }
+    if bytes.starts_with(b"<!DOCTYPE") || bytes.starts_with(b"<html") || bytes.starts_with(b"<HTML")
+    {
+        return "text/html";
+    }
+    if bytes.starts_with(b"{") || bytes.starts_with(b"[") {
+        return "application/json";
+    }
     "application/octet-stream"
 }
 

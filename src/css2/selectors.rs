@@ -12,7 +12,9 @@
 //! * Pseudo-elements: ::before, ::after, ::first-line, ::first-letter,
 //!   ::placeholder, ::selection (treated as type+1 specificity)
 
-use crate::dom2::{NodeRef, NodeKind, DocumentHandle, tag_name, has_class, get_attribute};
+use crate::dom2::{
+    append_child, get_attribute, has_class, tag_name, DocumentHandle, NodeKind, NodeRef,
+};
 
 /// A parsed selector. May contain multiple comma-separated selectors.
 #[derive(Debug, Clone)]
@@ -54,7 +56,11 @@ pub enum SimpleSelector {
     Tag(String),
     Class(String),
     Id(String),
-    Attribute { name: String, op: AttrOp, value: Option<String> },
+    Attribute {
+        name: String,
+        op: AttrOp,
+        value: Option<String>,
+    },
     PseudoClass(PseudoClass),
     PseudoElement(String),
 }
@@ -103,15 +109,31 @@ pub enum PseudoClass {
     LastOfType,
     OnlyOfType,
     /// :nth-child(an+b)
-    NthChild { a: i32, b: i32 },
+    NthChild {
+        a: i32,
+        b: i32,
+    },
     /// :nth-last-child(an+b)
-    NthLastChild { a: i32, b: i32 },
+    NthLastChild {
+        a: i32,
+        b: i32,
+    },
     /// :nth-of-type(an+b)
-    NthOfType { a: i32, b: i32 },
+    NthOfType {
+        a: i32,
+        b: i32,
+    },
     /// :nth-last-of-type(an+b)
-    NthLastOfType { a: i32, b: i32 },
+    NthLastOfType {
+        a: i32,
+        b: i32,
+    },
     /// :nth-child(an+b of S)
-    NthChildOf { a: i32, b: i32, selector: SelectorList },
+    NthChildOf {
+        a: i32,
+        b: i32,
+        selector: SelectorList,
+    },
     /// :is(selector-list)
     Is(SelectorList),
     /// :where(selector-list)
@@ -130,24 +152,32 @@ pub enum PseudoClass {
 
 /// Match a selector list against an element. Returns true if any selector matches.
 pub fn matches(list: &SelectorList, element: &NodeRef) -> bool {
-    list.selectors.iter().any(|sel| matches_complex(sel, element))
+    list.selectors
+        .iter()
+        .any(|sel| matches_complex(sel, element))
 }
 
 fn matches_complex(selector: &ComplexSelector, element: &NodeRef) -> bool {
     // The last compound is the subject.
     let n = selector.compounds.len();
-    if n == 0 { return false; }
+    if n == 0 {
+        return false;
+    }
     let subject = &selector.compounds[n - 1].compound;
     if !matches_compound(subject, element) {
         return false;
     }
-    if n == 1 { return true; }
+    if n == 1 {
+        return true;
+    }
     // Walk backwards from the second-to-last compound.
     matches_combinators(&selector.compounds[..n - 1], element)
 }
 
 fn matches_combinators(compounds: &[CompoundWithCombinator], element: &NodeRef) -> bool {
-    if compounds.is_empty() { return true; }
+    if compounds.is_empty() {
+        return true;
+    }
     let n = compounds.len();
     let last = &compounds[n - 1];
     let combinator = last.combinator.unwrap_or(Combinator::Descendant);
@@ -158,13 +188,15 @@ fn matches_combinators(compounds: &[CompoundWithCombinator], element: &NodeRef) 
             let mut cursor = element.borrow().parent.clone();
             while let Some(parent_weak) = cursor {
                 if let Some(parent) = parent_weak.upgrade() {
-                    if matches_compound(compound, &parent) {
-                        if matches_combinators(&compounds[..n - 1], &parent) {
-                            return true;
-                        }
+                    if matches_compound(compound, &parent)
+                        && matches_combinators(&compounds[..n - 1], &parent)
+                    {
+                        return true;
                     }
                     cursor = parent.borrow().parent.clone();
-                } else { break; }
+                } else {
+                    break;
+                }
             }
             false
         }
@@ -178,7 +210,12 @@ fn matches_combinators(compounds: &[CompoundWithCombinator], element: &NodeRef) 
         }
         Combinator::AdjacentSibling => {
             // The immediately preceding sibling.
-            if let Some(prev) = element.borrow().previous_sibling.clone().and_then(|w| w.upgrade()) {
+            if let Some(prev) = element
+                .borrow()
+                .previous_sibling
+                .clone()
+                .and_then(|w| w.upgrade())
+            {
                 if matches_compound(compound, &prev) {
                     return matches_combinators(&compounds[..n - 1], &prev);
                 }
@@ -190,13 +227,15 @@ fn matches_combinators(compounds: &[CompoundWithCombinator], element: &NodeRef) 
             let mut cursor = element.borrow().previous_sibling.clone();
             while let Some(sib_weak) = cursor {
                 if let Some(sib) = sib_weak.upgrade() {
-                    if matches_compound(compound, &sib) {
-                        if matches_combinators(&compounds[..n - 1], &sib) {
-                            return true;
-                        }
+                    if matches_compound(compound, &sib)
+                        && matches_combinators(&compounds[..n - 1], &sib)
+                    {
+                        return true;
                     }
                     cursor = sib.borrow().previous_sibling.clone();
-                } else { break; }
+                } else {
+                    break;
+                }
             }
             false
         }
@@ -205,7 +244,9 @@ fn matches_combinators(compounds: &[CompoundWithCombinator], element: &NodeRef) 
 
 fn matches_compound(compound: &CompoundSelector, element: &NodeRef) -> bool {
     // Must be an element.
-    if !matches!(element.borrow().kind, NodeKind::Element(_)) { return false; }
+    if !matches!(element.borrow().kind, NodeKind::Element(_)) {
+        return false;
+    }
     compound.simple.iter().all(|s| matches_simple(s, element))
 }
 
@@ -220,26 +261,32 @@ fn matches_simple(s: &SimpleSelector, element: &NodeRef) -> bool {
             match op {
                 AttrOp::Present => attr_value.is_some(),
                 AttrOp::Equals => attr_value.as_deref() == value.as_deref(),
-                AttrOp::Includes => {
-                    attr_value.as_deref().map(|v| {
-                        v.split_whitespace().any(|tok| Some(tok) == value.as_deref())
-                    }).unwrap_or(false)
-                }
-                AttrOp::DashMatch => {
-                    attr_value.as_deref().map(|v| {
-                        v == value.as_deref().unwrap_or("") ||
-                        v.starts_with(&format!("{}-", value.as_deref().unwrap_or("")))
-                    }).unwrap_or(false)
-                }
-                AttrOp::Prefix => {
-                    attr_value.as_deref().map(|v| v.starts_with(value.as_deref().unwrap_or(""))).unwrap_or(false)
-                }
-                AttrOp::Suffix => {
-                    attr_value.as_deref().map(|v| v.ends_with(value.as_deref().unwrap_or(""))).unwrap_or(false)
-                }
-                AttrOp::Substring => {
-                    attr_value.as_deref().map(|v| v.contains(value.as_deref().unwrap_or(""))).unwrap_or(false)
-                }
+                AttrOp::Includes => attr_value
+                    .as_deref()
+                    .map(|v| {
+                        v.split_whitespace()
+                            .any(|tok| Some(tok) == value.as_deref())
+                    })
+                    .unwrap_or(false),
+                AttrOp::DashMatch => attr_value
+                    .as_deref()
+                    .map(|v| {
+                        v == value.as_deref().unwrap_or("")
+                            || v.starts_with(&format!("{}-", value.as_deref().unwrap_or("")))
+                    })
+                    .unwrap_or(false),
+                AttrOp::Prefix => attr_value
+                    .as_deref()
+                    .map(|v| v.starts_with(value.as_deref().unwrap_or("")))
+                    .unwrap_or(false),
+                AttrOp::Suffix => attr_value
+                    .as_deref()
+                    .map(|v| v.ends_with(value.as_deref().unwrap_or("")))
+                    .unwrap_or(false),
+                AttrOp::Substring => attr_value
+                    .as_deref()
+                    .map(|v| v.contains(value.as_deref().unwrap_or("")))
+                    .unwrap_or(false),
             }
         }
         SimpleSelector::PseudoClass(pc) => matches_pseudo_class(pc, element),
@@ -252,7 +299,12 @@ fn matches_pseudo_class(pc: &PseudoClass, element: &NodeRef) -> bool {
         PseudoClass::Hover => false, // we don't track hover state here
         PseudoClass::Focus | PseudoClass::FocusVisible | PseudoClass::FocusWithin => {
             // Check user_data for focus flag.
-            element.borrow().user_data.get("__focused").map(|v| v == "true").unwrap_or(false)
+            element
+                .borrow()
+                .user_data
+                .get("__focused")
+                .map(|v| v == "true")
+                .unwrap_or(false)
         }
         PseudoClass::Active => false,
         PseudoClass::Visited => false,
@@ -264,9 +316,7 @@ fn matches_pseudo_class(pc: &PseudoClass, element: &NodeRef) -> bool {
         PseudoClass::Required => get_attribute(element, "required").is_some(),
         PseudoClass::Optional => get_attribute(element, "required").is_none(),
         PseudoClass::Valid | PseudoClass::Invalid => true, // skip validation
-        PseudoClass::Empty => {
-            element.borrow().first_child.is_none()
-        }
+        PseudoClass::Empty => element.borrow().first_child.is_none(),
         PseudoClass::Root => {
             // The root element is the <html> element.
             tag_name(element) == "html"
@@ -284,12 +334,14 @@ fn matches_pseudo_class(pc: &PseudoClass, element: &NodeRef) -> bool {
         PseudoClass::NthChildOf { a, b, selector } => {
             matches_nth_child_of(element, *a, *b, selector)
         }
-        PseudoClass::Is(list) | PseudoClass::Where(list) => {
-            list.selectors.iter().any(|sel| matches_complex(sel, element))
-        }
-        PseudoClass::Not(list) => {
-            !list.selectors.iter().any(|sel| matches_complex(sel, element))
-        }
+        PseudoClass::Is(list) | PseudoClass::Where(list) => list
+            .selectors
+            .iter()
+            .any(|sel| matches_complex(sel, element)),
+        PseudoClass::Not(list) => !list
+            .selectors
+            .iter()
+            .any(|sel| matches_complex(sel, element)),
         PseudoClass::Has(list) => {
             // :has() matches if any descendant matches the relative selector.
             // The relative selector starts with a combinator (>, +, ~, or
@@ -298,8 +350,8 @@ fn matches_pseudo_class(pc: &PseudoClass, element: &NodeRef) -> bool {
         }
         PseudoClass::Lang(lang) => {
             let elem_lang = get_attribute(element, "lang").unwrap_or_default();
-            elem_lang.starts_with(lang) ||
-            (elem_lang.is_empty() && lang == "en") // simplified
+            elem_lang.starts_with(lang) || (elem_lang.is_empty() && lang == "en")
+            // simplified
         }
         PseudoClass::Dir(dir) => {
             let elem_dir = get_attribute(element, "dir").unwrap_or_default();
@@ -322,9 +374,13 @@ fn is_first_of_type(element: &NodeRef) -> bool {
     let mut cursor = element.borrow().previous_sibling.clone();
     while let Some(sib_weak) = cursor {
         if let Some(sib) = sib_weak.upgrade() {
-            if tag_name(&sib) == tag { return false; }
+            if tag_name(&sib) == tag {
+                return false;
+            }
             cursor = sib.borrow().previous_sibling.clone();
-        } else { break; }
+        } else {
+            break;
+        }
     }
     true
 }
@@ -334,9 +390,13 @@ fn is_last_of_type(element: &NodeRef) -> bool {
     let mut cursor = element.borrow().next_sibling.clone();
     while let Some(sib_weak) = cursor {
         if let Some(sib) = sib_weak.upgrade() {
-            if tag_name(&sib) == tag { return false; }
+            if tag_name(&sib) == tag {
+                return false;
+            }
             cursor = sib.borrow().next_sibling.clone();
-        } else { break; }
+        } else {
+            break;
+        }
     }
     true
 }
@@ -354,16 +414,27 @@ fn matches_nth_child(element: &NodeRef, a: i32, b: i32, from_end: bool, of_type:
     let mut siblings: Vec<NodeRef> = Vec::new();
     let mut cursor = parent.borrow().first_child.clone();
     while let Some(child) = cursor {
-        if matches!(child.borrow().kind, NodeKind::Element(_)) {
-            if !of_type || tag_name(&child) == tag {
-                siblings.push(child.clone());
-            }
+        if matches!(child.borrow().kind, NodeKind::Element(_))
+            && (!of_type || tag_name(&child) == tag)
+        {
+            siblings.push(child.clone());
         }
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
-    if from_end { siblings.reverse(); }
-    let pos = siblings.iter().position(|n| n.borrow().id == element.borrow().id);
-    let pos = match pos { Some(p) => p + 1, None => return false };
+    if from_end {
+        siblings.reverse();
+    }
+    let pos = siblings
+        .iter()
+        .position(|n| n.borrow().id == element.borrow().id);
+    let pos = match pos {
+        Some(p) => p + 1,
+        None => return false,
+    };
     // pos must satisfy pos = a*n + b for some integer n >= 0.
     if a == 0 {
         pos == b as usize
@@ -389,15 +460,28 @@ fn matches_nth_child_of(element: &NodeRef, a: i32, b: i32, selector: &SelectorLi
         if matches!(child.borrow().kind, NodeKind::Element(_)) && matches(selector, &child) {
             siblings.push(child.clone());
         }
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
-    let pos = siblings.iter().position(|n| n.borrow().id == element.borrow().id);
-    let pos = match pos { Some(p) => p + 1, None => return false };
+    let pos = siblings
+        .iter()
+        .position(|n| n.borrow().id == element.borrow().id);
+    let pos = match pos {
+        Some(p) => p + 1,
+        None => return false,
+    };
     if a == 0 {
         pos == b as usize
     } else {
         let diff = pos as i32 - b;
-        if a > 0 { diff >= 0 && diff % a == 0 } else { diff <= 0 && diff % a == 0 }
+        if a > 0 {
+            diff >= 0 && diff % a == 0
+        } else {
+            diff <= 0 && diff % a == 0
+        }
     }
 }
 
@@ -408,7 +492,11 @@ fn matches_has(element: &NodeRef, list: &SelectorList) -> bool {
     let mut cursor = element.borrow().first_child.clone();
     while let Some(child) = cursor {
         stack.push(child.clone());
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
     while let Some(descendant) = stack.pop() {
         for sel in &list.selectors {
@@ -429,13 +517,21 @@ fn matches_has(element: &NodeRef, list: &SelectorList) -> bool {
     false
 }
 
-fn matches_complex_anchored(selector: &ComplexSelector, element: &NodeRef, anchor: &NodeRef) -> bool {
+fn matches_complex_anchored(
+    selector: &ComplexSelector,
+    element: &NodeRef,
+    anchor: &NodeRef,
+) -> bool {
     // For :has(> .foo), the selector is "child of anchor: .foo".
     // We check if the subject matches and the combinator chain ends at anchor.
     let n = selector.compounds.len();
-    if n == 0 { return false; }
+    if n == 0 {
+        return false;
+    }
     let subject = &selector.compounds[n - 1].compound;
-    if !matches_compound(subject, element) { return false; }
+    if !matches_compound(subject, element) {
+        return false;
+    }
     if n == 1 {
         // Implicit descendant combinator — anchor must be an ancestor of element.
         return is_ancestor(anchor, element);
@@ -444,7 +540,11 @@ fn matches_complex_anchored(selector: &ComplexSelector, element: &NodeRef, ancho
     matches_combinators_anchored(&selector.compounds[..n - 1], element, anchor)
 }
 
-fn matches_combinators_anchored(compounds: &[CompoundWithCombinator], element: &NodeRef, anchor: &NodeRef) -> bool {
+fn matches_combinators_anchored(
+    compounds: &[CompoundWithCombinator],
+    element: &NodeRef,
+    anchor: &NodeRef,
+) -> bool {
     if compounds.is_empty() {
         // We've consumed all compounds; check if `element` is an ancestor of `anchor`.
         return std::ptr::eq(element.as_ptr(), anchor.as_ptr()) || is_ancestor(anchor, element);
@@ -458,13 +558,15 @@ fn matches_combinators_anchored(compounds: &[CompoundWithCombinator], element: &
             let mut cursor = element.borrow().parent.clone();
             while let Some(parent_weak) = cursor {
                 if let Some(parent) = parent_weak.upgrade() {
-                    if matches_compound(compound, &parent) {
-                        if matches_combinators_anchored(&compounds[..n - 1], &parent, anchor) {
-                            return true;
-                        }
+                    if matches_compound(compound, &parent)
+                        && matches_combinators_anchored(&compounds[..n - 1], &parent, anchor)
+                    {
+                        return true;
                     }
                     cursor = parent.borrow().parent.clone();
-                } else { break; }
+                } else {
+                    break;
+                }
             }
             false
         }
@@ -488,7 +590,9 @@ fn is_ancestor(ancestor: &NodeRef, descendant: &NodeRef) -> bool {
                 return true;
             }
             cursor = parent.borrow().parent.clone();
-        } else { break; }
+        } else {
+            break;
+        }
     }
     false
 }
@@ -496,7 +600,7 @@ fn is_ancestor(ancestor: &NodeRef, descendant: &NodeRef) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom2::{Document, append_child, set_attribute};
+    use crate::dom2::{append_child, set_attribute, Document};
 
     fn make_doc() -> (DocumentHandle, NodeRef) {
         let doc = Document::create();
@@ -584,11 +688,13 @@ mod tests {
         let (doc, root) = make_doc();
         let ul = el(&doc, "ul");
         append_child(&root, ul.clone());
-        let items: Vec<_> = (0..6).map(|_| {
-            let li = el(&doc, "li");
-            append_child(&ul, li.clone());
-            li
-        }).collect();
+        let items: Vec<_> = (0..6)
+            .map(|_| {
+                let li = el(&doc, "li");
+                append_child(&ul, li.clone());
+                li
+            })
+            .collect();
         // 2n+1 = 1, 3, 5 (odd)
         assert!(matches(&parse_simple("li:nth-child(2n+1)"), &items[0]));
         assert!(matches(&parse_simple("li:nth-child(2n+1)"), &items[2]));
@@ -649,7 +755,7 @@ mod tests {
         append_child(&root, div.clone());
         append_child(&div, p.clone());
         append_child(&p, span); // span is inside p, not directly inside div
-        // div:has(> p) — div has a direct child p.
+                                // div:has(> p) — div has a direct child p.
         assert!(matches(&parse_simple("div:has(> p)"), &div));
         // div:has(> span) — div has NO direct child span (it's nested deeper).
         assert!(!matches(&parse_simple("div:has(> span)"), &div));
@@ -699,7 +805,9 @@ mod tests {
                             // Descendant combinator.
                             compounds.push(CompoundWithCombinator {
                                 combinator: current_combinator.take(),
-                                compound: CompoundSelector { simple: std::mem::take(&mut current_simple) },
+                                compound: CompoundSelector {
+                                    simple: std::mem::take(&mut current_simple),
+                                },
                             });
                             current_combinator = Some(Combinator::Descendant);
                         }
@@ -712,7 +820,9 @@ mod tests {
                     if !current_simple.is_empty() {
                         compounds.push(CompoundWithCombinator {
                             combinator: current_combinator.take(),
-                            compound: CompoundSelector { simple: std::mem::take(&mut current_simple) },
+                            compound: CompoundSelector {
+                                simple: std::mem::take(&mut current_simple),
+                            },
                         });
                     }
                     current_combinator = Some(match c {
@@ -741,7 +851,9 @@ mod tests {
         if !current_simple.is_empty() {
             compounds.push(CompoundWithCombinator {
                 combinator: current_combinator.take(),
-                compound: CompoundSelector { simple: current_simple },
+                compound: CompoundSelector {
+                    simple: current_simple,
+                },
             });
         }
         SelectorList {
@@ -750,7 +862,9 @@ mod tests {
     }
 
     fn push_token(token: &mut String, simple: &mut Vec<SimpleSelector>) {
-        if token.is_empty() { return; }
+        if token.is_empty() {
+            return;
+        }
         if token.starts_with('#') {
             simple.push(SimpleSelector::Id(token[1..].to_string()));
         } else if token.starts_with('.') {
@@ -769,7 +883,9 @@ mod tests {
                 "first-child" => PseudoClass::FirstChild,
                 "last-child" => PseudoClass::LastChild,
                 "only-child" => PseudoClass::OnlyChild,
-                "nth-child" => parse_nth(body, false, false).unwrap_or(PseudoClass::Other(body.to_string())),
+                "nth-child" => {
+                    parse_nth(body, false, false).unwrap_or(PseudoClass::Other(body.to_string()))
+                }
                 _ => PseudoClass::Other(body.to_string()),
             };
             simple.push(SimpleSelector::PseudoClass(pc));
@@ -793,8 +909,12 @@ mod tests {
 
     fn parse_an_plus_b(s: &str) -> Option<(i32, i32)> {
         let s = s.trim();
-        if s == "odd" { return Some((2, 1)); }
-        if s == "even" { return Some((2, 0)); }
+        if s == "odd" {
+            return Some((2, 1));
+        }
+        if s == "even" {
+            return Some((2, 0));
+        }
         if !s.contains('n') {
             // Just a number: b.
             let b: i32 = s.parse().ok()?;
@@ -803,11 +923,18 @@ mod tests {
         let parts: Vec<&str> = s.splitn(2, 'n').collect();
         let a_part = parts[0].trim();
         let b_part = parts.get(1).map(|s| s.trim()).unwrap_or("");
-        let a = if a_part.is_empty() || a_part == "+" { 1 }
-                else if a_part == "-" { -1 }
-                else { a_part.parse().ok()? };
-        let b = if b_part.is_empty() { 0 }
-                else { b_part.parse::<i32>().ok().unwrap_or(0) };
+        let a = if a_part.is_empty() || a_part == "+" {
+            1
+        } else if a_part == "-" {
+            -1
+        } else {
+            a_part.parse().ok()?
+        };
+        let b = if b_part.is_empty() {
+            0
+        } else {
+            b_part.parse::<i32>().ok().unwrap_or(0)
+        };
         Some((a, b))
     }
 }

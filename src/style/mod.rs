@@ -6,8 +6,8 @@
 
 pub mod extra;
 
-use crate::css::{Stylesheet, Rule, Value, Color, Unit};
-use crate::dom::{Node, ElementData};
+use crate::css::{Color, Rule, Stylesheet, Unit, Value};
+use crate::dom::Node;
 use std::collections::HashMap;
 
 /// All computed properties the engine cares about. We keep this small and
@@ -20,11 +20,11 @@ pub struct ComputedStyle {
     pub color: Color,
     pub background_color: Color,
     pub background_image: Option<BackgroundImage>,
-    pub font_size: f32,        // px
+    pub font_size: f32, // px
     pub font_weight: u16,
     pub font_style: FontStyle,
     pub font_family: String,
-    pub line_height: f32,      // multiplier (1.5 = 1.5em)
+    pub line_height: f32, // multiplier (1.5 = 1.5em)
     pub text_align: TextAlign,
     pub white_space: WhiteSpace,
     pub margin: EdgeSizes,
@@ -272,7 +272,10 @@ pub struct BoxShadow {
 
 #[derive(Debug, Clone)]
 pub enum BackgroundImage {
-    LinearGradient { angle: f32, stops: Vec<(f32, Color)> },
+    LinearGradient {
+        angle: f32,
+        stops: Vec<(f32, Color)>,
+    },
     Url(String),
 }
 
@@ -464,18 +467,17 @@ impl ComputedStyle {
                 s.display = Display::None;
             }
             // Block-level.
-            "html" | "body" | "div" | "section" | "article" | "header" | "footer" |
-            "main" | "nav" | "aside" | "p" | "ul" | "ol" | "li" | "blockquote" |
-            "pre" | "form" | "fieldset" | "hr" | "table" | "thead" | "tbody" |
-            "tr" | "td" | "th" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" |
-            "figure" | "figcaption" | "details" | "summary" | "dialog" => {
+            "html" | "body" | "div" | "section" | "article" | "header" | "footer" | "main"
+            | "nav" | "aside" | "p" | "ul" | "ol" | "li" | "blockquote" | "pre" | "form"
+            | "fieldset" | "hr" | "table" | "thead" | "tbody" | "tr" | "td" | "th" | "h1"
+            | "h2" | "h3" | "h4" | "h5" | "h6" | "figure" | "figcaption" | "details"
+            | "summary" | "dialog" => {
                 s.display = Display::Block;
             }
             // Inline.
-            "a" | "span" | "b" | "strong" | "i" | "em" | "code" | "tt" | "u" |
-            "small" | "sub" | "sup" | "label" | "abbr" | "cite" | "q" | "mark" |
-            "time" | "kbd" | "samp" | "var" | "input" | "br" | "button" |
-            "select" | "textarea" => {
+            "a" | "span" | "b" | "strong" | "i" | "em" | "code" | "tt" | "u" | "small" | "sub"
+            | "sup" | "label" | "abbr" | "cite" | "q" | "mark" | "time" | "kbd" | "samp"
+            | "var" | "input" | "br" | "button" | "select" | "textarea" => {
                 s.display = Display::Inline;
             }
             // Inline-block — images respect width/height but flow inline.
@@ -488,36 +490,105 @@ impl ComputedStyle {
         }
         // Heading sizes — relative to default 16px.
         match tag {
-            "h1" => { s.font_size = 32.0; s.font_weight = 700; s.margin.top = 21.4; s.margin.bottom = 21.4; }
-            "h2" => { s.font_size = 24.0; s.font_weight = 700; s.margin.top = 19.1; s.margin.bottom = 19.1; }
-            "h3" => { s.font_size = 18.7; s.font_weight = 700; s.margin.top = 18.7; s.margin.bottom = 18.7; }
-            "h4" => { s.font_size = 16.0; s.font_weight = 700; s.margin.top = 21.3; s.margin.bottom = 21.3; }
-            "h5" => { s.font_size = 13.3; s.font_weight = 700; s.margin.top = 22.2; s.margin.bottom = 22.2; }
-            "h6" => { s.font_size = 10.7; s.font_weight = 700; s.margin.top = 24.6; s.margin.bottom = 24.6; }
-            "p" => { s.margin.top = 16.0; s.margin.bottom = 16.0; }
-            "ul" | "ol" => { s.margin.top = 16.0; s.margin.bottom = 16.0; s.padding.left = 40.0; }
-            "blockquote" => { s.margin.top = 16.0; s.margin.bottom = 16.0; s.padding.left = 20.0; s.color = Color::rgb(100, 100, 100); }
-            "hr" => { s.margin.top = 8.0; s.margin.bottom = 8.0; s.border.bottom = BorderEdge { width: 1.0, color: Color::rgb(200, 200, 200), style: BorderStyle::Solid }; }
-            "pre" => { s.font_family = "monospace".into(); s.font_size = 13.0; s.margin.top = 16.0; s.margin.bottom = 16.0; }
-            "code" => { s.font_family = "monospace".into(); }
-            "b" | "strong" => { s.font_weight = 700; }
-            "i" | "em" => { s.font_style = FontStyle::Italic; }
-            "small" => { s.font_size = 12.0; }
+            "h1" => {
+                s.font_size = 32.0;
+                s.font_weight = 700;
+                s.margin.top = 21.4;
+                s.margin.bottom = 21.4;
+            }
+            "h2" => {
+                s.font_size = 24.0;
+                s.font_weight = 700;
+                s.margin.top = 19.1;
+                s.margin.bottom = 19.1;
+            }
+            "h3" => {
+                s.font_size = 18.7;
+                s.font_weight = 700;
+                s.margin.top = 18.7;
+                s.margin.bottom = 18.7;
+            }
+            "h4" => {
+                s.font_size = 16.0;
+                s.font_weight = 700;
+                s.margin.top = 21.3;
+                s.margin.bottom = 21.3;
+            }
+            "h5" => {
+                s.font_size = 13.3;
+                s.font_weight = 700;
+                s.margin.top = 22.2;
+                s.margin.bottom = 22.2;
+            }
+            "h6" => {
+                s.font_size = 10.7;
+                s.font_weight = 700;
+                s.margin.top = 24.6;
+                s.margin.bottom = 24.6;
+            }
+            "p" => {
+                s.margin.top = 16.0;
+                s.margin.bottom = 16.0;
+            }
+            "ul" | "ol" => {
+                s.margin.top = 16.0;
+                s.margin.bottom = 16.0;
+                s.padding.left = 40.0;
+            }
+            "blockquote" => {
+                s.margin.top = 16.0;
+                s.margin.bottom = 16.0;
+                s.padding.left = 20.0;
+                s.color = Color::rgb(100, 100, 100);
+            }
+            "hr" => {
+                s.margin.top = 8.0;
+                s.margin.bottom = 8.0;
+                s.border.bottom = BorderEdge {
+                    width: 1.0,
+                    color: Color::rgb(200, 200, 200),
+                    style: BorderStyle::Solid,
+                };
+            }
+            "pre" => {
+                s.font_family = "monospace".into();
+                s.font_size = 13.0;
+                s.margin.top = 16.0;
+                s.margin.bottom = 16.0;
+            }
+            "code" => {
+                s.font_family = "monospace".into();
+            }
+            "b" | "strong" => {
+                s.font_weight = 700;
+            }
+            "i" | "em" => {
+                s.font_style = FontStyle::Italic;
+            }
+            "small" => {
+                s.font_size = 12.0;
+            }
             // Form element defaults — give them a sensible size and padding.
             "input" => {
-                s.padding.top = 6.0; s.padding.bottom = 6.0;
-                s.padding.left = 8.0; s.padding.right = 8.0;
+                s.padding.top = 6.0;
+                s.padding.bottom = 6.0;
+                s.padding.left = 8.0;
+                s.padding.right = 8.0;
                 s.width = Some(Length::Px(150.0));
                 s.height = Some(Length::Px(32.0));
             }
             "button" => {
-                s.padding.top = 6.0; s.padding.bottom = 6.0;
-                s.padding.left = 16.0; s.padding.right = 16.0;
+                s.padding.top = 6.0;
+                s.padding.bottom = 6.0;
+                s.padding.left = 16.0;
+                s.padding.right = 16.0;
                 s.height = Some(Length::Px(32.0));
             }
             "textarea" => {
-                s.padding.top = 6.0; s.padding.bottom = 6.0;
-                s.padding.left = 8.0; s.padding.right = 8.0;
+                s.padding.top = 6.0;
+                s.padding.bottom = 6.0;
+                s.padding.left = 8.0;
+                s.padding.right = 8.0;
                 s.width = Some(Length::Px(300.0));
                 s.height = Some(Length::Px(80.0));
             }
@@ -541,9 +612,8 @@ impl ComputedStyle {
                 s.height = Some(Length::Px(150.0));
             }
             // SVG child elements — inline by default, but we handle them specially.
-            "rect" | "circle" | "ellipse" | "line" | "polyline" | "polygon" |
-            "path" | "text" | "g" | "defs" | "linearGradient" | "radialGradient" |
-            "stop" | "use" | "symbol" => {
+            "rect" | "circle" | "ellipse" | "line" | "polyline" | "polygon" | "path" | "text"
+            | "g" | "defs" | "linearGradient" | "radialGradient" | "stop" | "use" | "symbol" => {
                 s.display = Display::None; // Hidden from normal layout — rendered by SVG renderer.
             }
             _ => {}
@@ -566,10 +636,7 @@ pub struct StyleTree<'a> {
 }
 
 /// Build the style tree by walking the DOM and applying the cascade.
-pub fn build_style_tree<'a>(
-    root: &'a Node,
-    stylesheet: &'a Stylesheet,
-) -> StyleTree<'a> {
+pub fn build_style_tree<'a>(root: &'a Node, stylesheet: &'a Stylesheet) -> StyleTree<'a> {
     let matches = crate::css::collect_matches(stylesheet, root);
     // Index by Node pointer for quick lookup.
     let mut by_ptr: HashMap<*const Node, Vec<&Rule>> = HashMap::new();
@@ -627,7 +694,9 @@ fn build_recursive<'a>(
                 let inline_rules: Vec<&Rule> = inline_sheet.rules.iter().collect();
                 apply_rules(&mut style, &inline_rules, parent_style);
             }
-            let children = e.children.iter()
+            let children = e
+                .children
+                .iter()
                 .map(|c| build_recursive(c, &style, matches, stylesheet))
                 .collect();
             (style, children)
@@ -636,7 +705,9 @@ fn build_recursive<'a>(
             let mut style = parent_style.clone();
             // Force document to be a block container.
             style.display = Display::Block;
-            let children = d.children.iter()
+            let children = d
+                .children
+                .iter()
                 .map(|c| build_recursive(c, &style, matches, stylesheet))
                 .collect();
             (style, children)
@@ -646,7 +717,11 @@ fn build_recursive<'a>(
             (parent_style.clone(), Vec::new())
         }
     };
-    StyleTree { node, style, children }
+    StyleTree {
+        node,
+        style,
+        children,
+    }
 }
 
 fn apply_rules(style: &mut ComputedStyle, rules: &[&Rule], parent: &ComputedStyle) {
@@ -697,9 +772,12 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
             }
         }
         "color" => {
-            if let Value::Color(c) = val { style.color = c.clone(); }
-            else if let Value::Keyword(k) = val {
-                if k == "inherit" { style.color = parent.color; }
+            if let Value::Color(c) = val {
+                style.color = *c;
+            } else if let Value::Keyword(k) = val {
+                if k == "inherit" {
+                    style.color = parent.color;
+                }
             }
         }
         "background" | "background-color" => {
@@ -707,7 +785,9 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
             let mut found_gradient = false;
             match val {
                 Value::Keyword(k) => {
-                    if k.starts_with("__linear-gradient__:") || k.starts_with("__radial-gradient__:") {
+                    if k.starts_with("__linear-gradient__:")
+                        || k.starts_with("__radial-gradient__:")
+                    {
                         style.background_image = parse_background_image(val);
                         found_gradient = true;
                     }
@@ -715,18 +795,29 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
                 Value::List(list) => {
                     for v in list {
                         match v {
-                            Value::Color(c) => { style.background_color = c.clone(); }
-                            Value::Keyword(k) if k.starts_with("__linear-gradient__:") || k.starts_with("__radial-gradient__:") => {
+                            Value::Color(c) => {
+                                style.background_color = *c;
+                            }
+                            Value::Keyword(k)
+                                if k.starts_with("__linear-gradient__:")
+                                    || k.starts_with("__radial-gradient__:") =>
+                            {
                                 style.background_image = parse_background_image(v);
                                 found_gradient = true;
                             }
-                            Value::String(s) => { style.background_image = Some(BackgroundImage::Url(s.clone())); }
+                            Value::String(s) => {
+                                style.background_image = Some(BackgroundImage::Url(s.clone()));
+                            }
                             _ => {}
                         }
                     }
                 }
-                Value::Color(c) => { style.background_color = c.clone(); }
-                Value::String(s) => { style.background_image = Some(BackgroundImage::Url(s.clone())); }
+                Value::Color(c) => {
+                    style.background_color = *c;
+                }
+                Value::String(s) => {
+                    style.background_image = Some(BackgroundImage::Url(s.clone()));
+                }
                 _ => {}
             }
             let _ = found_gradient;
@@ -738,19 +829,27 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
                 style.font_size = parent.font_size * p / 100.0;
             } else if let Value::Keyword(k) = val {
                 style.font_size = match k.as_str() {
-                    "xx-small" => 9.0, "x-small" => 10.0, "small" => 13.0,
-                    "medium" => 16.0, "large" => 18.0, "x-large" => 24.0,
-                    "xx-large" => 32.0, "smaller" => parent.font_size * 0.83,
+                    "xx-small" => 9.0,
+                    "x-small" => 10.0,
+                    "small" => 13.0,
+                    "medium" => 16.0,
+                    "large" => 18.0,
+                    "x-large" => 24.0,
+                    "xx-large" => 32.0,
+                    "smaller" => parent.font_size * 0.83,
                     "larger" => parent.font_size * 1.2,
                     _ => style.font_size,
                 };
             }
         }
         "font-weight" => {
-            if let Value::Number(n) = val { style.font_weight = *n as u16; }
-            else if let Value::Keyword(k) = val {
+            if let Value::Number(n) = val {
+                style.font_weight = *n as u16;
+            } else if let Value::Keyword(k) = val {
                 style.font_weight = match k.as_str() {
-                    "normal" => 400, "bold" => 700, "bolder" => (parent.font_weight + 100).min(900),
+                    "normal" => 400,
+                    "bold" => 700,
+                    "bolder" => (parent.font_weight + 100).min(900),
                     "lighter" => (parent.font_weight - 100).max(100),
                     _ => style.font_weight,
                 };
@@ -765,41 +864,89 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
             }
         }
         "font-family" => {
-            if let Value::Keyword(k) = val { style.font_family = k.clone(); }
-            else if let Value::List(list) = val {
+            if let Value::Keyword(k) = val {
+                style.font_family = k.clone();
+            } else if let Value::List(list) = val {
                 // Take the first keyword.
                 for v in list {
-                    if let Value::Keyword(k) = v { style.font_family = k.clone(); break; }
+                    if let Value::Keyword(k) = v {
+                        style.font_family = k.clone();
+                        break;
+                    }
                 }
             }
         }
         "line-height" => {
-            if let Value::Number(n) = val { style.line_height = *n; }
-            else if let Value::Length(n, Unit::Px) = val { style.line_height = *n / style.font_size; }
-            else if let Value::Percentage(p) = val { style.line_height = *p / 100.0; }
+            if let Value::Number(n) = val {
+                style.line_height = *n;
+            } else if let Value::Length(n, Unit::Px) = val {
+                style.line_height = *n / style.font_size;
+            } else if let Value::Percentage(p) = val {
+                style.line_height = *p / 100.0;
+            }
         }
         "text-align" => {
             if let Value::Keyword(k) = val {
                 style.text_align = match k.as_str() {
-                    "left" => TextAlign::Left, "right" => TextAlign::Right,
-                    "center" => TextAlign::Center, "justify" => TextAlign::Justify,
+                    "left" => TextAlign::Left,
+                    "right" => TextAlign::Right,
+                    "center" => TextAlign::Center,
+                    "justify" => TextAlign::Justify,
                     _ => return,
                 };
             }
         }
         // Shorthands.
-        "margin" => { apply_edge_shorthand(&mut style.margin, val, parent); }
-        "padding" => { apply_edge_shorthand(&mut style.padding, val, parent); }
-        "border" => { apply_border_shorthand(&mut style.border, val, parent); }
+        "margin" => {
+            apply_edge_shorthand(&mut style.margin, val, parent);
+        }
+        "padding" => {
+            apply_edge_shorthand(&mut style.padding, val, parent);
+        }
+        "border" => {
+            apply_border_shorthand(&mut style.border, val, parent);
+        }
         // Longhands.
-        "margin-top" => { if let Some(v) = to_length(val, parent) { style.margin.top = v; } }
-        "margin-right" => { if let Some(v) = to_length(val, parent) { style.margin.right = v; } }
-        "margin-bottom" => { if let Some(v) = to_length(val, parent) { style.margin.bottom = v; } }
-        "margin-left" => { if let Some(v) = to_length(val, parent) { style.margin.left = v; } }
-        "padding-top" => { if let Some(v) = to_length(val, parent) { style.padding.top = v; } }
-        "padding-right" => { if let Some(v) = to_length(val, parent) { style.padding.right = v; } }
-        "padding-bottom" => { if let Some(v) = to_length(val, parent) { style.padding.bottom = v; } }
-        "padding-left" => { if let Some(v) = to_length(val, parent) { style.padding.left = v; } }
+        "margin-top" => {
+            if let Some(v) = to_length(val, parent) {
+                style.margin.top = v;
+            }
+        }
+        "margin-right" => {
+            if let Some(v) = to_length(val, parent) {
+                style.margin.right = v;
+            }
+        }
+        "margin-bottom" => {
+            if let Some(v) = to_length(val, parent) {
+                style.margin.bottom = v;
+            }
+        }
+        "margin-left" => {
+            if let Some(v) = to_length(val, parent) {
+                style.margin.left = v;
+            }
+        }
+        "padding-top" => {
+            if let Some(v) = to_length(val, parent) {
+                style.padding.top = v;
+            }
+        }
+        "padding-right" => {
+            if let Some(v) = to_length(val, parent) {
+                style.padding.right = v;
+            }
+        }
+        "padding-bottom" => {
+            if let Some(v) = to_length(val, parent) {
+                style.padding.bottom = v;
+            }
+        }
+        "padding-left" => {
+            if let Some(v) = to_length(val, parent) {
+                style.padding.left = v;
+            }
+        }
         "border-width" => {
             let v = match val {
                 Value::Length(n, Unit::Px) => Some(*n),
@@ -811,23 +958,39 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
                 style.border.left.width = v;
                 style.border.right.width = v;
                 if v > 0.0 {
-                    if style.border.top.style == BorderStyle::None { style.border.top.style = BorderStyle::Solid; }
-                    if style.border.bottom.style == BorderStyle::None { style.border.bottom.style = BorderStyle::Solid; }
-                    if style.border.left.style == BorderStyle::None { style.border.left.style = BorderStyle::Solid; }
-                    if style.border.right.style == BorderStyle::None { style.border.right.style = BorderStyle::Solid; }
-                    if style.border.top.color == Color::TRANSPARENT { style.border.top.color = style.color; }
-                    if style.border.bottom.color == Color::TRANSPARENT { style.border.bottom.color = style.color; }
-                    if style.border.left.color == Color::TRANSPARENT { style.border.left.color = style.color; }
-                    if style.border.right.color == Color::TRANSPARENT { style.border.right.color = style.color; }
+                    if style.border.top.style == BorderStyle::None {
+                        style.border.top.style = BorderStyle::Solid;
+                    }
+                    if style.border.bottom.style == BorderStyle::None {
+                        style.border.bottom.style = BorderStyle::Solid;
+                    }
+                    if style.border.left.style == BorderStyle::None {
+                        style.border.left.style = BorderStyle::Solid;
+                    }
+                    if style.border.right.style == BorderStyle::None {
+                        style.border.right.style = BorderStyle::Solid;
+                    }
+                    if style.border.top.color == Color::TRANSPARENT {
+                        style.border.top.color = style.color;
+                    }
+                    if style.border.bottom.color == Color::TRANSPARENT {
+                        style.border.bottom.color = style.color;
+                    }
+                    if style.border.left.color == Color::TRANSPARENT {
+                        style.border.left.color = style.color;
+                    }
+                    if style.border.right.color == Color::TRANSPARENT {
+                        style.border.right.color = style.color;
+                    }
                 }
             }
         }
         "border-color" => {
             if let Value::Color(c) = val {
-                style.border.top.color = c.clone();
-                style.border.bottom.color = c.clone();
-                style.border.left.color = c.clone();
-                style.border.right.color = c.clone();
+                style.border.top.color = *c;
+                style.border.bottom.color = *c;
+                style.border.left.color = *c;
+                style.border.right.color = *c;
             }
         }
         "border-style" => {
@@ -844,14 +1007,30 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
                 style.border.right.style = bs;
             }
         }
-        "border-top" => { apply_single_border(&mut style.border.top, val, parent, &style.color); }
-        "border-right" => { apply_single_border(&mut style.border.right, val, parent, &style.color); }
-        "border-bottom" => { apply_single_border(&mut style.border.bottom, val, parent, &style.color); }
-        "border-left" => { apply_single_border(&mut style.border.left, val, parent, &style.color); }
-        "width" => { style.width = to_length_opt(val, parent); }
-        "height" => { style.height = to_length_opt(val, parent); }
-        "min-width" => { style.min_width = to_length_opt(val, parent); }
-        "max-width" => { style.max_width = to_length_opt(val, parent); }
+        "border-top" => {
+            apply_single_border(&mut style.border.top, val, parent, &style.color);
+        }
+        "border-right" => {
+            apply_single_border(&mut style.border.right, val, parent, &style.color);
+        }
+        "border-bottom" => {
+            apply_single_border(&mut style.border.bottom, val, parent, &style.color);
+        }
+        "border-left" => {
+            apply_single_border(&mut style.border.left, val, parent, &style.color);
+        }
+        "width" => {
+            style.width = to_length_opt(val, parent);
+        }
+        "height" => {
+            style.height = to_length_opt(val, parent);
+        }
+        "min-width" => {
+            style.min_width = to_length_opt(val, parent);
+        }
+        "max-width" => {
+            style.max_width = to_length_opt(val, parent);
+        }
         "position" => {
             if let Value::Keyword(k) = val {
                 style.position = match k.as_str() {
@@ -863,14 +1042,25 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
                 };
             }
         }
-        "top" => { style.top = to_length_opt(val, parent); }
-        "right" => { style.right = to_length_opt(val, parent); }
-        "bottom" => { style.bottom = to_length_opt(val, parent); }
-        "left" => { style.left = to_length_opt(val, parent); }
+        "top" => {
+            style.top = to_length_opt(val, parent);
+        }
+        "right" => {
+            style.right = to_length_opt(val, parent);
+        }
+        "bottom" => {
+            style.bottom = to_length_opt(val, parent);
+        }
+        "left" => {
+            style.left = to_length_opt(val, parent);
+        }
         "z-index" => {
-            if let Value::Number(n) = val { style.z_index = Some(*n as i32); }
-            else if let Value::Keyword(k) = val {
-                if k == "auto" { style.z_index = None; }
+            if let Value::Number(n) = val {
+                style.z_index = Some(*n as i32);
+            } else if let Value::Keyword(k) = val {
+                if k == "auto" {
+                    style.z_index = None;
+                }
             }
         }
         "overflow" => {
@@ -884,7 +1074,9 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
             }
         }
         "opacity" => {
-            if let Value::Number(n) = val { style.opacity = (*n).clamp(0.0, 1.0); }
+            if let Value::Number(n) = val {
+                style.opacity = (*n).clamp(0.0, 1.0);
+            }
         }
         "border-radius" => {
             let v = match val {
@@ -893,12 +1085,33 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
                 Value::Percentage(p) => *p,
                 _ => return,
             };
-            style.border_radius = BorderRadius { top_left: v, top_right: v, bottom_left: v, bottom_right: v };
+            style.border_radius = BorderRadius {
+                top_left: v,
+                top_right: v,
+                bottom_left: v,
+                bottom_right: v,
+            };
         }
-        "border-top-left-radius" => { if let Some(v) = to_length(val, parent) { style.border_radius.top_left = v; } }
-        "border-top-right-radius" => { if let Some(v) = to_length(val, parent) { style.border_radius.top_right = v; } }
-        "border-bottom-left-radius" => { if let Some(v) = to_length(val, parent) { style.border_radius.bottom_left = v; } }
-        "border-bottom-right-radius" => { if let Some(v) = to_length(val, parent) { style.border_radius.bottom_right = v; } }
+        "border-top-left-radius" => {
+            if let Some(v) = to_length(val, parent) {
+                style.border_radius.top_left = v;
+            }
+        }
+        "border-top-right-radius" => {
+            if let Some(v) = to_length(val, parent) {
+                style.border_radius.top_right = v;
+            }
+        }
+        "border-bottom-left-radius" => {
+            if let Some(v) = to_length(val, parent) {
+                style.border_radius.bottom_left = v;
+            }
+        }
+        "border-bottom-right-radius" => {
+            if let Some(v) = to_length(val, parent) {
+                style.border_radius.bottom_right = v;
+            }
+        }
         "box-shadow" => {
             style.box_shadow = parse_box_shadow(val);
         }
@@ -949,13 +1162,19 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
             }
         }
         "gap" => {
-            if let Value::Length(n, Unit::Px) = val { style.gap = *n; }
+            if let Value::Length(n, Unit::Px) = val {
+                style.gap = *n;
+            }
         }
         "flex-grow" => {
-            if let Value::Number(n) = val { style.flex_grow = *n; }
+            if let Value::Number(n) = val {
+                style.flex_grow = *n;
+            }
         }
         "flex-shrink" => {
-            if let Value::Number(n) = val { style.flex_shrink = *n; }
+            if let Value::Number(n) = val {
+                style.flex_shrink = *n;
+            }
         }
         "flex-basis" => {
             style.flex_basis = to_length_opt(val, parent);
@@ -963,20 +1182,50 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
         "flex" => {
             // flex: <grow> <shrink> <basis>
             match val {
-                Value::Number(n) => { style.flex_grow = *n; style.flex_shrink = 1.0; style.flex_basis = Some(Length::Px(0.0)); }
-                Value::Keyword(k) if k == "auto" => { style.flex_grow = 1.0; style.flex_shrink = 1.0; style.flex_basis = Some(Length::Auto); }
-                Value::Keyword(k) if k == "none" => { style.flex_grow = 0.0; style.flex_shrink = 0.0; style.flex_basis = Some(Length::Auto); }
+                Value::Number(n) => {
+                    style.flex_grow = *n;
+                    style.flex_shrink = 1.0;
+                    style.flex_basis = Some(Length::Px(0.0));
+                }
+                Value::Keyword(k) if k == "auto" => {
+                    style.flex_grow = 1.0;
+                    style.flex_shrink = 1.0;
+                    style.flex_basis = Some(Length::Auto);
+                }
+                Value::Keyword(k) if k == "none" => {
+                    style.flex_grow = 0.0;
+                    style.flex_shrink = 0.0;
+                    style.flex_basis = Some(Length::Auto);
+                }
                 Value::List(list) => {
-                    let mut grow = 1.0; let mut shrink = 1.0; let mut basis: Option<Length> = None;
+                    let mut grow = 1.0;
+                    let mut shrink = 1.0;
+                    let mut basis: Option<Length> = None;
                     for v in list {
                         match v {
-                            Value::Number(n) => { if grow == 1.0 && basis.is_none() { grow = *n; } else { shrink = *n; } }
-                            Value::Length(n, unit) => { basis = Some(match unit { Unit::Px => Length::Px(*n), Unit::Em => Length::Em(*n), _ => Length::Px(*n) }); }
-                            Value::Keyword(k) if k == "auto" => { basis = Some(Length::Auto); }
+                            Value::Number(n) => {
+                                if grow == 1.0 && basis.is_none() {
+                                    grow = *n;
+                                } else {
+                                    shrink = *n;
+                                }
+                            }
+                            Value::Length(n, unit) => {
+                                basis = Some(match unit {
+                                    Unit::Px => Length::Px(*n),
+                                    Unit::Em => Length::Em(*n),
+                                    _ => Length::Px(*n),
+                                });
+                            }
+                            Value::Keyword(k) if k == "auto" => {
+                                basis = Some(Length::Auto);
+                            }
                             _ => {}
                         }
                     }
-                    style.flex_grow = grow; style.flex_shrink = shrink; style.flex_basis = basis;
+                    style.flex_grow = grow;
+                    style.flex_shrink = shrink;
+                    style.flex_basis = basis;
                 }
                 _ => {}
             }
@@ -1000,7 +1249,9 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
             }
         }
         "gap" => {
-            if let Value::Length(n, Unit::Px) = val { style.gap = *n; }
+            if let Value::Length(n, Unit::Px) = val {
+                style.gap = *n;
+            }
         }
         // ===== New v2 properties =====
         "float" => {
@@ -1090,10 +1341,14 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
             }
         }
         "letter-spacing" => {
-            if let Value::Length(n, _) = val { style.letter_spacing = *n; }
+            if let Value::Length(n, _) = val {
+                style.letter_spacing = *n;
+            }
         }
         "word-spacing" => {
-            if let Value::Length(n, _) = val { style.word_spacing = *n; }
+            if let Value::Length(n, _) = val {
+                style.word_spacing = *n;
+            }
         }
         "list-style" | "list-style-type" => {
             if let Value::Keyword(k) = val {
@@ -1138,10 +1393,14 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
             }
         }
         "outline-width" => {
-            if let Value::Length(n, Unit::Px) = val { style.outline_width = *n; }
+            if let Value::Length(n, Unit::Px) = val {
+                style.outline_width = *n;
+            }
         }
         "outline-color" => {
-            if let Value::Color(c) = val { style.outline_color = *c; }
+            if let Value::Color(c) = val {
+                style.outline_color = *c;
+            }
         }
         "outline-style" => {
             if let Value::Keyword(k) = val {
@@ -1207,14 +1466,18 @@ fn apply_decl(style: &mut ComputedStyle, decl: &crate::css::Declaration, parent:
                     Value::Color(c) => format!("#{:02x}{:02x}{:02x}{:02x}", c.r, c.g, c.b, c.a),
                     Value::Number(n) => n.to_string(),
                     Value::Percentage(p) => format!("{}%", p),
-                    Value::List(list) => list.iter().map(|v| match v {
-                        Value::Keyword(k) => k.clone(),
-                        Value::String(s) => s.clone(),
-                        Value::Length(n, Unit::Px) => format!("{}px", n),
-                        Value::Number(n) => n.to_string(),
-                        Value::Percentage(p) => format!("{}%", p),
-                        _ => format!("{:?}", v),
-                    }).collect::<Vec<_>>().join(" "),
+                    Value::List(list) => list
+                        .iter()
+                        .map(|v| match v {
+                            Value::Keyword(k) => k.clone(),
+                            Value::String(s) => s.clone(),
+                            Value::Length(n, Unit::Px) => format!("{}px", n),
+                            Value::Number(n) => n.to_string(),
+                            Value::Percentage(p) => format!("{}%", p),
+                            _ => format!("{:?}", v),
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" "),
                     _ => format!("{:?}", val),
                 };
                 style.property_store.insert(prop.to_string(), val_str);
@@ -1231,12 +1494,14 @@ fn parse_transform(val: &Value) -> Option<Transform> {
     };
     // Transforms are stored as __function__:args keywords by the CSS parser.
     // For now, handle simple cases.
-    if k == "none" { return None; }
+    if k == "none" {
+        return None;
+    }
     // Try to parse translate(x, y), rotate(deg), scale(x, y)
     // The CSS parser stores these as keywords like "__translate__:10px,20px"
     if let Some(args) = k.strip_prefix("__translate__:") {
         let parts: Vec<&str> = args.split(',').collect();
-        let x = parts.get(0).and_then(|s| parse_px(s)).unwrap_or(0.0);
+        let x = parts.first().and_then(|s| parse_px(s)).unwrap_or(0.0);
         let y = parts.get(1).and_then(|s| parse_px(s)).unwrap_or(0.0);
         return Some(Transform::Translate(x, y));
     }
@@ -1246,8 +1511,14 @@ fn parse_transform(val: &Value) -> Option<Transform> {
     }
     if let Some(args) = k.strip_prefix("__scale__:") {
         let parts: Vec<&str> = args.split(',').collect();
-        let x = parts.get(0).and_then(|s| s.trim().parse::<f32>().ok()).unwrap_or(1.0);
-        let y = parts.get(1).and_then(|s| s.trim().parse::<f32>().ok()).unwrap_or(x);
+        let x = parts
+            .first()
+            .and_then(|s| s.trim().parse::<f32>().ok())
+            .unwrap_or(1.0);
+        let y = parts
+            .get(1)
+            .and_then(|s| s.trim().parse::<f32>().ok())
+            .unwrap_or(x);
         return Some(Transform::Scale(x, y));
     }
     None
@@ -1264,13 +1535,35 @@ fn apply_edge_shorthand(edges: &mut EdgeSizes, val: &Value, parent: &ComputedSty
     };
     let mut nums: Vec<f32> = Vec::new();
     for v in &values {
-        if let Some(n) = to_length(v, parent) { nums.push(n); }
+        if let Some(n) = to_length(v, parent) {
+            nums.push(n);
+        }
     }
     match nums.len() {
-        1 => { edges.top = nums[0]; edges.right = nums[0]; edges.bottom = nums[0]; edges.left = nums[0]; }
-        2 => { edges.top = nums[0]; edges.right = nums[1]; edges.bottom = nums[0]; edges.left = nums[1]; }
-        3 => { edges.top = nums[0]; edges.right = nums[1]; edges.bottom = nums[2]; edges.left = nums[1]; }
-        4 => { edges.top = nums[0]; edges.right = nums[1]; edges.bottom = nums[2]; edges.left = nums[3]; }
+        1 => {
+            edges.top = nums[0];
+            edges.right = nums[0];
+            edges.bottom = nums[0];
+            edges.left = nums[0];
+        }
+        2 => {
+            edges.top = nums[0];
+            edges.right = nums[1];
+            edges.bottom = nums[0];
+            edges.left = nums[1];
+        }
+        3 => {
+            edges.top = nums[0];
+            edges.right = nums[1];
+            edges.bottom = nums[2];
+            edges.left = nums[1];
+        }
+        4 => {
+            edges.top = nums[0];
+            edges.right = nums[1];
+            edges.bottom = nums[2];
+            edges.left = nums[3];
+        }
         _ => {}
     }
 }
@@ -1287,27 +1580,46 @@ fn apply_border_shorthand(borders: &mut BorderEdges, val: &Value, parent: &Compu
     for v in values {
         match v {
             Value::Length(n, Unit::Px) => width = *n,
-            Value::Color(c) => color = c.clone(),
-            Value::Keyword(k) => {
-                match k.as_str() {
-                    "solid" => style = BorderStyle::Solid,
-                    "dotted" => style = BorderStyle::Dotted,
-                    "dashed" => style = BorderStyle::Dashed,
-                    "none" => style = BorderStyle::None,
-                    _ => {}
-                }
-            }
+            Value::Color(c) => color = *c,
+            Value::Keyword(k) => match k.as_str() {
+                "solid" => style = BorderStyle::Solid,
+                "dotted" => style = BorderStyle::Dotted,
+                "dashed" => style = BorderStyle::Dashed,
+                "none" => style = BorderStyle::None,
+                _ => {}
+            },
             _ => {}
         }
     }
-    borders.top = BorderEdge { width, color: color.clone(), style };
-    borders.bottom = BorderEdge { width, color: color.clone(), style };
-    borders.left = BorderEdge { width, color: color.clone(), style };
-    borders.right = BorderEdge { width, color, style };
+    borders.top = BorderEdge {
+        width,
+        color,
+        style,
+    };
+    borders.bottom = BorderEdge {
+        width,
+        color,
+        style,
+    };
+    borders.left = BorderEdge {
+        width,
+        color,
+        style,
+    };
+    borders.right = BorderEdge {
+        width,
+        color,
+        style,
+    };
     let _ = parent;
 }
 
-fn apply_single_border(edge: &mut BorderEdge, val: &Value, _parent: &ComputedStyle, _inherit_color: &Color) {
+fn apply_single_border(
+    edge: &mut BorderEdge,
+    val: &Value,
+    _parent: &ComputedStyle,
+    _inherit_color: &Color,
+) {
     let values: Vec<&Value> = match val {
         Value::List(list) => list.iter().collect(),
         _ => vec![val],
@@ -1315,16 +1627,14 @@ fn apply_single_border(edge: &mut BorderEdge, val: &Value, _parent: &ComputedSty
     for v in values {
         match v {
             Value::Length(n, Unit::Px) => edge.width = *n,
-            Value::Color(c) => edge.color = c.clone(),
-            Value::Keyword(k) => {
-                match k.as_str() {
-                    "solid" => edge.style = BorderStyle::Solid,
-                    "dotted" => edge.style = BorderStyle::Dotted,
-                    "dashed" => edge.style = BorderStyle::Dashed,
-                    "none" => edge.style = BorderStyle::None,
-                    _ => {}
-                }
-            }
+            Value::Color(c) => edge.color = *c,
+            Value::Keyword(k) => match k.as_str() {
+                "solid" => edge.style = BorderStyle::Solid,
+                "dotted" => edge.style = BorderStyle::Dotted,
+                "dashed" => edge.style = BorderStyle::Dashed,
+                "none" => edge.style = BorderStyle::None,
+                _ => {}
+            },
             _ => {}
         }
     }
@@ -1340,7 +1650,7 @@ fn to_length(val: &Value, parent: &ComputedStyle) -> Option<f32> {
     }
 }
 
-fn to_length_opt(val: &Value, parent: &ComputedStyle) -> Option<Length> {
+fn to_length_opt(val: &Value, _parent: &ComputedStyle) -> Option<Length> {
     match val {
         Value::Length(n, unit) => Some(match unit {
             Unit::Px => Length::Px(*n),
@@ -1373,27 +1683,51 @@ fn parse_box_shadow(val: &Value) -> Vec<BoxShadow> {
     match val {
         Value::Keyword(k) if k == "none" => return shadows,
         Value::List(list) => {
-            let mut ox = 0.0; let mut oy = 0.0; let mut blur = 0.0; let mut spread = 0.0;
+            let mut ox = 0.0;
+            let mut oy = 0.0;
+            let mut blur = 0.0;
+            let mut spread = 0.0;
             let mut color = Color::rgb(0, 0, 0);
             let mut inset = false;
             let mut num_count = 0;
             for v in list {
                 match v {
-                    Value::Length(n, Unit::Px) => {
-                        match num_count {
-                            0 => { ox = *n; num_count = 1; }
-                            1 => { oy = *n; num_count = 2; }
-                            2 => { blur = *n; num_count = 3; }
-                            3 => { spread = *n; num_count = 4; }
-                            _ => {}
+                    Value::Length(n, Unit::Px) => match num_count {
+                        0 => {
+                            ox = *n;
+                            num_count = 1;
                         }
+                        1 => {
+                            oy = *n;
+                            num_count = 2;
+                        }
+                        2 => {
+                            blur = *n;
+                            num_count = 3;
+                        }
+                        3 => {
+                            spread = *n;
+                            num_count = 4;
+                        }
+                        _ => {}
+                    },
+                    Value::Color(c) => {
+                        color = *c;
                     }
-                    Value::Color(c) => { color = c.clone(); }
-                    Value::Keyword(k) if k == "inset" => { inset = true; }
+                    Value::Keyword(k) if k == "inset" => {
+                        inset = true;
+                    }
                     _ => {}
                 }
             }
-            return vec![BoxShadow { offset_x: ox, offset_y: oy, blur, spread, color, inset }];
+            return vec![BoxShadow {
+                offset_x: ox,
+                offset_y: oy,
+                blur,
+                spread,
+                color,
+                inset,
+            }];
         }
         _ => {}
     }
@@ -1421,7 +1755,9 @@ fn parse_background_image(val: &Value) -> Option<BackgroundImage> {
 /// Parse linear-gradient args: "135deg, #ff0000, #0000ff" or "to right, #ff0000, #0000ff"
 fn parse_linear_gradient(args: &str) -> Option<BackgroundImage> {
     let parts: Vec<&str> = args.split(',').collect();
-    if parts.is_empty() { return None; }
+    if parts.is_empty() {
+        return None;
+    }
 
     let mut angle = 180.0; // default: top to bottom
     let mut color_start = 0;
@@ -1455,14 +1791,22 @@ fn parse_linear_gradient(args: &str) -> Option<BackgroundImage> {
         let sub_parts: Vec<&str> = part.split_whitespace().collect();
         if let Some(c) = crate::css::parse_color(sub_parts[0]) {
             let pos = if sub_parts.len() > 1 {
-                sub_parts[1].trim_end_matches('%').trim().parse::<f32>().ok().map(|p| p / 100.0)
+                sub_parts[1]
+                    .trim_end_matches('%')
+                    .trim()
+                    .parse::<f32>()
+                    .ok()
+                    .map(|p| p / 100.0)
             } else {
                 None
-            }.unwrap_or(if n > 1.0 { i as f32 / (n - 1.0) } else { 0.0 });
+            }
+            .unwrap_or(if n > 1.0 { i as f32 / (n - 1.0) } else { 0.0 });
             stops.push((pos, c));
         }
     }
 
-    if stops.is_empty() { return None; }
+    if stops.is_empty() {
+        return None;
+    }
     Some(BackgroundImage::LinearGradient { angle, stops })
 }

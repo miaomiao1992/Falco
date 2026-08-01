@@ -5,8 +5,8 @@
 //! TJS interpreter/VM. They are implemented as Rust types with the JS-visible
 //! API surface mounted by the JS bridge layer.
 
-use std::collections::HashMap;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
 // ===================== Symbol =====================
@@ -24,14 +24,27 @@ impl Symbol {
 }
 
 impl PartialEq for Symbol {
-    fn eq(&self, other: &Self) -> bool { self.id == other.id }
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }
 impl Eq for Symbol {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WellKnownSymbol {
-    Iterator, AsyncIterator, HasInstance, ToPrimitive, ToStringTag,
-    IsConcatSpreadable, Species, Unscopables, Match, MatchAll, Replace, Search, Split,
+    Iterator,
+    AsyncIterator,
+    HasInstance,
+    ToPrimitive,
+    ToStringTag,
+    IsConcatSpreadable,
+    Species,
+    Unscopables,
+    Match,
+    MatchAll,
+    Replace,
+    Search,
+    Split,
 }
 
 impl WellKnownSymbol {
@@ -55,10 +68,19 @@ impl WellKnownSymbol {
 
     pub fn id(&self) -> u64 {
         match self {
-            Self::Iterator => 1, Self::AsyncIterator => 2, Self::HasInstance => 3,
-            Self::ToPrimitive => 4, Self::ToStringTag => 5, Self::IsConcatSpreadable => 6,
-            Self::Species => 7, Self::Unscopables => 8, Self::Match => 9,
-            Self::MatchAll => 10, Self::Replace => 11, Self::Search => 12, Self::Split => 13,
+            Self::Iterator => 1,
+            Self::AsyncIterator => 2,
+            Self::HasInstance => 3,
+            Self::ToPrimitive => 4,
+            Self::ToStringTag => 5,
+            Self::IsConcatSpreadable => 6,
+            Self::Species => 7,
+            Self::Unscopables => 8,
+            Self::Match => 9,
+            Self::MatchAll => 10,
+            Self::Replace => 11,
+            Self::Search => 12,
+            Self::Split => 13,
         }
     }
 }
@@ -72,11 +94,20 @@ pub struct BigInt {
 }
 
 impl BigInt {
-    pub fn zero() -> Self { Self { limbs: vec![], negative: false } }
+    pub fn zero() -> Self {
+        Self {
+            limbs: vec![],
+            negative: false,
+        }
+    }
 
     pub fn from_i64(n: i64) -> Self {
         let negative = n < 0;
-        let mag = if negative { (n as i128).unsigned_abs() as u64 } else { n as u64 };
+        let mag = if negative {
+            (n as i128).unsigned_abs() as u64
+        } else {
+            n as u64
+        };
         let mut limbs = Vec::new();
         let mut m = mag;
         while m > 0 {
@@ -84,20 +115,35 @@ impl BigInt {
             m >>= 32;
         }
         let has_limbs = !limbs.is_empty();
-        Self { limbs, negative: negative && has_limbs }
+        Self {
+            limbs,
+            negative: negative && has_limbs,
+        }
     }
 
     pub fn to_i64(&self) -> Option<i64> {
-        if self.limbs.is_empty() { return Some(0); }
-        if self.limbs.len() > 2 { return None; }
+        if self.limbs.is_empty() {
+            return Some(0);
+        }
+        if self.limbs.len() > 2 {
+            return None;
+        }
         let low = self.limbs[0] as u64;
-        let high = if self.limbs.len() == 2 { (self.limbs[1] as u64) << 32 } else { 0 };
+        let high = if self.limbs.len() == 2 {
+            (self.limbs[1] as u64) << 32
+        } else {
+            0
+        };
         let mag = low | high;
         if self.negative {
-            if mag > i64::MAX as u64 + 1 { return None; }
+            if mag > i64::MAX as u64 + 1 {
+                return None;
+            }
             Some(-(mag as i128) as i64)
         } else {
-            if mag > i64::MAX as u64 { return None; }
+            if mag > i64::MAX as u64 {
+                return None;
+            }
             Some(mag as i64)
         }
     }
@@ -114,8 +160,13 @@ impl BigInt {
                 result.push((sum & 0xFFFFFFFF) as u32);
                 carry = (sum >> 32) as u32;
             }
-            if carry > 0 { result.push(carry); }
-            Self { limbs: result, negative: self.negative }
+            if carry > 0 {
+                result.push(carry);
+            }
+            Self {
+                limbs: result,
+                negative: self.negative,
+            }
         } else {
             let cmp = self.cmp_mag(other);
             match cmp {
@@ -135,8 +186,13 @@ impl BigInt {
     }
 
     pub fn negate(&self) -> Self {
-        if self.limbs.is_empty() { return self.clone(); }
-        Self { limbs: self.limbs.clone(), negative: !self.negative }
+        if self.limbs.is_empty() {
+            return self.clone();
+        }
+        Self {
+            limbs: self.limbs.clone(),
+            negative: !self.negative,
+        }
     }
 
     fn cmp_mag(&self, other: &Self) -> std::cmp::Ordering {
@@ -166,12 +222,19 @@ impl BigInt {
             }
             result.push((diff & 0xFFFFFFFF) as u32);
         }
-        while result.last() == Some(&0) { result.pop(); }
-        Self { limbs: result, negative: false }
+        while result.last() == Some(&0) {
+            result.pop();
+        }
+        Self {
+            limbs: result,
+            negative: false,
+        }
     }
 
     pub fn to_string(&self) -> String {
-        if self.limbs.is_empty() { return "0".to_string(); }
+        if self.limbs.is_empty() {
+            return "0".to_string();
+        }
         let mut limbs = self.limbs.clone();
         let mut digits = String::new();
         while !limbs.is_empty() {
@@ -181,7 +244,9 @@ impl BigInt {
                 limbs[i] = (cur / 1_000_000_000) as u32;
                 rem = cur % 1_000_000_000;
             }
-            while limbs.last() == Some(&0) { limbs.pop(); }
+            while limbs.last() == Some(&0) {
+                limbs.pop();
+            }
             let chunk = rem.to_string();
             if digits.is_empty() {
                 digits = chunk;
@@ -189,14 +254,22 @@ impl BigInt {
                 digits = format!("{}{:0>9}", chunk, digits);
             }
         }
-        if self.negative { format!("-{}", digits) } else { digits }
+        if self.negative {
+            format!("-{}", digits)
+        } else {
+            digits
+        }
     }
 }
 
 // ===================== Promise + Microtask Queue =====================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PromiseState { Pending, Fulfilled, Rejected }
+pub enum PromiseState {
+    Pending,
+    Fulfilled,
+    Rejected,
+}
 
 pub struct Promise {
     pub state: RefCell<PromiseState>,
@@ -226,7 +299,9 @@ impl Promise {
     }
 
     pub fn resolve(&self, value: crate::tjs::value::Value) {
-        if *self.state.borrow() != PromiseState::Pending { return; }
+        if *self.state.borrow() != PromiseState::Pending {
+            return;
+        }
         *self.state.borrow_mut() = PromiseState::Fulfilled;
         *self.value.borrow_mut() = Some(PromiseValue::Resolved(value.clone()));
         let callbacks: Vec<_> = self.then_callbacks.borrow_mut().drain(..).collect();
@@ -234,11 +309,15 @@ impl Promise {
             let _ = cb(PromiseValue::Resolved(value.clone()));
         }
         let finally: Vec<_> = self.finally_callbacks.borrow_mut().drain(..).collect();
-        for f in finally { f(); }
+        for f in finally {
+            f();
+        }
     }
 
     pub fn reject(&self, reason: crate::tjs::value::Value) {
-        if *self.state.borrow() != PromiseState::Pending { return; }
+        if *self.state.borrow() != PromiseState::Pending {
+            return;
+        }
         *self.state.borrow_mut() = PromiseState::Rejected;
         *self.value.borrow_mut() = Some(PromiseValue::Rejected(reason.clone()));
         let callbacks: Vec<_> = self.catch_callbacks.borrow_mut().drain(..).collect();
@@ -246,7 +325,9 @@ impl Promise {
             let _ = cb(PromiseValue::Rejected(reason.clone()));
         }
         let finally: Vec<_> = self.finally_callbacks.borrow_mut().drain(..).collect();
-        for f in finally { f(); }
+        for f in finally {
+            f();
+        }
     }
 
     pub fn then(&self, callback: PromiseCallback) -> Rc<Self> {
@@ -302,9 +383,17 @@ pub struct MicrotaskQueue {
     pub queue: RefCell<Vec<Box<dyn FnOnce()>>>,
 }
 
+impl Default for MicrotaskQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MicrotaskQueue {
     pub fn new() -> Self {
-        Self { queue: RefCell::new(Vec::new()) }
+        Self {
+            queue: RefCell::new(Vec::new()),
+        }
     }
 
     pub fn enqueue<F: FnOnce() + 'static>(&self, f: F) {
@@ -328,11 +417,23 @@ pub struct JsMap {
     pub entries: RefCell<Vec<(crate::tjs::value::Value, crate::tjs::value::Value)>>,
 }
 
+impl Default for JsMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JsMap {
-    pub fn new() -> Self { Self { entries: RefCell::new(Vec::new()) } }
+    pub fn new() -> Self {
+        Self {
+            entries: RefCell::new(Vec::new()),
+        }
+    }
 
     pub fn get(&self, key: &crate::tjs::value::Value) -> Option<crate::tjs::value::Value> {
-        self.entries.borrow().iter()
+        self.entries
+            .borrow()
+            .iter()
             .find(|(k, _)| values_equal(k, key))
             .map(|(_, v)| v.clone())
     }
@@ -347,7 +448,10 @@ impl JsMap {
     }
 
     pub fn has(&self, key: &crate::tjs::value::Value) -> bool {
-        self.entries.borrow().iter().any(|(k, _)| values_equal(k, key))
+        self.entries
+            .borrow()
+            .iter()
+            .any(|(k, _)| values_equal(k, key))
     }
 
     pub fn delete(&self, key: &crate::tjs::value::Value) -> bool {
@@ -357,15 +461,27 @@ impl JsMap {
         entries.len() != len
     }
 
-    pub fn size(&self) -> usize { self.entries.borrow().len() }
+    pub fn size(&self) -> usize {
+        self.entries.borrow().len()
+    }
 }
 
 pub struct JsSet {
     pub values: RefCell<Vec<crate::tjs::value::Value>>,
 }
 
+impl Default for JsSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JsSet {
-    pub fn new() -> Self { Self { values: RefCell::new(Vec::new()) } }
+    pub fn new() -> Self {
+        Self {
+            values: RefCell::new(Vec::new()),
+        }
+    }
 
     pub fn add(&self, value: crate::tjs::value::Value) {
         if !self.has(&value) {
@@ -384,30 +500,57 @@ impl JsSet {
         values.len() != len
     }
 
-    pub fn size(&self) -> usize { self.values.borrow().len() }
+    pub fn size(&self) -> usize {
+        self.values.borrow().len()
+    }
 }
 
 pub struct WeakMap {
-    pub entries: RefCell<Vec<(Weak<RefCell<crate::tjs::value::ObjectValue>>, crate::tjs::value::Value)>>,
+    pub entries: RefCell<
+        Vec<(
+            Weak<RefCell<crate::tjs::value::ObjectValue>>,
+            crate::tjs::value::Value,
+        )>,
+    >,
+}
+
+impl Default for WeakMap {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl WeakMap {
-    pub fn new() -> Self { Self { entries: RefCell::new(Vec::new()) } }
+    pub fn new() -> Self {
+        Self {
+            entries: RefCell::new(Vec::new()),
+        }
+    }
 
     pub fn get(&self, key: &crate::tjs::value::Value) -> Option<crate::tjs::value::Value> {
         if let crate::tjs::value::Value::Object(obj) = key {
-            self.entries.borrow().iter()
+            self.entries
+                .borrow()
+                .iter()
                 .find(|(w, _)| w.upgrade().map(|s| Rc::ptr_eq(&s, obj)).unwrap_or(false))
                 .map(|(_, v)| v.clone())
-        } else { None }
+        } else {
+            None
+        }
     }
 
-    pub fn set(&self, key: crate::tjs::value::Value, value: crate::tjs::value::Value) -> Result<(), String> {
+    pub fn set(
+        &self,
+        key: crate::tjs::value::Value,
+        value: crate::tjs::value::Value,
+    ) -> Result<(), String> {
         if let crate::tjs::value::Value::Object(obj) = &key {
             let weak = Rc::downgrade(obj);
             let mut entries = self.entries.borrow_mut();
-            if let Some(slot) = entries.iter_mut().find(|(w, _)|
-                w.upgrade().map(|s| Rc::ptr_eq(&s, obj)).unwrap_or(false)) {
+            if let Some(slot) = entries
+                .iter_mut()
+                .find(|(w, _)| w.upgrade().map(|s| Rc::ptr_eq(&s, obj)).unwrap_or(false))
+            {
                 slot.1 = value;
             } else {
                 entries.push((weak, value));
@@ -419,7 +562,9 @@ impl WeakMap {
         }
     }
 
-    pub fn has(&self, key: &crate::tjs::value::Value) -> bool { self.get(key).is_some() }
+    pub fn has(&self, key: &crate::tjs::value::Value) -> bool {
+        self.get(key).is_some()
+    }
 
     pub fn delete(&self, key: &crate::tjs::value::Value) -> bool {
         if let crate::tjs::value::Value::Object(obj) = key {
@@ -427,7 +572,9 @@ impl WeakMap {
             let len = entries.len();
             entries.retain(|(w, _)| !w.upgrade().map(|s| Rc::ptr_eq(&s, obj)).unwrap_or(false));
             entries.len() != len
-        } else { false }
+        } else {
+            false
+        }
     }
 }
 
@@ -435,14 +582,27 @@ pub struct WeakSet {
     pub values: RefCell<Vec<Weak<RefCell<crate::tjs::value::ObjectValue>>>>,
 }
 
+impl Default for WeakSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WeakSet {
-    pub fn new() -> Self { Self { values: RefCell::new(Vec::new()) } }
+    pub fn new() -> Self {
+        Self {
+            values: RefCell::new(Vec::new()),
+        }
+    }
 
     pub fn add(&self, value: crate::tjs::value::Value) -> Result<(), String> {
         if let crate::tjs::value::Value::Object(obj) = &value {
             let weak = Rc::downgrade(obj);
             let mut values = self.values.borrow_mut();
-            if !values.iter().any(|w| w.upgrade().map(|s| Rc::ptr_eq(&s, obj)).unwrap_or(false)) {
+            if !values
+                .iter()
+                .any(|w| w.upgrade().map(|s| Rc::ptr_eq(&s, obj)).unwrap_or(false))
+            {
                 values.push(weak);
             }
             values.retain(|w| w.upgrade().is_some());
@@ -454,9 +614,13 @@ impl WeakSet {
 
     pub fn has(&self, value: &crate::tjs::value::Value) -> bool {
         if let crate::tjs::value::Value::Object(obj) = value {
-            self.values.borrow().iter()
+            self.values
+                .borrow()
+                .iter()
                 .any(|w| w.upgrade().map(|s| Rc::ptr_eq(&s, obj)).unwrap_or(false))
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn delete(&self, value: &crate::tjs::value::Value) -> bool {
@@ -465,7 +629,9 @@ impl WeakSet {
             let len = values.len();
             values.retain(|w| !w.upgrade().map(|s| Rc::ptr_eq(&s, obj)).unwrap_or(false));
             values.len() != len
-        } else { false }
+        } else {
+            false
+        }
     }
 }
 
@@ -498,7 +664,9 @@ pub struct Iterator {
 
 impl Iterator {
     pub fn new<F: Fn() -> Result<IteratorResult, String> + 'static>(f: F) -> Self {
-        Self { next_fn: Rc::new(f) }
+        Self {
+            next_fn: Rc::new(f),
+        }
     }
 
     pub fn next(&self) -> Result<IteratorResult, String> {
@@ -509,7 +677,9 @@ impl Iterator {
         let mut out = Vec::new();
         loop {
             let r = self.next()?;
-            if r.done { break; }
+            if r.done {
+                break;
+            }
             out.push(r.value);
         }
         Ok(out)
@@ -543,22 +713,34 @@ impl Generator {
 
     pub fn next(&self, value: Option<crate::tjs::value::Value>) -> Result<IteratorResult, String> {
         if *self.done.borrow() {
-            return Ok(IteratorResult { value: crate::tjs::value::Value::Undefined, done: true });
+            return Ok(IteratorResult {
+                value: crate::tjs::value::Value::Undefined,
+                done: true,
+            });
         }
         let injected = value.unwrap_or(crate::tjs::value::Value::Undefined);
         let segment_idx = *self.current.borrow();
         if segment_idx >= self.segments.len() {
             *self.done.borrow_mut() = true;
-            return Ok(IteratorResult { value: crate::tjs::value::Value::Undefined, done: true });
+            return Ok(IteratorResult {
+                value: crate::tjs::value::Value::Undefined,
+                done: true,
+            });
         }
         let segment = &self.segments[segment_idx];
         let result = segment(&injected)?;
         *self.current.borrow_mut() += 1;
         match result {
-            GeneratorYield::Yield(v) => Ok(IteratorResult { value: v, done: false }),
+            GeneratorYield::Yield(v) => Ok(IteratorResult {
+                value: v,
+                done: false,
+            }),
             GeneratorYield::Return(v) => {
                 *self.done.borrow_mut() = true;
-                Ok(IteratorResult { value: v, done: true })
+                Ok(IteratorResult {
+                    value: v,
+                    done: true,
+                })
             }
         }
     }
@@ -566,7 +748,10 @@ impl Generator {
 
 // ===================== Reflect API =====================
 
-pub fn reflect_get(target: &crate::tjs::value::Value, key: &str) -> Result<crate::tjs::value::Value, String> {
+pub fn reflect_get(
+    target: &crate::tjs::value::Value,
+    key: &str,
+) -> Result<crate::tjs::value::Value, String> {
     if let crate::tjs::value::Value::Object(obj) = target {
         if let Some(v) = obj.borrow().properties.get(key) {
             return Ok(v.clone());
@@ -581,7 +766,11 @@ pub fn reflect_get(target: &crate::tjs::value::Value, key: &str) -> Result<crate
     }
 }
 
-pub fn reflect_set(target: &crate::tjs::value::Value, key: &str, value: crate::tjs::value::Value) -> Result<bool, String> {
+pub fn reflect_set(
+    target: &crate::tjs::value::Value,
+    key: &str,
+    value: crate::tjs::value::Value,
+) -> Result<bool, String> {
     if let crate::tjs::value::Value::Object(obj) = target {
         obj.borrow_mut().properties.insert(key.to_string(), value);
         Ok(true)
@@ -592,7 +781,9 @@ pub fn reflect_set(target: &crate::tjs::value::Value, key: &str, value: crate::t
 
 pub fn reflect_has(target: &crate::tjs::value::Value, key: &str) -> Result<bool, String> {
     if let crate::tjs::value::Value::Object(obj) = target {
-        if obj.borrow().properties.contains_key(key) { return Ok(true); }
+        if obj.borrow().properties.contains_key(key) {
+            return Ok(true);
+        }
         if let Some(proto) = obj.borrow().prototype.clone() {
             return reflect_has(&proto, key);
         }
@@ -677,7 +868,9 @@ mod tests {
         let called = Rc::new(RefCell::new(false));
         let called_clone = called.clone();
         let _ = p.then(Rc::new(move |v| {
-            if let PromiseValue::Resolved(_) = v { *called_clone.borrow_mut() = true; }
+            if let PromiseValue::Resolved(_) = v {
+                *called_clone.borrow_mut() = true;
+            }
             Ok(v)
         }));
         p.resolve(Value::Number(42.0));
@@ -690,8 +883,12 @@ mod tests {
         let counter = Rc::new(RefCell::new(0));
         let c1 = counter.clone();
         let c2 = counter.clone();
-        q.enqueue(move || { *c1.borrow_mut() += 1; });
-        q.enqueue(move || { *c2.borrow_mut() += 1; });
+        q.enqueue(move || {
+            *c1.borrow_mut() += 1;
+        });
+        q.enqueue(move || {
+            *c2.borrow_mut() += 1;
+        });
         q.drain();
         assert_eq!(*counter.borrow(), 2);
     }
@@ -770,9 +967,15 @@ mod tests {
             let mut n = c.borrow_mut();
             *n += 1;
             if *n <= 3 {
-                Ok(IteratorResult { value: Value::Number(*n as f64), done: false })
+                Ok(IteratorResult {
+                    value: Value::Number(*n as f64),
+                    done: false,
+                })
             } else {
-                Ok(IteratorResult { value: Value::Undefined, done: true })
+                Ok(IteratorResult {
+                    value: Value::Undefined,
+                    done: true,
+                })
             }
         });
         let v = iter.collect().unwrap();

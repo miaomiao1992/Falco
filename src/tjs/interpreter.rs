@@ -4,12 +4,11 @@
 //! Supports scopes (lexical scoping), closures, and control flow
 //! (return, break, continue via Result enums).
 
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::collections::HashMap;
 use crate::tjs::parser::{Expr, Stmt};
 use crate::tjs::value::Value;
-use crate::tjs::value::{ObjectValue, FunctionValue, BuiltinFn};
+use crate::tjs::value::{FunctionValue, ObjectValue};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// A lexical scope — uses Rc<RefCell<Vec>> for vars so that closures
 /// share the same variable storage as the scope they were created in.
@@ -67,7 +66,7 @@ impl Scope {
         // Walk parent chain.
         let mut parent = self.parent.clone();
         while let Some(p) = parent {
-            let mut p_ref = p.borrow_mut();
+            let p_ref = p.borrow_mut();
             let mut vars = p_ref.vars.borrow_mut();
             for (k, v) in vars.iter_mut() {
                 if k == name {
@@ -89,13 +88,17 @@ impl Scope {
 
     pub fn has(&self, name: &str) -> bool {
         for (k, _) in self.vars.borrow().iter() {
-            if k == name { return true; }
+            if k == name {
+                return true;
+            }
         }
         let mut parent = self.parent.clone();
         while let Some(p) = parent {
             let p_ref = p.borrow();
             for (k, _) in p_ref.vars.borrow().iter() {
-                if k == name { return true; }
+                if k == name {
+                    return true;
+                }
             }
             parent = p_ref.parent.clone();
         }
@@ -118,7 +121,11 @@ pub fn interpret(stmts: &[Stmt], scope: &mut Scope) -> Result<Value, String> {
     let mut last = Value::Undefined;
     for stmt in stmts {
         match eval_stmt(stmt, scope)? {
-            Flow::Normal(v) => { if let Some(val) = v { last = val; } }
+            Flow::Normal(v) => {
+                if let Some(val) = v {
+                    last = val;
+                }
+            }
             Flow::Return(v) => return Ok(v),
             Flow::Break | Flow::Continue | Flow::Throw(_) => {}
         }
@@ -212,15 +219,27 @@ fn eval_stmt(stmt: &Stmt, scope: &mut Scope) -> Result<Flow, String> {
             if c.is_truthy() {
                 for s in then {
                     match eval_stmt(s, scope)? {
-                        f @ (Flow::Return(_) | Flow::Break | Flow::Continue | Flow::Throw(_)) => return Ok(f),
-                        Flow::Normal(v) => { if let Some(val) = v { last_val = val; } }
+                        f @ (Flow::Return(_) | Flow::Break | Flow::Continue | Flow::Throw(_)) => {
+                            return Ok(f)
+                        }
+                        Flow::Normal(v) => {
+                            if let Some(val) = v {
+                                last_val = val;
+                            }
+                        }
                     }
                 }
             } else if let Some(e) = els {
                 for s in e {
                     match eval_stmt(s, scope)? {
-                        f @ (Flow::Return(_) | Flow::Break | Flow::Continue | Flow::Throw(_)) => return Ok(f),
-                        Flow::Normal(v) => { if let Some(val) = v { last_val = val; } }
+                        f @ (Flow::Return(_) | Flow::Break | Flow::Continue | Flow::Throw(_)) => {
+                            return Ok(f)
+                        }
+                        Flow::Normal(v) => {
+                            if let Some(val) = v {
+                                last_val = val;
+                            }
+                        }
                     }
                 }
             }
@@ -233,7 +252,9 @@ fn eval_stmt(stmt: &Stmt, scope: &mut Scope) -> Result<Flow, String> {
             loop {
                 if let Some(t) = test {
                     let v = eval_expr(t, scope)?;
-                    if !v.is_truthy() { break; }
+                    if !v.is_truthy() {
+                        break;
+                    }
                 }
                 for s in body {
                     match eval_stmt(s, scope)? {
@@ -253,7 +274,9 @@ fn eval_stmt(stmt: &Stmt, scope: &mut Scope) -> Result<Flow, String> {
         Stmt::While(cond, body) => {
             loop {
                 let v = eval_expr(cond, scope)?;
-                if !v.is_truthy() { break; }
+                if !v.is_truthy() {
+                    break;
+                }
                 for s in body {
                     match eval_stmt(s, scope)? {
                         Flow::Break => return Ok(Flow::Normal(None)),
@@ -278,7 +301,9 @@ fn eval_stmt(stmt: &Stmt, scope: &mut Scope) -> Result<Flow, String> {
                     }
                 }
                 let v = eval_expr(cond, scope)?;
-                if !v.is_truthy() { break; }
+                if !v.is_truthy() {
+                    break;
+                }
             }
             Ok(Flow::Normal(None))
         }
@@ -294,7 +319,9 @@ fn eval_stmt(stmt: &Stmt, scope: &mut Scope) -> Result<Flow, String> {
         Stmt::Block(stmts) => {
             for s in stmts {
                 match eval_stmt(s, scope)? {
-                    f @ (Flow::Return(_) | Flow::Break | Flow::Continue | Flow::Throw(_)) => return Ok(f),
+                    f @ (Flow::Return(_) | Flow::Break | Flow::Continue | Flow::Throw(_)) => {
+                        return Ok(f)
+                    }
                     Flow::Normal(_) => {}
                 }
             }
@@ -315,7 +342,10 @@ fn eval_stmt(stmt: &Stmt, scope: &mut Scope) -> Result<Flow, String> {
                             scope.declare(param, err);
                             for s in body {
                                 match eval_stmt(s, scope)? {
-                                    f @ (Flow::Return(_) | Flow::Break | Flow::Continue | Flow::Throw(_)) => {
+                                    f @ (Flow::Return(_)
+                                    | Flow::Break
+                                    | Flow::Continue
+                                    | Flow::Throw(_)) => {
                                         result = f;
                                         break;
                                     }
@@ -390,7 +420,9 @@ fn eval_stmt(stmt: &Stmt, scope: &mut Scope) -> Result<Flow, String> {
                     // for (x in obj) — iterate over enumerable keys.
                     let keys: Vec<String> = match &iterable {
                         Value::Object(obj) => obj.borrow().properties.keys().cloned().collect(),
-                        Value::Array(arr) => (0..arr.borrow().len()).map(|i| i.to_string()).collect(),
+                        Value::Array(arr) => {
+                            (0..arr.borrow().len()).map(|i| i.to_string()).collect()
+                        }
                         Value::String(s) => (0..s.chars().count()).map(|i| i.to_string()).collect(),
                         _ => Vec::new(),
                     };
@@ -411,11 +443,14 @@ fn eval_stmt(stmt: &Stmt, scope: &mut Scope) -> Result<Flow, String> {
                     }
                     Ok(Flow::Normal(None))
                 }
-                crate::tjs::parser::ForInOfKind::ForOf | crate::tjs::parser::ForInOfKind::ForAwaitOf => {
+                crate::tjs::parser::ForInOfKind::ForOf
+                | crate::tjs::parser::ForInOfKind::ForAwaitOf => {
                     // for (x of iterable) — iterate over values.
                     let values: Vec<Value> = match &iterable {
                         Value::Array(arr) => arr.borrow().iter().cloned().collect(),
-                        Value::String(s) => s.chars().map(|c| Value::String(c.to_string())).collect(),
+                        Value::String(s) => {
+                            s.chars().map(|c| Value::String(c.to_string())).collect()
+                        }
                         Value::Object(obj) => obj.borrow().properties.values().cloned().collect(),
                         _ => Vec::new(),
                     };
@@ -446,26 +481,32 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
         Expr::Boolean(b) => Ok(Value::Boolean(*b)),
         Expr::Null => Ok(Value::Null),
         Expr::Undefined => Ok(Value::Undefined),
-        Expr::Identifier(name) => {
-            scope.get(name).ok_or_else(|| format!("{} is not defined", name))
-        }
+        Expr::Identifier(name) => scope
+            .get(name)
+            .ok_or_else(|| format!("{} is not defined", name)),
         Expr::This => Ok(scope.get("this").unwrap_or(Value::Undefined)),
         Expr::Binary(left, op, right) => {
             // Short-circuit evaluation.
             match op.as_str() {
                 "&&" => {
                     let l = eval_expr(left, scope)?;
-                    if !l.is_truthy() { return Ok(l); }
+                    if !l.is_truthy() {
+                        return Ok(l);
+                    }
                     return eval_expr(right, scope);
                 }
                 "||" => {
                     let l = eval_expr(left, scope)?;
-                    if l.is_truthy() { return Ok(l); }
+                    if l.is_truthy() {
+                        return Ok(l);
+                    }
                     return eval_expr(right, scope);
                 }
                 "??" => {
                     let l = eval_expr(left, scope)?;
-                    if !matches!(l, Value::Null | Value::Undefined) { return Ok(l); }
+                    if !matches!(l, Value::Null | Value::Undefined) {
+                        return Ok(l);
+                    }
                     return eval_expr(right, scope);
                 }
                 _ => {}
@@ -494,9 +535,17 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
         Expr::Update(op, expr, is_prefix) => {
             if let Expr::Identifier(name) = expr.as_ref() {
                 let current = scope.get(name).unwrap_or(Value::Number(0.0)).to_number();
-                let new_val = if op == "++" { current + 1.0 } else { current - 1.0 };
+                let new_val = if op == "++" {
+                    current + 1.0
+                } else {
+                    current - 1.0
+                };
                 scope.set(name, Value::Number(new_val));
-                Ok(if *is_prefix { Value::Number(new_val) } else { Value::Number(current) })
+                Ok(if *is_prefix {
+                    Value::Number(new_val)
+                } else {
+                    Value::Number(current)
+                })
             } else {
                 Err("++/-- requires a variable".to_string())
             }
@@ -520,7 +569,11 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
                     let key = if *is_computed {
                         eval_expr(prop, scope)?.to_string()
                     } else {
-                        if let Expr::String(s) = prop.as_ref() { s.clone() } else { String::new() }
+                        if let Expr::String(s) = prop.as_ref() {
+                            s.clone()
+                        } else {
+                            String::new()
+                        }
                     };
                     let final_val = if op == "=" {
                         v.clone()
@@ -541,7 +594,11 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
                     let key = if *is_computed {
                         eval_expr(prop, scope)?.to_string()
                     } else {
-                        if let Expr::String(s) = prop.as_ref() { s.clone() } else { String::new() }
+                        if let Expr::String(s) = prop.as_ref() {
+                            s.clone()
+                        } else {
+                            String::new()
+                        }
                     };
                     let method = obj_val.get_property(&key);
                     (method, obj_val)
@@ -560,20 +617,22 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
             let key = if *is_computed {
                 eval_expr(prop, scope)?.to_string()
             } else {
-                if let Expr::String(s) = prop.as_ref() { s.clone() } else { String::new() }
+                if let Expr::String(s) = prop.as_ref() {
+                    s.clone()
+                } else {
+                    String::new()
+                }
             };
             Ok(obj_val.get_property(&key))
         }
-        Expr::Function(params, body) => {
-            Ok(Value::Function(Rc::new(FunctionValue {
-                params: params.clone(),
-                body: body.clone(),
-                closure: Rc::new(RefCell::new(scope.clone())),
-                name: String::new(),
-                vm_code: None,
-                vm_nlocals: 0,
-            })))
-        }
+        Expr::Function(params, body) => Ok(Value::Function(Rc::new(FunctionValue {
+            params: params.clone(),
+            body: body.clone(),
+            closure: Rc::new(RefCell::new(scope.clone())),
+            name: String::new(),
+            vm_code: None,
+            vm_nlocals: 0,
+        }))),
         Expr::Arrow(params, body) => {
             let arrow_body = match body.as_ref() {
                 Stmt::Block(stmts) => stmts.clone(),
@@ -613,7 +672,7 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
                             }
                         }
                         Value::Object(obj) => {
-                            for (_, val) in obj.borrow().properties.iter() {
+                            for val in obj.borrow().properties.values() {
                                 arr.push(val.clone());
                             }
                         }
@@ -637,13 +696,21 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
             // constructor. Then initialize instance fields.
             if let Value::Function(ref f) = func {
                 // Look up "prototype" in the constructor's closure.
-                if let Some(proto_val) = f.closure.borrow().vars.borrow().iter()
+                if let Some(proto_val) = f
+                    .closure
+                    .borrow()
+                    .vars
+                    .borrow()
+                    .iter()
                     .find(|(k, _)| k == "prototype")
-                    .map(|(_, v)| v.clone()) {
+                    .map(|(_, v)| v.clone())
+                {
                     if let Value::Object(proto_obj) = proto_val {
                         // Copy each method from prototype to this.
-                        let proto_methods: Vec<(String, Value)> = proto_obj.borrow()
-                            .properties.iter()
+                        let proto_methods: Vec<(String, Value)> = proto_obj
+                            .borrow()
+                            .properties
+                            .iter()
                             .map(|(k, v)| (k.clone(), v.clone()))
                             .collect();
                         if let Value::Object(this_obj) = &this_val {
@@ -651,7 +718,8 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
                                 this_obj.borrow_mut().properties.insert(k, v);
                             }
                             // Set the prototype chain.
-                            this_obj.borrow_mut().prototype = Some(Value::Object(proto_obj.clone()));
+                            this_obj.borrow_mut().prototype =
+                                Some(Value::Object(proto_obj.clone()));
                         }
                     }
                 }
@@ -660,9 +728,15 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
                 // contains field initializers as statements (we store them
                 // via a special marker). For simplicity, we look for a
                 // `__fields` list on the closure that build_class sets up.
-                if let Some(fields_val) = f.closure.borrow().vars.borrow().iter()
+                if let Some(fields_val) = f
+                    .closure
+                    .borrow()
+                    .vars
+                    .borrow()
+                    .iter()
                     .find(|(k, _)| k == "__fields")
-                    .map(|(_, v)| v.clone()) {
+                    .map(|(_, v)| v.clone())
+                {
                     if let Value::Array(fields_arr) = fields_val {
                         // Each field is stored as an object: { name, initializer }
                         // For simplicity, we stored fields as the class_def's
@@ -717,7 +791,11 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
             let key = if *is_computed {
                 eval_expr(prop, scope)?.to_string()
             } else {
-                if let Expr::String(s) = prop.as_ref() { s.clone() } else { String::new() }
+                if let Expr::String(s) = prop.as_ref() {
+                    s.clone()
+                } else {
+                    String::new()
+                }
             };
             Ok(obj_val.get_property(&key))
         }
@@ -727,7 +805,7 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
             if matches!(func, Value::Null | Value::Undefined) {
                 return Ok(Value::Undefined);
             }
-            let arg_vals = eval_args(&args, scope)?;
+            let arg_vals = eval_args(args, scope)?;
             call_function(&func, arg_vals, &Value::Undefined, scope)
         }
         Expr::Spread(inner) => {
@@ -738,7 +816,10 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
         Expr::PrivateIdentifier(name) => {
             // Reference to a private field — should only appear in a member
             // access (this.#x). As a standalone expression it's an error.
-            Err(format!("Cannot reference private field #{} outside class", name))
+            Err(format!(
+                "Cannot reference private field #{} outside class",
+                name
+            ))
         }
         Expr::Super => {
             // super — should only appear inside a class method that extends
@@ -796,16 +877,14 @@ fn eval_expr(expr: &Expr, scope: &mut Scope) -> Result<Value, String> {
                 vm_nlocals: 0,
             })))
         }
-        Expr::AsyncGeneratorFunction(params, body) => {
-            Ok(Value::Function(Rc::new(FunctionValue {
-                params: params.clone(),
-                body: body.clone(),
-                closure: Rc::new(RefCell::new(scope.clone())),
-                name: String::new(),
-                vm_code: None,
-                vm_nlocals: 0,
-            })))
-        }
+        Expr::AsyncGeneratorFunction(params, body) => Ok(Value::Function(Rc::new(FunctionValue {
+            params: params.clone(),
+            body: body.clone(),
+            closure: Rc::new(RefCell::new(scope.clone())),
+            name: String::new(),
+            vm_code: None,
+            vm_nlocals: 0,
+        }))),
     }
 }
 
@@ -823,7 +902,7 @@ fn eval_args(args: &[Expr], scope: &mut Scope) -> Result<Vec<Value>, String> {
                     }
                     Value::Object(obj) => {
                         // Iterate over object's own enumerable properties.
-                        for (_, val) in obj.borrow().properties.iter() {
+                        for val in obj.borrow().properties.values() {
                             result.push(val.clone());
                         }
                     }
@@ -844,18 +923,26 @@ fn eval_args(args: &[Expr], scope: &mut Scope) -> Result<Vec<Value>, String> {
 /// Build a class: constructor function + prototype with methods + static
 /// fields/methods. Private fields are stored with a `#` prefix on the
 /// instance.
-fn build_class(class_def: &crate::tjs::parser::ClassDef, scope: &mut Scope) -> Result<Value, String> {
+fn build_class(
+    class_def: &crate::tjs::parser::ClassDef,
+    scope: &mut Scope,
+) -> Result<Value, String> {
     use crate::tjs::parser::{ClassMethod, MethodKind};
 
     // Find the constructor method (if any).
-    let constructor = class_def.methods.iter().find(|m| m.kind == MethodKind::Constructor);
-    let non_constructor_methods: Vec<&ClassMethod> = class_def.methods.iter()
+    let constructor = class_def
+        .methods
+        .iter()
+        .find(|m| m.kind == MethodKind::Constructor);
+    let non_constructor_methods: Vec<&ClassMethod> = class_def
+        .methods
+        .iter()
         .filter(|m| m.kind != MethodKind::Constructor)
         .collect();
 
     // Build the constructor function. If there are instance fields, we
     // prepend their initializers to the constructor body so they run first.
-    let (mut ctor_params, mut ctor_body) = if let Some(c) = constructor {
+    let (ctor_params, mut ctor_body) = if let Some(c) = constructor {
         (c.params.clone(), c.body.clone())
     } else {
         (Vec::new(), Vec::new())
@@ -865,7 +952,9 @@ fn build_class(class_def: &crate::tjs::parser::ClassDef, scope: &mut Scope) -> R
     // Each field becomes: this.#name = initializer; (or this.name = init for public)
     let mut field_inits: Vec<Stmt> = Vec::new();
     for field in &class_def.fields {
-        if field.is_static { continue; } // static fields handled separately
+        if field.is_static {
+            continue;
+        } // static fields handled separately
         let field_name = if field.is_private {
             format!("#{}", field.name)
         } else {
@@ -912,8 +1001,15 @@ fn build_class(class_def: &crate::tjs::parser::ClassDef, scope: &mut Scope) -> R
         let parent = eval_expr(parent_expr, scope)?;
         if let Value::Function(parent_fn) = &parent {
             // Set the prototype's prototype to the parent's prototype.
-            if let Some(parent_proto) = parent_fn.closure.borrow().vars.borrow().iter()
-                .find(|(k, _)| k == "prototype").map(|(_, v)| v.clone()) {
+            if let Some(parent_proto) = parent_fn
+                .closure
+                .borrow()
+                .vars
+                .borrow()
+                .iter()
+                .find(|(k, _)| k == "prototype")
+                .map(|(_, v)| v.clone())
+            {
                 prototype.borrow_mut().prototype = Some(parent_proto);
             }
         }
@@ -946,18 +1042,25 @@ fn build_class(class_def: &crate::tjs::parser::ClassDef, scope: &mut Scope) -> R
             } else {
                 method.name.clone()
             };
-            prototype.borrow_mut().properties.insert(proto_key, method_fn);
+            prototype
+                .borrow_mut()
+                .properties
+                .insert(proto_key, method_fn);
         }
     }
 
     // Store prototype on the constructor (as a "prototype" property in closure).
     if let Value::Function(ref f) = ctor_fn {
-        f.closure.borrow_mut().declare("prototype", Value::Object(prototype.clone()));
+        f.closure
+            .borrow_mut()
+            .declare("prototype", Value::Object(prototype.clone()));
     }
 
     // Add static fields.
     for field in &class_def.fields {
-        if !field.is_static { continue; }
+        if !field.is_static {
+            continue;
+        }
         let value = if let Some(init) = &field.initializer {
             eval_expr(init, scope)?
         } else {
@@ -1051,7 +1154,10 @@ fn binary_op(left: &Value, op: &str, right: &Value) -> Value {
             match right {
                 Value::Object(obj) => {
                     let has = obj.borrow().properties.contains_key(&key)
-                        || obj.borrow().prototype.as_ref()
+                        || obj
+                            .borrow()
+                            .prototype
+                            .as_ref()
                             .map(|p| p.get_property(&key) != Value::Undefined)
                             .unwrap_or(false);
                     Value::Boolean(has)
@@ -1072,7 +1178,12 @@ fn binary_op(left: &Value, op: &str, right: &Value) -> Value {
             match (left, right) {
                 (Value::Object(_), Value::Function(ctor)) => {
                     // Check if the object's prototype chain includes ctor's prototype.
-                    let has_proto = ctor.closure.borrow().vars.borrow().iter()
+                    let has_proto = ctor
+                        .closure
+                        .borrow()
+                        .vars
+                        .borrow()
+                        .iter()
                         .any(|(k, _)| k == "prototype");
                     Value::Boolean(has_proto)
                 }
@@ -1092,7 +1203,6 @@ fn binary_op(left: &Value, op: &str, right: &Value) -> Value {
 /// arbitrary-precision math. Inputs are decimal strings, output is a
 /// decimal string wrapped in Value::BigInt.
 fn bigint_binary_op(a: &str, op: &str, b: &str) -> Value {
-    use crate::tjs_ext::BigInt;
     let a_bi = parse_bigint(a);
     let b_bi = parse_bigint(b);
     let result = match op {
@@ -1129,15 +1239,26 @@ fn bigint_mul(a: &crate::tjs_ext::BigInt, b: &crate::tjs_ext::BigInt) -> crate::
     a.clone()
 }
 
-fn call_function(func: &Value, args: Vec<Value>, this_val: &Value, scope: &mut Scope) -> Result<Value, String> {
+fn call_function(
+    func: &Value,
+    args: Vec<Value>,
+    this_val: &Value,
+    _scope: &mut Scope,
+) -> Result<Value, String> {
     match func {
         Value::Function(f) => {
             let mut func_scope = Scope::new(Some(f.closure.clone()));
             // Bind `this`.
-            func_scope.vars.borrow_mut().push(("this".to_string(), this_val.clone()));
+            func_scope
+                .vars
+                .borrow_mut()
+                .push(("this".to_string(), this_val.clone()));
             // Bind `arguments` — an array-like object with all arguments.
             let args_val = Value::Array(Rc::new(RefCell::new(args.clone())));
-            func_scope.vars.borrow_mut().push(("arguments".to_string(), args_val));
+            func_scope
+                .vars
+                .borrow_mut()
+                .push(("arguments".to_string(), args_val));
             // Bind parameters.
             for (i, param) in f.params.iter().enumerate() {
                 let val = args.get(i).cloned().unwrap_or(Value::Undefined);
@@ -1153,9 +1274,7 @@ fn call_function(func: &Value, args: Vec<Value>, this_val: &Value, scope: &mut S
             }
             Ok(Value::Undefined)
         }
-        Value::Builtin(b) => {
-            (b.func)(args)
-        }
+        Value::Builtin(b) => (b.func)(args),
         _ => Err(format!("{} is not a function", func.to_string())),
     }
 }

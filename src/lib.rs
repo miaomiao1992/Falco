@@ -120,7 +120,11 @@ pub struct RenderOptions {
 
 impl Default for RenderOptions {
     fn default() -> Self {
-        Self { width: 1200, height: 800, background: 0xFFFFFFFF }
+        Self {
+            width: 1200,
+            height: 800,
+            background: 0xFFFFFFFF,
+        }
     }
 }
 
@@ -186,10 +190,10 @@ pub fn render_with_base_url(
     // 6. Build style tree.
     let style_tree = style::build_style_tree(&dom, &stylesheet);
     // 7. Build layout tree.
-    let mut layout_root = layout::build_layout_tree(&style_tree, opts.width as f32);
+    let layout_root = layout::build_layout_tree(&style_tree, opts.width as f32);
     // 8. Collect paint commands.
     let mut commands = Vec::new();
-    layout::collect_paint_commands(&mut layout_root, &mut commands);
+    layout::collect_paint_commands(&layout_root, &mut commands);
     // 9. Determine final canvas height.
     let actual_height = (layout_root.bounds.y + layout_root.bounds.height).ceil() as u32;
     let canvas_height = actual_height.max(opts.height);

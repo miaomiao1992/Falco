@@ -23,7 +23,9 @@ pub struct CascadeLayers {
 }
 
 impl CascadeLayers {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Declare a layer (or layers — `@layer a, b, c;` declares three).
     /// Does nothing if the layer already exists.
@@ -36,7 +38,10 @@ impl CascadeLayers {
     /// Get the priority index of a layer. Higher = wins.
     /// Unlayered declarations implicitly have index = layers.len().
     pub fn priority(&self, name: &str) -> usize {
-        self.layers.iter().position(|n| n == name).unwrap_or(self.layers.len())
+        self.layers
+            .iter()
+            .position(|n| n == name)
+            .unwrap_or(self.layers.len())
     }
 }
 
@@ -71,8 +76,8 @@ pub enum ContainerFeature {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ComparisonOp {
-    Min,    // >=
-    Max,    // <=
+    Min, // >=
+    Max, // <=
     Equal,
 }
 
@@ -85,14 +90,22 @@ pub enum ContainerUnit {
 }
 
 /// Evaluate a container query against a container's dimensions.
-pub fn evaluate_container_query(query: &ContainerQuery, container_width: f32, container_height: f32) -> bool {
+pub fn evaluate_container_query(
+    query: &ContainerQuery,
+    container_width: f32,
+    container_height: f32,
+) -> bool {
     query.conditions.iter().all(|cond| {
         let actual = match cond.feature {
             ContainerFeature::Width | ContainerFeature::InlineSize => container_width,
             ContainerFeature::Height | ContainerFeature::BlockSize => container_height,
             ContainerFeature::AspectRatio => container_width / container_height.max(1.0),
             ContainerFeature::Orientation => {
-                if container_width >= container_height { 1.0 } else { 0.0 }
+                if container_width >= container_height {
+                    1.0
+                } else {
+                    0.0
+                }
             }
         };
         let target = match cond.unit {
@@ -144,18 +157,25 @@ pub struct FontFaceRegistry {
 }
 
 impl FontFaceRegistry {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn add(&mut self, font: FontFace) {
         self.fonts.push(font);
     }
 
     /// Find a matching @font-face for the requested family/style/weight.
-    pub fn find(&self, family: &str, style: Option<&str>, weight: Option<u32>) -> Option<&FontFace> {
+    pub fn find(
+        &self,
+        family: &str,
+        style: Option<&str>,
+        weight: Option<u32>,
+    ) -> Option<&FontFace> {
         self.fonts.iter().find(|f| {
-            f.family.eq_ignore_ascii_case(family) &&
-            f.style.as_deref() == style &&
-            f.weight == weight
+            f.family.eq_ignore_ascii_case(family)
+                && f.style.as_deref() == style
+                && f.weight == weight
         })
     }
 }
@@ -181,9 +201,9 @@ pub struct Keyframe {
 #[derive(Debug, Clone)]
 pub struct Animation {
     pub name: String,
-    pub duration: f32,    // seconds
+    pub duration: f32, // seconds
     pub timing_function: TimingFunction,
-    pub delay: f32,       // seconds
+    pub delay: f32, // seconds
     pub iteration_count: f32,
     pub direction: AnimationDirection,
     pub fill_mode: AnimationFillMode,
@@ -191,13 +211,26 @@ pub struct Animation {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AnimationDirection { Normal, Reverse, Alternate, AlternateReverse }
+pub enum AnimationDirection {
+    Normal,
+    Reverse,
+    Alternate,
+    AlternateReverse,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AnimationFillMode { None, Forwards, Backwards, Both }
+pub enum AnimationFillMode {
+    None,
+    Forwards,
+    Backwards,
+    Both,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AnimationPlayState { Running, Paused }
+pub enum AnimationPlayState {
+    Running,
+    Paused,
+}
 
 #[derive(Debug, Clone)]
 pub enum TimingFunction {
@@ -211,7 +244,12 @@ pub enum TimingFunction {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StepPosition { Start, End, JumpNone, JumpBoth }
+pub enum StepPosition {
+    Start,
+    End,
+    JumpNone,
+    JumpBoth,
+}
 
 impl TimingFunction {
     /// Evaluate the timing function at time `t` (0.0 to 1.0).
@@ -243,7 +281,9 @@ fn cubic_bezier(x1: f32, y1: f32, x2: f32, y2: f32, t: f32) -> f32 {
     for _ in 0..8 {
         let x = bezier_component(s, x1, x2);
         let dx = bezier_derivative(s, x1, x2);
-        if dx.abs() < 1e-6 { break; }
+        if dx.abs() < 1e-6 {
+            break;
+        }
         s -= (x - t) / dx;
         s = s.max(0.0).min(1.0);
     }
@@ -263,11 +303,19 @@ fn bezier_derivative(t: f32, p1: f32, p2: f32) -> f32 {
 
 /// Compute the interpolated value of a property at a given animation
 /// progress (0.0 to 1.0).
-pub fn interpolate(property: &str, from: &str, to: &str, t: f32) -> String {
+pub fn interpolate(_property: &str, from: &str, to: &str, t: f32) -> String {
     // Try numeric interpolation first.
     if let (Some(a), Some(b)) = (parse_number_with_unit(from), parse_number_with_unit(to)) {
         let v = a.0 + (b.0 - a.0) * t;
-        return format!("{}{}", v, if a.1.is_empty() { b.1.clone() } else { a.1.clone() });
+        return format!(
+            "{}{}",
+            v,
+            if a.1.is_empty() {
+                b.1.clone()
+            } else {
+                a.1.clone()
+            }
+        );
     }
     // Color interpolation.
     if let (Some(c1), Some(c2)) = (parse_color(from), parse_color(to)) {
@@ -278,7 +326,11 @@ pub fn interpolate(property: &str, from: &str, to: &str, t: f32) -> String {
         return format!("rgba({}, {}, {}, {})", r, g, b, a as f32 / 255.0);
     }
     // For non-interpolable types, snap at t=0.5.
-    if t < 0.5 { from.to_string() } else { to.to_string() }
+    if t < 0.5 {
+        from.to_string()
+    } else {
+        to.to_string()
+    }
 }
 
 fn parse_number_with_unit(s: &str) -> Option<(f32, String)> {
@@ -291,7 +343,9 @@ fn parse_number_with_unit(s: &str) -> Option<(f32, String)> {
             break;
         }
     }
-    if num_end == 0 { return None; }
+    if num_end == 0 {
+        return None;
+    }
     let num: f32 = s[..num_end].parse().ok()?;
     let unit = s[num_end..].trim().to_string();
     Some((num, unit))
@@ -355,11 +409,26 @@ pub enum ClipPath {
     /// `clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%)`
     Polygon(Vec<(f32, f32)>),
     /// `clip-path: circle(50% at 50% 50%)`
-    Circle { radius: f32, cx: f32, cy: f32 },
+    Circle {
+        radius: f32,
+        cx: f32,
+        cy: f32,
+    },
     /// `clip-path: ellipse(50% 25% at 50% 50%)`
-    Ellipse { rx: f32, ry: f32, cx: f32, cy: f32 },
+    Ellipse {
+        rx: f32,
+        ry: f32,
+        cx: f32,
+        cy: f32,
+    },
     /// `clip-path: inset(10px 20px 30px 40px round 5px)`
-    Inset { top: f32, right: f32, bottom: f32, left: f32, round: f32 },
+    Inset {
+        top: f32,
+        right: f32,
+        bottom: f32,
+        left: f32,
+        round: f32,
+    },
     /// `clip-path: path("M ... Z")`
     Path(String),
     /// Reference to an SVG `<clipPath>` element by URL.
@@ -373,14 +442,30 @@ impl std::fmt::Display for ClipPath {
             ClipPath::Polygon(points) => {
                 write!(f, "polygon(")?;
                 for (i, (x, y)) in points.iter().enumerate() {
-                    if i > 0 { write!(f, ", ")?; }
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
                     write!(f, "{}px {}px", x, y)?;
                 }
                 write!(f, ")")
             }
-            ClipPath::Circle { radius, cx, cy } => write!(f, "circle({}px at {}px {}px)", radius, cx, cy),
-            ClipPath::Ellipse { rx, ry, cx, cy } => write!(f, "ellipse({}px {}px at {}px {}px)", rx, ry, cx, cy),
-            ClipPath::Inset { top, right, bottom, left, round } => write!(f, "inset({}px {}px {}px {}px round {}px)", top, right, bottom, left, round),
+            ClipPath::Circle { radius, cx, cy } => {
+                write!(f, "circle({}px at {}px {}px)", radius, cx, cy)
+            }
+            ClipPath::Ellipse { rx, ry, cx, cy } => {
+                write!(f, "ellipse({}px {}px at {}px {}px)", rx, ry, cx, cy)
+            }
+            ClipPath::Inset {
+                top,
+                right,
+                bottom,
+                left,
+                round,
+            } => write!(
+                f,
+                "inset({}px {}px {}px {}px round {}px)",
+                top, right, bottom, left, round
+            ),
             ClipPath::Path(p) => write!(f, "path(\"{}\")", p),
             ClipPath::Url(u) => write!(f, "url({})", u),
         }
@@ -398,7 +483,12 @@ pub enum FilterFunction {
     /// `contrast(1.5)`.
     Contrast(f32),
     /// `drop-shadow(2px 4px 4px rgba(0,0,0,0.5))`.
-    DropShadow { dx: f32, dy: f32, blur: f32, color: (u8, u8, u8, u8) },
+    DropShadow {
+        dx: f32,
+        dy: f32,
+        blur: f32,
+        color: (u8, u8, u8, u8),
+    },
     /// `grayscale(0.5)` — 0 = none, 1 = full.
     Grayscale(f32),
     /// `hue-rotate(90deg)`.
@@ -419,7 +509,16 @@ impl std::fmt::Display for FilterFunction {
             FilterFunction::Blur(v) => write!(f, "blur({}px)", v),
             FilterFunction::Brightness(v) => write!(f, "brightness({})", v),
             FilterFunction::Contrast(v) => write!(f, "contrast({})", v),
-            FilterFunction::DropShadow { dx, dy, blur, color } => write!(f, "drop-shadow({}px {}px {}px rgba({},{},{},{}))", dx, dy, blur, color.0, color.1, color.2, color.3),
+            FilterFunction::DropShadow {
+                dx,
+                dy,
+                blur,
+                color,
+            } => write!(
+                f,
+                "drop-shadow({}px {}px {}px rgba({},{},{},{}))",
+                dx, dy, blur, color.0, color.1, color.2, color.3
+            ),
             FilterFunction::Grayscale(v) => write!(f, "grayscale({})", v),
             FilterFunction::HueRotate(v) => write!(f, "hue-rotate({}deg)", v),
             FilterFunction::Invert(v) => write!(f, "invert({})", v),
@@ -451,12 +550,26 @@ impl Containment {
             match token {
                 "layout" => c.layout = true,
                 "paint" => c.paint = true,
-                "size" => { c.size = true; c.inline_size = true; c.block_size = true; }
+                "size" => {
+                    c.size = true;
+                    c.inline_size = true;
+                    c.block_size = true;
+                }
                 "inline-size" => c.inline_size = true,
                 "block-size" => c.block_size = true,
                 "style" => c.style = true,
-                "strict" => { c.layout = true; c.paint = true; c.size = true; c.inline_size = true; c.block_size = true; }
-                "content" => { c.layout = true; c.paint = true; c.style = true; }
+                "strict" => {
+                    c.layout = true;
+                    c.paint = true;
+                    c.size = true;
+                    c.inline_size = true;
+                    c.block_size = true;
+                }
+                "content" => {
+                    c.layout = true;
+                    c.paint = true;
+                    c.style = true;
+                }
                 "none" => {}
                 _ => {}
             }
@@ -474,7 +587,9 @@ pub struct CounterState {
 }
 
 impl CounterState {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn increment(&mut self, name: &str, by: i32) {
         *self.counters.entry(name.to_string()).or_insert(0) += by;
@@ -517,7 +632,10 @@ impl WritingMode {
     }
 
     pub fn is_vertical(&self) -> bool {
-        matches!(self, Self::VerticalRl | Self::VerticalLr | Self::SidewaysRl | Self::SidewaysLr)
+        matches!(
+            self,
+            Self::VerticalRl | Self::VerticalLr | Self::SidewaysRl | Self::SidewaysLr
+        )
     }
 }
 
@@ -542,14 +660,12 @@ mod tests {
     fn container_query_evaluation() {
         let query = ContainerQuery {
             name: None,
-            conditions: vec![
-                ContainerCondition {
-                    feature: ContainerFeature::Width,
-                    operator: ComparisonOp::Min,
-                    value: 600.0,
-                    unit: ContainerUnit::Px,
-                },
-            ],
+            conditions: vec![ContainerCondition {
+                feature: ContainerFeature::Width,
+                operator: ComparisonOp::Min,
+                value: 600.0,
+                unit: ContainerUnit::Px,
+            }],
         };
         assert!(evaluate_container_query(&query, 800.0, 600.0));
         assert!(!evaluate_container_query(&query, 400.0, 600.0));
@@ -596,7 +712,11 @@ mod tests {
 
     #[test]
     fn clip_path_display() {
-        let cp = ClipPath::Circle { radius: 50.0, cx: 50.0, cy: 50.0 };
+        let cp = ClipPath::Circle {
+            radius: 50.0,
+            cx: 50.0,
+            cy: 50.0,
+        };
         let s = format!("{}", cp);
         assert!(s.contains("circle"));
         assert!(s.contains("50px"));
@@ -630,10 +750,22 @@ mod tests {
 
     #[test]
     fn writing_mode_parsing() {
-        assert_eq!(WritingMode::parse("horizontal-tb"), Some(WritingMode::HorizontalTb));
-        assert_eq!(WritingMode::parse("vertical-rl"), Some(WritingMode::VerticalRl));
-        assert_eq!(WritingMode::parse("vertical-rl").unwrap().is_vertical(), true);
-        assert_eq!(WritingMode::parse("horizontal-tb").unwrap().is_vertical(), false);
+        assert_eq!(
+            WritingMode::parse("horizontal-tb"),
+            Some(WritingMode::HorizontalTb)
+        );
+        assert_eq!(
+            WritingMode::parse("vertical-rl"),
+            Some(WritingMode::VerticalRl)
+        );
+        assert_eq!(
+            WritingMode::parse("vertical-rl").unwrap().is_vertical(),
+            true
+        );
+        assert_eq!(
+            WritingMode::parse("horizontal-tb").unwrap().is_vertical(),
+            false
+        );
     }
 
     #[test]

@@ -26,34 +26,36 @@
 //! loop drains microtasks after every macrotask, ensuring Promise
 //! callbacks fire before the next macrotask.
 
+pub mod eme;
 pub mod event_loop;
-pub mod promise;
 pub mod fetch;
-pub mod xhr;
 pub mod http2;
 pub mod mse;
-pub mod eme;
 pub mod ndsd;
+pub mod promise;
 pub mod video;
 pub mod webgl;
+pub mod xhr;
 
-pub use event_loop::{EventLoop, Task, Microtask};
-pub use promise::{AsyncPromise, PromiseState, PromiseValue, promise_all, promise_race};
-pub use fetch::{fetch, Request, Response, Method, RequestCredentials, RequestCache, RequestMode};
-pub use xhr::Xhr;
+pub use eme::{KeySystem, MediaKeySession, MediaKeySystemAccess, MediaKeys};
+pub use event_loop::{EventLoop, Microtask, Task};
+pub use fetch::{fetch, Method, Request, RequestCache, RequestCredentials, RequestMode, Response};
 pub use http2::H2Connection;
-pub use mse::{MediaSource, SourceBuffer, Codec, ReadyState};
-pub use eme::{KeySystem, MediaKeys, MediaKeySession, MediaKeySystemAccess};
-pub use ndsd::{Ndsd, DrmBackend, NativeKeySystem, NdsdMediaKeys, NdsdMediaKeySession, NdsdSurface};
-pub use video::{Decoder, Demuxer, VideoPipeline, VideoFrame, AudioFrame, DecodedFrame};
+pub use mse::{Codec, MediaSource, ReadyState, SourceBuffer};
+pub use ndsd::{
+    DrmBackend, NativeKeySystem, Ndsd, NdsdMediaKeySession, NdsdMediaKeys, NdsdSurface,
+};
+pub use promise::{promise_all, promise_race, AsyncPromise, PromiseState, PromiseValue};
+pub use video::{AudioFrame, DecodedFrame, Decoder, Demuxer, VideoFrame, VideoPipeline};
 pub use webgl::WebGLContext;
+pub use xhr::Xhr;
 
 #[cfg(test)]
 mod integration_tests {
     use super::*;
+    use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::Arc;
     use std::sync::Mutex;
-    use std::sync::atomic::{AtomicU32, Ordering};
 
     /// End-to-end: fetch → Promise.then → microtask ordering.
     #[test]
@@ -65,17 +67,20 @@ mod integration_tests {
 
         let status = Arc::new(Mutex::new(0u16));
         let s = status.clone();
-        promise.then(move |v| {
-            if let PromiseValue::Resolved(ref serialized) = v {
-                // Parse the status from the serialized response.
-                if let Some(status_str) = serialized.split('|').next() {
-                    if let Ok(code) = status_str.parse::<u16>() {
-                        *s.lock().unwrap() = code;
+        promise.then(
+            move |v| {
+                if let PromiseValue::Resolved(ref serialized) = v {
+                    // Parse the status from the serialized response.
+                    if let Some(status_str) = serialized.split('|').next() {
+                        if let Ok(code) = status_str.parse::<u16>() {
+                            *s.lock().unwrap() = code;
+                        }
                     }
                 }
-            }
-            v
-        }, el.clone());
+                v
+            },
+            el.clone(),
+        );
 
         el.run();
         assert_eq!(*status.lock().unwrap(), 200);
@@ -91,21 +96,25 @@ mod integration_tests {
             "https://example.org",
             "https://www.iana.org",
         ];
-        let promises: Vec<Arc<AsyncPromise>> = urls.iter()
+        let promises: Vec<Arc<AsyncPromise>> = urls
+            .iter()
             .map(|url| fetch(Request::new(*url), el.clone()))
             .collect();
         let all = promise_all(promises, el.clone());
 
         let count = Arc::new(AtomicU32::new(0));
         let c = count.clone();
-        all.then(move |v| {
-            if let PromiseValue::Resolved(ref val) = v {
-                // Count how many "200|" we got.
-                let n = val.matches("200|").count() as u32;
-                c.store(n, Ordering::SeqCst);
-            }
-            v
-        }, el.clone());
+        all.then(
+            move |v| {
+                if let PromiseValue::Resolved(ref val) = v {
+                    // Count how many "200|" we got.
+                    let n = val.matches("200|").count() as u32;
+                    c.store(n, Ordering::SeqCst);
+                }
+                v
+            },
+            el.clone(),
+        );
 
         el.run();
         assert_eq!(count.load(Ordering::SeqCst), 3);
@@ -119,17 +128,23 @@ mod integration_tests {
 
         // Schedule a timer (macrotask).
         let o1 = order.clone();
-        el.set_timeout(move || {
-            o1.lock().unwrap().push("timer");
-        }, 10);
+        el.set_timeout(
+            move || {
+                o1.lock().unwrap().push("timer");
+            },
+            10,
+        );
 
         // Schedule a Promise.then (microtask).
         let p = AsyncPromise::new();
         let o2 = order.clone();
-        p.then(move |_| {
-            o2.lock().unwrap().push("promise");
-            PromiseValue::Resolved(String::new())
-        }, el.clone());
+        p.then(
+            move |_| {
+                o2.lock().unwrap().push("promise");
+                PromiseValue::Resolved(String::new())
+            },
+            el.clone(),
+        );
         p.resolve("x".into(), el.clone());
 
         el.run();
@@ -150,13 +165,16 @@ mod integration_tests {
         // Simulate fetching a video chunk and appending it.
         let chunk_promise = fetch(Request::new("https://example.com"), el.clone());
         let sb_clone = sb.clone();
-        chunk_promise.then(move |v| {
-            if let PromiseValue::Resolved(ref _serialized) = v {
-                // Append a fake chunk (250KB → 1 second of video).
-                sb_clone.append_buffer(vec![0u8; 250_000]).unwrap();
-            }
-            v
-        }, el.clone());
+        chunk_promise.then(
+            move |v| {
+                if let PromiseValue::Resolved(ref _serialized) = v {
+                    // Append a fake chunk (250KB → 1 second of video).
+                    sb_clone.append_buffer(vec![0u8; 250_000]).unwrap();
+                }
+                v
+            },
+            el.clone(),
+        );
 
         el.run();
         let buffered = sb.buffered.lock().unwrap();

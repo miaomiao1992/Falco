@@ -93,7 +93,7 @@ impl KeySystem {
 /// MediaKeySystemConfiguration — describes what capabilities we need.
 #[derive(Debug, Clone)]
 pub struct MediaKeySystemConfig {
-    pub init_data_types: Vec<String>,  // e.g. "cenc", "webm", "keyids"
+    pub init_data_types: Vec<String>, // e.g. "cenc", "webm", "keyids"
     pub audio_capabilities: Vec<MediaKeySystemMediaCapability>,
     pub video_capabilities: Vec<MediaKeySystemMediaCapability>,
     pub distinctive_identifier: MediaKeySystemAvailability,
@@ -137,7 +137,12 @@ impl MediaKeySystemAccess {
             return false;
         }
         // ClearKey only supports temporary sessions.
-        if self.configuration.session_types.iter().any(|t| *t != SessionType::Temporary) {
+        if self
+            .configuration
+            .session_types
+            .iter()
+            .any(|t| *t != SessionType::Temporary)
+        {
             return false;
         }
         true
@@ -210,11 +215,7 @@ impl MediaKeySession {
     ///
     /// For ClearKey, the request contains the key IDs. For Widevine, it
     /// contains a PSSH box from the media.
-    pub fn generate_request(
-        &self,
-        init_data_type: &str,
-        init_data: &[u8],
-    ) -> Result<(), String> {
+    pub fn generate_request(&self, init_data_type: &str, init_data: &[u8]) -> Result<(), String> {
         // For ClearKey, we can extract key IDs directly from the init data.
         if init_data_type == "keyids" {
             // The init data is a JSON array of key IDs (base64).
@@ -256,7 +257,10 @@ impl MediaKeySession {
         // For simplicity, we just mark all keys as "usable".
         if self.key_statuses.lock().unwrap().is_empty() {
             // Add a placeholder key.
-            self.key_statuses.lock().unwrap().insert(vec![0u8; 16], KeyStatus::Usable);
+            self.key_statuses
+                .lock()
+                .unwrap()
+                .insert(vec![0u8; 16], KeyStatus::Usable);
         }
         // Fire keystatuseschange event.
         if let Some(cb) = self.on_keystatuseschange.lock().unwrap().as_ref() {
@@ -330,8 +334,14 @@ mod tests {
 
     #[test]
     fn key_system_parsing() {
-        assert_eq!(KeySystem::from_str("com.widevine.alpha"), Some(KeySystem::Widevine));
-        assert_eq!(KeySystem::from_str("org.w3.clearkey"), Some(KeySystem::ClearKey));
+        assert_eq!(
+            KeySystem::from_str("com.widevine.alpha"),
+            Some(KeySystem::Widevine)
+        );
+        assert_eq!(
+            KeySystem::from_str("org.w3.clearkey"),
+            Some(KeySystem::ClearKey)
+        );
         assert_eq!(KeySystem::from_str("unknown"), None);
     }
 
@@ -361,7 +371,9 @@ mod tests {
         });
 
         // Generate a license request.
-        session.generate_request("keyids", b"test-init-data").unwrap();
+        session
+            .generate_request("keyids", b"test-init-data")
+            .unwrap();
         assert!(message_received.load(std::sync::atomic::Ordering::SeqCst));
 
         // Apply a license.
@@ -387,7 +399,10 @@ mod tests {
                 session_types: vec![SessionType::Temporary],
             },
         };
-        assert!(!access.is_supported(), "Widevine should not be supported without CDM");
+        assert!(
+            !access.is_supported(),
+            "Widevine should not be supported without CDM"
+        );
     }
 
     #[test]

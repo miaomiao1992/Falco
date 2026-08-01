@@ -92,25 +92,25 @@ impl ExtraStyle {
     /// Returns true if the property was recognized.
     pub fn apply(&mut self, prop: &str, val: &crate::css::Value) -> bool {
         match prop {
-            "text-decoration" => {
-                match val {
-                    crate::css::Value::Keyword(k) => {
-                        self.text_decoration = match k.as_str() {
-                            "underline" => TextDecoration::Underline,
-                            "line-through" => TextDecoration::LineThrough,
-                            "overline" => TextDecoration::Overline,
-                            _ => TextDecoration::None,
-                        };
-                        true
-                    }
-                    _ => false
+            "text-decoration" => match val {
+                crate::css::Value::Keyword(k) => {
+                    self.text_decoration = match k.as_str() {
+                        "underline" => TextDecoration::Underline,
+                        "line-through" => TextDecoration::LineThrough,
+                        "overline" => TextDecoration::Overline,
+                        _ => TextDecoration::None,
+                    };
+                    true
                 }
-            }
+                _ => false,
+            },
             "text-decoration-color" => {
                 if let crate::css::Value::Color(c) = val {
                     self.text_decoration_color = Some(*c);
                     true
-                } else { false }
+                } else {
+                    false
+                }
             }
             "text-transform" => {
                 if let crate::css::Value::Keyword(k) = val {
@@ -121,19 +121,25 @@ impl ExtraStyle {
                         _ => TextTransform::None,
                     };
                     true
-                } else { false }
+                } else {
+                    false
+                }
             }
             "letter-spacing" => {
                 if let crate::css::Value::Length(n, _) = val {
                     self.letter_spacing = *n;
                     true
-                } else { false }
+                } else {
+                    false
+                }
             }
             "word-spacing" => {
                 if let crate::css::Value::Length(n, _) = val {
                     self.word_spacing = *n;
                     true
-                } else { false }
+                } else {
+                    false
+                }
             }
             "list-style" | "list-style-type" => {
                 if let crate::css::Value::Keyword(k) = val {
@@ -146,7 +152,9 @@ impl ExtraStyle {
                         _ => ListStyleType::Disc,
                     };
                     true
-                } else { false }
+                } else {
+                    false
+                }
             }
             "list-style-position" => {
                 if let crate::css::Value::Keyword(k) = val {
@@ -155,7 +163,9 @@ impl ExtraStyle {
                         _ => ListStylePosition::Outside,
                     };
                     true
-                } else { false }
+                } else {
+                    false
+                }
             }
             "vertical-align" => {
                 if let crate::css::Value::Keyword(k) = val {
@@ -166,7 +176,9 @@ impl ExtraStyle {
                         _ => VerticalAlign::Baseline,
                     };
                     true
-                } else { false }
+                } else {
+                    false
+                }
             }
             "visibility" => {
                 if let crate::css::Value::Keyword(k) = val {
@@ -175,7 +187,9 @@ impl ExtraStyle {
                         _ => Visibility::Visible,
                     };
                     true
-                } else { false }
+                } else {
+                    false
+                }
             }
             "cursor" => {
                 if let crate::css::Value::Keyword(k) = val {
@@ -188,7 +202,9 @@ impl ExtraStyle {
                         _ => CursorType::Default,
                     };
                     true
-                } else { false }
+                } else {
+                    false
+                }
             }
             _ => false,
         }
@@ -239,12 +255,18 @@ mod tests {
 
     #[test]
     fn test_text_transform_uppercase() {
-        assert_eq!(apply_text_transform("hello", TextTransform::Uppercase), "HELLO");
+        assert_eq!(
+            apply_text_transform("hello", TextTransform::Uppercase),
+            "HELLO"
+        );
     }
 
     #[test]
     fn test_text_transform_capitalize() {
-        assert_eq!(apply_text_transform("hello world", TextTransform::Capitalize), "Hello World");
+        assert_eq!(
+            apply_text_transform("hello world", TextTransform::Capitalize),
+            "Hello World"
+        );
     }
 
     #[test]

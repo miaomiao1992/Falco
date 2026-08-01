@@ -31,11 +31,17 @@ impl Specificity {
     pub const ZERO: Specificity = Specificity { a: 0, b: 0, c: 0 };
 
     /// Specificity of a single ID selector.
-    pub const fn id() -> Self { Specificity { a: 1, b: 0, c: 0 } }
+    pub const fn id() -> Self {
+        Specificity { a: 1, b: 0, c: 0 }
+    }
     /// Specificity of a single class/attribute/pseudo-class selector.
-    pub const fn class() -> Self { Specificity { a: 0, b: 1, c: 0 } }
+    pub const fn class() -> Self {
+        Specificity { a: 0, b: 1, c: 0 }
+    }
     /// Specificity of a single type/pseudo-element selector.
-    pub const fn r#type() -> Self { Specificity { a: 0, b: 0, c: 1 } }
+    pub const fn r#type() -> Self {
+        Specificity { a: 0, b: 0, c: 1 }
+    }
 
     pub fn add(self, other: Specificity) -> Specificity {
         Specificity {
@@ -174,9 +180,15 @@ pub fn selector_specificity(selector: &str) -> Specificity {
                 while d > 0 {
                     if let Some(nc) = chars.next() {
                         current_token.push(nc);
-                        if nc == '(' { d += 1; }
-                        if nc == ')' { d -= 1; }
-                    } else { break; }
+                        if nc == '(' {
+                            d += 1;
+                        }
+                        if nc == ')' {
+                            d -= 1;
+                        }
+                    } else {
+                        break;
+                    }
                 }
                 // Account for the pseudo now that we have the full token.
                 account_pseudo(&current_token, pseudo_double, &mut s);
@@ -212,7 +224,9 @@ pub fn selector_specificity(selector: &str) -> Specificity {
                     if nc.is_ascii_alphanumeric() || nc == '-' || nc == '_' {
                         name.push(nc);
                         chars.next();
-                    } else { break; }
+                    } else {
+                        break;
+                    }
                 }
                 let _ = name;
                 s = s.add(Specificity::id());
@@ -227,7 +241,9 @@ pub fn selector_specificity(selector: &str) -> Specificity {
                     if nc.is_ascii_alphanumeric() || nc == '-' || nc == '_' {
                         name.push(nc);
                         chars.next();
-                    } else { break; }
+                    } else {
+                        break;
+                    }
                 }
                 let _ = name;
                 s = s.add(Specificity::class());
@@ -286,7 +302,11 @@ fn account_pseudo(token: &str, is_element: bool, s: &mut Specificity) {
         *s = s.add(Specificity::r#type());
     } else {
         // :pseudo-class — but :is(), :where(), :not() are special.
-        let name = token.trim_start_matches(':').split('(').next().unwrap_or("");
+        let name = token
+            .trim_start_matches(':')
+            .split('(')
+            .next()
+            .unwrap_or("");
         match name {
             "where" => {
                 // :where() contributes 0 specificity.
@@ -318,39 +338,75 @@ mod tests {
 
     #[test]
     fn type_selector() {
-        assert_eq!(selector_specificity("div"), Specificity { a: 0, b: 0, c: 1 });
-        assert_eq!(selector_specificity("div p"), Specificity { a: 0, b: 0, c: 2 });
+        assert_eq!(
+            selector_specificity("div"),
+            Specificity { a: 0, b: 0, c: 1 }
+        );
+        assert_eq!(
+            selector_specificity("div p"),
+            Specificity { a: 0, b: 0, c: 2 }
+        );
     }
 
     #[test]
     fn class_selector() {
-        assert_eq!(selector_specificity(".foo"), Specificity { a: 0, b: 1, c: 0 });
-        assert_eq!(selector_specificity("div.foo"), Specificity { a: 0, b: 1, c: 1 });
+        assert_eq!(
+            selector_specificity(".foo"),
+            Specificity { a: 0, b: 1, c: 0 }
+        );
+        assert_eq!(
+            selector_specificity("div.foo"),
+            Specificity { a: 0, b: 1, c: 1 }
+        );
     }
 
     #[test]
     fn id_selector() {
-        assert_eq!(selector_specificity("#bar"), Specificity { a: 1, b: 0, c: 0 });
-        assert_eq!(selector_specificity("div#bar"), Specificity { a: 1, b: 0, c: 1 });
+        assert_eq!(
+            selector_specificity("#bar"),
+            Specificity { a: 1, b: 0, c: 0 }
+        );
+        assert_eq!(
+            selector_specificity("div#bar"),
+            Specificity { a: 1, b: 0, c: 1 }
+        );
     }
 
     #[test]
     fn attribute_selector() {
-        assert_eq!(selector_specificity("[type=text]"), Specificity { a: 0, b: 1, c: 0 });
-        assert_eq!(selector_specificity("input[type=text]"), Specificity { a: 0, b: 1, c: 1 });
+        assert_eq!(
+            selector_specificity("[type=text]"),
+            Specificity { a: 0, b: 1, c: 0 }
+        );
+        assert_eq!(
+            selector_specificity("input[type=text]"),
+            Specificity { a: 0, b: 1, c: 1 }
+        );
     }
 
     #[test]
     #[ignore]
     fn pseudo_class_selector() {
-        assert_eq!(selector_specificity(":hover"), Specificity { a: 0, b: 1, c: 0 });
-        assert_eq!(selector_specificity("a:hover"), Specificity { a: 0, b: 1, c: 1 });
+        assert_eq!(
+            selector_specificity(":hover"),
+            Specificity { a: 0, b: 1, c: 0 }
+        );
+        assert_eq!(
+            selector_specificity("a:hover"),
+            Specificity { a: 0, b: 1, c: 1 }
+        );
     }
 
     #[test]
     fn pseudo_element_selector() {
-        assert_eq!(selector_specificity("::before"), Specificity { a: 0, b: 0, c: 1 });
-        assert_eq!(selector_specificity("p::first-line"), Specificity { a: 0, b: 0, c: 2 });
+        assert_eq!(
+            selector_specificity("::before"),
+            Specificity { a: 0, b: 0, c: 1 }
+        );
+        assert_eq!(
+            selector_specificity("p::first-line"),
+            Specificity { a: 0, b: 0, c: 2 }
+        );
     }
 
     #[test]
@@ -375,7 +431,10 @@ mod tests {
     #[test]
     #[ignore]
     fn where_pseudo_contributes_zero() {
-        assert_eq!(selector_specificity(":where(#foo, .bar)"), Specificity::ZERO);
+        assert_eq!(
+            selector_specificity(":where(#foo, .bar)"),
+            Specificity::ZERO
+        );
     }
 
     #[test]
@@ -388,14 +447,24 @@ mod tests {
     #[test]
     fn cascade_origin_ordering() {
         let ua = CascadedDeclaration {
-            property: "color".into(), value: "black".into(),
-            important: false, origin: CascadeOrigin::UserAgent,
-            layer: None, specificity: Specificity::ZERO, source_order: 0, scope: None,
+            property: "color".into(),
+            value: "black".into(),
+            important: false,
+            origin: CascadeOrigin::UserAgent,
+            layer: None,
+            specificity: Specificity::ZERO,
+            source_order: 0,
+            scope: None,
         };
         let author = CascadedDeclaration {
-            property: "color".into(), value: "red".into(),
-            important: false, origin: CascadeOrigin::Author,
-            layer: None, specificity: Specificity::ZERO, source_order: 0, scope: None,
+            property: "color".into(),
+            value: "red".into(),
+            important: false,
+            origin: CascadeOrigin::Author,
+            layer: None,
+            specificity: Specificity::ZERO,
+            source_order: 0,
+            scope: None,
         };
         // Author wins over UA (Greater = lower priority, so we expect Greater).
         assert_eq!(cascade_compare(&ua, &author), Ordering::Less);
@@ -404,14 +473,24 @@ mod tests {
     #[test]
     fn important_beats_normal() {
         let normal = CascadedDeclaration {
-            property: "color".into(), value: "red".into(),
-            important: false, origin: CascadeOrigin::Author,
-            layer: None, specificity: Specificity::id(), source_order: 0, scope: None,
+            property: "color".into(),
+            value: "red".into(),
+            important: false,
+            origin: CascadeOrigin::Author,
+            layer: None,
+            specificity: Specificity::id(),
+            source_order: 0,
+            scope: None,
         };
         let important = CascadedDeclaration {
-            property: "color".into(), value: "blue".into(),
-            important: true, origin: CascadeOrigin::Author,
-            layer: None, specificity: Specificity::ZERO, source_order: 0, scope: None,
+            property: "color".into(),
+            value: "blue".into(),
+            important: true,
+            origin: CascadeOrigin::Author,
+            layer: None,
+            specificity: Specificity::ZERO,
+            source_order: 0,
+            scope: None,
         };
         assert_eq!(cascade_compare(&normal, &important), Ordering::Less);
     }
@@ -419,14 +498,24 @@ mod tests {
     #[test]
     fn higher_specificity_wins_within_origin() {
         let low = CascadedDeclaration {
-            property: "color".into(), value: "red".into(),
-            important: false, origin: CascadeOrigin::Author,
-            layer: None, specificity: Specificity::class(), source_order: 0, scope: None,
+            property: "color".into(),
+            value: "red".into(),
+            important: false,
+            origin: CascadeOrigin::Author,
+            layer: None,
+            specificity: Specificity::class(),
+            source_order: 0,
+            scope: None,
         };
         let high = CascadedDeclaration {
-            property: "color".into(), value: "blue".into(),
-            important: false, origin: CascadeOrigin::Author,
-            layer: None, specificity: Specificity::id(), source_order: 0, scope: None,
+            property: "color".into(),
+            value: "blue".into(),
+            important: false,
+            origin: CascadeOrigin::Author,
+            layer: None,
+            specificity: Specificity::id(),
+            source_order: 0,
+            scope: None,
         };
         assert_eq!(cascade_compare(&low, &high), Ordering::Less);
     }
@@ -434,14 +523,24 @@ mod tests {
     #[test]
     fn source_order_breaks_ties() {
         let earlier = CascadedDeclaration {
-            property: "color".into(), value: "red".into(),
-            important: false, origin: CascadeOrigin::Author,
-            layer: None, specificity: Specificity::class(), source_order: 1, scope: None,
+            property: "color".into(),
+            value: "red".into(),
+            important: false,
+            origin: CascadeOrigin::Author,
+            layer: None,
+            specificity: Specificity::class(),
+            source_order: 1,
+            scope: None,
         };
         let later = CascadedDeclaration {
-            property: "color".into(), value: "blue".into(),
-            important: false, origin: CascadeOrigin::Author,
-            layer: None, specificity: Specificity::class(), source_order: 5, scope: None,
+            property: "color".into(),
+            value: "blue".into(),
+            important: false,
+            origin: CascadeOrigin::Author,
+            layer: None,
+            specificity: Specificity::class(),
+            source_order: 5,
+            scope: None,
         };
         assert_eq!(cascade_compare(&earlier, &later), Ordering::Less);
     }
@@ -449,14 +548,24 @@ mod tests {
     #[test]
     fn unlayered_beats_layered() {
         let layered = CascadedDeclaration {
-            property: "color".into(), value: "red".into(),
-            important: false, origin: CascadeOrigin::Author,
-            layer: Some(0), specificity: Specificity::id(), source_order: 0, scope: None,
+            property: "color".into(),
+            value: "red".into(),
+            important: false,
+            origin: CascadeOrigin::Author,
+            layer: Some(0),
+            specificity: Specificity::id(),
+            source_order: 0,
+            scope: None,
         };
         let unlayered = CascadedDeclaration {
-            property: "color".into(), value: "blue".into(),
-            important: false, origin: CascadeOrigin::Author,
-            layer: None, specificity: Specificity::ZERO, source_order: 0, scope: None,
+            property: "color".into(),
+            value: "blue".into(),
+            important: false,
+            origin: CascadeOrigin::Author,
+            layer: None,
+            specificity: Specificity::ZERO,
+            source_order: 0,
+            scope: None,
         };
         assert_eq!(cascade_compare(&layered, &unlayered), Ordering::Less);
     }
@@ -464,14 +573,24 @@ mod tests {
     #[test]
     fn later_layer_beats_earlier() {
         let earlier = CascadedDeclaration {
-            property: "color".into(), value: "red".into(),
-            important: false, origin: CascadeOrigin::Author,
-            layer: Some(0), specificity: Specificity::ZERO, source_order: 0, scope: None,
+            property: "color".into(),
+            value: "red".into(),
+            important: false,
+            origin: CascadeOrigin::Author,
+            layer: Some(0),
+            specificity: Specificity::ZERO,
+            source_order: 0,
+            scope: None,
         };
         let later = CascadedDeclaration {
-            property: "color".into(), value: "blue".into(),
-            important: false, origin: CascadeOrigin::Author,
-            layer: Some(1), specificity: Specificity::ZERO, source_order: 0, scope: None,
+            property: "color".into(),
+            value: "blue".into(),
+            important: false,
+            origin: CascadeOrigin::Author,
+            layer: Some(1),
+            specificity: Specificity::ZERO,
+            source_order: 0,
+            scope: None,
         };
         assert_eq!(cascade_compare(&earlier, &later), Ordering::Less);
     }

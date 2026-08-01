@@ -10,8 +10,8 @@
 //! 3. Records the user's decision (per-origin, persistent across sessions).
 
 use crate::security::origin::Origin;
-use std::collections::HashMap;
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 /// A permission name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -144,7 +144,9 @@ impl std::fmt::Debug for PermissionRegistry {
 }
 
 impl Default for PermissionRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PermissionRegistry {
@@ -165,11 +167,23 @@ impl PermissionRegistry {
     }
 
     /// Set the permission state for an origin.
-    pub fn set(&mut self, origin: &Origin, perm: Permission, state: PermissionState, source: PermissionSource, now: u64) {
+    pub fn set(
+        &mut self,
+        origin: &Origin,
+        perm: Permission,
+        state: PermissionState,
+        source: PermissionSource,
+        now: u64,
+    ) {
         let key = (origin.serialize(), perm);
-        self.entries.insert(key, PermissionEntry {
-            state, source, decided_at: now,
-        });
+        self.entries.insert(
+            key,
+            PermissionEntry {
+                state,
+                source,
+                decided_at: now,
+            },
+        );
     }
 
     /// Request a permission. If the state is `Prompt`, fires the registered
@@ -217,14 +231,18 @@ impl PermissionRegistry {
     }
 
     /// Register a prompt handler. Called when a permission needs to be asked.
-    pub fn register_prompt_handler<F: Fn(&Origin, Permission) -> PermissionState + 'static>(&self, handler: F) {
+    pub fn register_prompt_handler<F: Fn(&Origin, Permission) -> PermissionState + 'static>(
+        &self,
+        handler: F,
+    ) {
         self.prompt_handlers.borrow_mut().push(Box::new(handler));
     }
 
     /// List all permissions for an origin (for the settings UI).
     pub fn list_for_origin(&self, origin: &Origin) -> Vec<(Permission, PermissionState)> {
         let prefix = origin.serialize();
-        self.entries.iter()
+        self.entries
+            .iter()
             .filter(|((o, _), _)| o == &prefix)
             .map(|((_, p), e)| (*p, e.state))
             .collect()
@@ -247,7 +265,9 @@ impl IframeAllow {
         let mut perms = Vec::new();
         for token in s.split(';') {
             let token = token.trim();
-            if token.is_empty() { continue; }
+            if token.is_empty() {
+                continue;
+            }
             let mut parts = token.split_whitespace();
             if let Some(name) = parts.next() {
                 if let Some(p) = Permission::from_name(name) {
@@ -292,8 +312,11 @@ mod tests {
     #[test]
     fn permission_name_roundtrip() {
         for p in &[
-            Permission::Geolocation, Permission::Camera, Permission::Microphone,
-            Permission::Notifications, Permission::Bluetooth,
+            Permission::Geolocation,
+            Permission::Camera,
+            Permission::Microphone,
+            Permission::Notifications,
+            Permission::Bluetooth,
         ] {
             let name = p.name();
             assert_eq!(Permission::from_name(name), Some(*p));
@@ -304,22 +327,40 @@ mod tests {
     fn default_state_is_prompt() {
         let reg = PermissionRegistry::new();
         let origin = Origin::parse("https://example.com");
-        assert_eq!(reg.get(&origin, Permission::Camera), PermissionState::Prompt);
+        assert_eq!(
+            reg.get(&origin, Permission::Camera),
+            PermissionState::Prompt
+        );
     }
 
     #[test]
     fn set_and_get_permission() {
         let mut reg = PermissionRegistry::new();
         let origin = Origin::parse("https://example.com");
-        reg.set(&origin, Permission::Geolocation, PermissionState::Granted, PermissionSource::UserDecision, 1000);
-        assert_eq!(reg.get(&origin, Permission::Geolocation), PermissionState::Granted);
+        reg.set(
+            &origin,
+            Permission::Geolocation,
+            PermissionState::Granted,
+            PermissionSource::UserDecision,
+            1000,
+        );
+        assert_eq!(
+            reg.get(&origin, Permission::Geolocation),
+            PermissionState::Granted
+        );
     }
 
     #[test]
     fn request_returns_existing_decision() {
         let mut reg = PermissionRegistry::new();
         let origin = Origin::parse("https://example.com");
-        reg.set(&origin, Permission::Camera, PermissionState::Denied, PermissionSource::UserDecision, 1000);
+        reg.set(
+            &origin,
+            Permission::Camera,
+            PermissionState::Denied,
+            PermissionSource::UserDecision,
+            1000,
+        );
         // Request should return Denied without prompting.
         let result = reg.request(&origin, Permission::Camera, 2000);
         assert_eq!(result, PermissionState::Denied);
@@ -342,9 +383,18 @@ mod tests {
     fn reset_permission() {
         let mut reg = PermissionRegistry::new();
         let origin = Origin::parse("https://example.com");
-        reg.set(&origin, Permission::Camera, PermissionState::Granted, PermissionSource::UserDecision, 1000);
+        reg.set(
+            &origin,
+            Permission::Camera,
+            PermissionState::Granted,
+            PermissionSource::UserDecision,
+            1000,
+        );
         reg.reset(&origin, Permission::Camera);
-        assert_eq!(reg.get(&origin, Permission::Camera), PermissionState::Prompt);
+        assert_eq!(
+            reg.get(&origin, Permission::Camera),
+            PermissionState::Prompt
+        );
     }
 
     #[test]
@@ -352,8 +402,20 @@ mod tests {
         let mut reg = PermissionRegistry::new();
         let a = Origin::parse("https://a.com");
         let b = Origin::parse("https://b.com");
-        reg.set(&a, Permission::Camera, PermissionState::Granted, PermissionSource::UserDecision, 1000);
-        reg.set(&b, Permission::Camera, PermissionState::Denied, PermissionSource::UserDecision, 1000);
+        reg.set(
+            &a,
+            Permission::Camera,
+            PermissionState::Granted,
+            PermissionSource::UserDecision,
+            1000,
+        );
+        reg.set(
+            &b,
+            Permission::Camera,
+            PermissionState::Denied,
+            PermissionSource::UserDecision,
+            1000,
+        );
         reg.reset_all_for_origin(&a);
         assert_eq!(reg.get(&a, Permission::Camera), PermissionState::Prompt);
         assert_eq!(reg.get(&b, Permission::Camera), PermissionState::Denied);
@@ -390,8 +452,20 @@ mod tests {
     fn list_permissions_for_origin() {
         let mut reg = PermissionRegistry::new();
         let origin = Origin::parse("https://example.com");
-        reg.set(&origin, Permission::Camera, PermissionState::Granted, PermissionSource::UserDecision, 1000);
-        reg.set(&origin, Permission::Microphone, PermissionState::Denied, PermissionSource::UserDecision, 1000);
+        reg.set(
+            &origin,
+            Permission::Camera,
+            PermissionState::Granted,
+            PermissionSource::UserDecision,
+            1000,
+        );
+        reg.set(
+            &origin,
+            Permission::Microphone,
+            PermissionState::Denied,
+            PermissionSource::UserDecision,
+            1000,
+        );
         let list = reg.list_for_origin(&origin);
         assert_eq!(list.len(), 2);
     }

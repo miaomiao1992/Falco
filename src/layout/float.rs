@@ -4,8 +4,7 @@
 //! right of their containing block. Subsequent inline content wraps
 //! around them.
 
-use crate::layout::{LayoutBox, BoxContent, Rect, LayoutContext, InlineItem};
-use crate::style::Float;
+use crate::layout::{LayoutBox, LayoutContext, Rect};
 
 /// A floated element with its bounds.
 #[derive(Debug, Clone, Copy)]
@@ -56,7 +55,11 @@ pub fn layout_floats(
         let child = &mut children[idx];
         let mut ctx = LayoutContext {
             viewport_width,
-            x: if side == FloatSide::Left { left_x } else { right_x - 200.0 },
+            x: if side == FloatSide::Left {
+                left_x
+            } else {
+                right_x - 200.0
+            },
             y: current_y,
             available_width: available_width / 2.0, // Floats take up to half width
             containing_font_size: container_font_size,
@@ -89,7 +92,12 @@ pub fn layout_floats(
 
 /// Calculate the available width at a given Y position, accounting for
 /// floats that intrude into that line.
-pub fn available_width_at_y(y: f32, float_boxes: &[FloatBox], full_width: f32, origin_x: f32) -> (f32, f32) {
+pub fn available_width_at_y(
+    y: f32,
+    float_boxes: &[FloatBox],
+    full_width: f32,
+    origin_x: f32,
+) -> (f32, f32) {
     let mut left_edge = origin_x;
     let mut right_edge = origin_x + full_width;
 
@@ -112,7 +120,9 @@ pub fn available_width_at_y(y: f32, float_boxes: &[FloatBox], full_width: f32, o
 
 /// Apply `clear: left/right/both` — moves Y past any floats.
 pub fn apply_clear(y: &mut f32, clear: crate::style::Clear, float_boxes: &[FloatBox]) {
-    if clear == crate::style::Clear::None { return; }
+    if clear == crate::style::Clear::None {
+        return;
+    }
     for fb in float_boxes {
         let should_clear = match clear {
             crate::style::Clear::Left => fb.side == FloatSide::Left,

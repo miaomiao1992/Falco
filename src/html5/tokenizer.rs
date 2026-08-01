@@ -19,8 +19,6 @@
 //! * CDATA sections in foreign content
 //! * Explicit "markup declaration open" state for `<!` handling
 
-use std::collections::HashMap;
-
 /// Token emitted by the tokenizer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
@@ -211,9 +209,12 @@ impl Tokenizer {
                 None
             };
             // Flush any pending character buffer first.
-            if !self.char_buf.is_empty() && self.state != State::Data
-                && self.state != State::Rcdata && self.state != State::Rawtext
-                && self.state != State::ScriptData && self.state != State::PlainText
+            if !self.char_buf.is_empty()
+                && self.state != State::Data
+                && self.state != State::Rcdata
+                && self.state != State::Rawtext
+                && self.state != State::ScriptData
+                && self.state != State::PlainText
             {
                 self.emit_chars();
             }
@@ -251,29 +252,39 @@ impl Tokenizer {
     /// Look at the next character without consuming.
     fn peek(&self, offset: usize) -> Option<char> {
         let i = self.pos + offset;
-        if i < self.input.len() { Some(self.input[i]) } else { None }
+        if i < self.input.len() {
+            Some(self.input[i])
+        } else {
+            None
+        }
     }
 
     /// Consume and return the current character.
     fn consume(&mut self) -> Option<char> {
         let c = self.peek(0);
-        if c.is_some() { self.pos += 1; }
+        if c.is_some() {
+            self.pos += 1;
+        }
         c
     }
 
     /// Reconsume the current character (move back one).
     fn reconsume(&mut self) {
-        if self.pos > 0 { self.pos -= 1; }
+        if self.pos > 0 {
+            self.pos -= 1;
+        }
     }
 
     /// Match an input prefix case-insensitively, returning true if matched
     /// (and advancing past it) or false (without advancing).
     fn match_prefix_ci(&mut self, s: &str) -> bool {
         let chars: Vec<char> = s.chars().collect();
-        if self.pos + chars.len() > self.input.len() { return false; }
+        if self.pos + chars.len() > self.input.len() {
+            return false;
+        }
         for (i, &c) in chars.iter().enumerate() {
             let input_c = self.input[self.pos + i];
-            if input_c.to_ascii_lowercase() != c.to_ascii_lowercase() {
+            if !input_c.eq_ignore_ascii_case(&c) {
                 return false;
             }
         }
@@ -309,8 +320,12 @@ impl Tokenizer {
             State::ScriptDataDoubleEscapeStart => self.step_script_data_double_escape_start(c),
             State::ScriptDataDoubleEscaped => self.step_script_data_double_escaped(c),
             State::ScriptDataDoubleEscapedDash => self.step_script_data_double_escaped_dash(c),
-            State::ScriptDataDoubleEscapedDashDash => self.step_script_data_double_escaped_dash_dash(c),
-            State::ScriptDataDoubleEscapedLessThanSign => self.step_script_data_double_escaped_lt(c),
+            State::ScriptDataDoubleEscapedDashDash => {
+                self.step_script_data_double_escaped_dash_dash(c)
+            }
+            State::ScriptDataDoubleEscapedLessThanSign => {
+                self.step_script_data_double_escaped_lt(c)
+            }
             State::ScriptDataDoubleEscapeEnd => self.step_script_data_double_escape_end(c),
             State::BeforeAttributeName => self.step_before_attr_name(c),
             State::AttributeName => self.step_attr_name(c),
@@ -583,7 +598,7 @@ impl Tokenizer {
             return;
         }
         for (i, &c) in chars.iter().enumerate() {
-            if self.input[self.pos + i].to_ascii_lowercase() != c.to_ascii_lowercase() {
+            if !self.input[self.pos + i].eq_ignore_ascii_case(&c) {
                 self.state = State::Rcdata;
                 return;
             }
@@ -631,7 +646,7 @@ impl Tokenizer {
             return;
         }
         for (i, &c) in chars.iter().enumerate() {
-            if self.input[self.pos + i].to_ascii_lowercase() != c.to_ascii_lowercase() {
+            if !self.input[self.pos + i].eq_ignore_ascii_case(&c) {
                 self.state = State::Rawtext;
                 return;
             }
@@ -696,7 +711,11 @@ impl Tokenizer {
 
     fn step_script_data_end_tag_name(&mut self, c: Option<char>) {
         let last = self.last_start_tag.clone();
-        let pending_name = self.pending_tag.as_ref().map(|t| t.name.clone()).unwrap_or_default();
+        let pending_name = self
+            .pending_tag
+            .as_ref()
+            .map(|t| t.name.clone())
+            .unwrap_or_default();
         match c {
             Some(ch) if ch.is_ascii_whitespace() => {
                 self.pos += 1;
@@ -878,7 +897,11 @@ impl Tokenizer {
 
     fn step_script_data_escaped_end_tag_name(&mut self, c: Option<char>) {
         let last = self.last_start_tag.clone();
-        let pending_name = self.pending_tag.as_ref().map(|t| t.name.clone()).unwrap_or_default();
+        let pending_name = self
+            .pending_tag
+            .as_ref()
+            .map(|t| t.name.clone())
+            .unwrap_or_default();
         match c {
             Some(ch) if ch.is_ascii_whitespace() => {
                 self.pos += 1;
@@ -1052,7 +1075,9 @@ impl Tokenizer {
 
     fn step_before_attr_name(&mut self, c: Option<char>) {
         match c {
-            Some(ch) if ch.is_ascii_whitespace() => { self.pos += 1; }
+            Some(ch) if ch.is_ascii_whitespace() => {
+                self.pos += 1;
+            }
             Some('/') | Some('>') => self.state = State::AfterAttributeName,
             None => self.state = State::AfterAttributeName,
             Some('=') => {
@@ -1093,7 +1118,9 @@ impl Tokenizer {
 
     fn step_after_attr_name(&mut self, c: Option<char>) {
         match c {
-            Some(ch) if ch.is_ascii_whitespace() => { self.pos += 1; }
+            Some(ch) if ch.is_ascii_whitespace() => {
+                self.pos += 1;
+            }
             Some('/') => {
                 self.pos += 1;
                 self.commit_attribute();
@@ -1124,7 +1151,9 @@ impl Tokenizer {
 
     fn step_before_attr_value(&mut self, c: Option<char>) {
         match c {
-            Some(ch) if ch.is_ascii_whitespace() => { self.pos += 1; }
+            Some(ch) if ch.is_ascii_whitespace() => {
+                self.pos += 1;
+            }
             Some('"') => {
                 self.pos += 1;
                 self.state = State::AttributeValueDoubleQuoted;
@@ -1252,7 +1281,8 @@ impl Tokenizer {
         match c {
             Some('>') => {
                 self.pos += 1;
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
                 self.state = State::Data;
             }
             Some(ch) => {
@@ -1260,12 +1290,13 @@ impl Tokenizer {
                 self.pending_comment.push(ch);
             }
             None => {
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
             }
         }
     }
 
-    fn step_markup_declaration_open(&mut self, c: Option<char>) {
+    fn step_markup_declaration_open(&mut self, _c: Option<char>) {
         // We expect: "--" (comment), "DOCTYPE" (case-insensitive), "[CDATA[".
         if self.match_prefix_ci("--") {
             self.pending_comment.clear();
@@ -1297,11 +1328,13 @@ impl Tokenizer {
             }
             Some('>') => {
                 self.pos += 1;
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
                 self.state = State::Data;
             }
             None => {
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
             }
             _ => self.state = State::Comment,
         }
@@ -1315,11 +1348,13 @@ impl Tokenizer {
             }
             Some('>') => {
                 self.pos += 1;
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
                 self.state = State::Data;
             }
             None => {
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
             }
             _ => {
                 self.pending_comment.push('-');
@@ -1344,7 +1379,8 @@ impl Tokenizer {
                 self.pending_comment.push(ch);
             }
             None => {
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
             }
         }
     }
@@ -1387,7 +1423,8 @@ impl Tokenizer {
         match c {
             Some('>') => {
                 self.pos += 1;
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
                 self.state = State::Data;
             }
             _ => self.state = State::CommentEnd,
@@ -1401,7 +1438,8 @@ impl Tokenizer {
                 self.state = State::CommentEnd;
             }
             None => {
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
             }
             _ => {
                 self.pending_comment.push('-');
@@ -1414,7 +1452,8 @@ impl Tokenizer {
         match c {
             Some('>') => {
                 self.pos += 1;
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
                 self.state = State::Data;
             }
             Some('!') => {
@@ -1426,7 +1465,8 @@ impl Tokenizer {
                 self.pending_comment.push('-');
             }
             None => {
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
             }
             _ => {
                 self.pending_comment.push_str("--");
@@ -1444,11 +1484,13 @@ impl Tokenizer {
             }
             Some('>') => {
                 self.pos += 1;
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
                 self.state = State::Data;
             }
             None => {
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
             }
             _ => {
                 self.pending_comment.push_str("--!");
@@ -1478,7 +1520,9 @@ impl Tokenizer {
 
     fn step_before_doctype_name(&mut self, c: Option<char>) {
         match c {
-            Some(ch) if ch.is_ascii_whitespace() => { self.pos += 1; }
+            Some(ch) if ch.is_ascii_whitespace() => {
+                self.pos += 1;
+            }
             None => {
                 self.pending_doctype.force_quirks = true;
                 self.emit_doctype();
@@ -1538,7 +1582,9 @@ impl Tokenizer {
             return;
         }
         match c {
-            Some(ch) if ch.is_ascii_whitespace() => { self.pos += 1; }
+            Some(ch) if ch.is_ascii_whitespace() => {
+                self.pos += 1;
+            }
             Some('>') => {
                 self.pos += 1;
                 self.emit_doctype();
@@ -1584,7 +1630,9 @@ impl Tokenizer {
 
     fn step_before_doctype_public_id(&mut self, c: Option<char>) {
         match c {
-            Some(ch) if ch.is_ascii_whitespace() => { self.pos += 1; }
+            Some(ch) if ch.is_ascii_whitespace() => {
+                self.pos += 1;
+            }
             Some('"') => {
                 self.pos += 1;
                 self.pending_doctype.public_id = Some(String::new());
@@ -1694,7 +1742,9 @@ impl Tokenizer {
 
     fn step_between_doctype_ids(&mut self, c: Option<char>) {
         match c {
-            Some(ch) if ch.is_ascii_whitespace() => { self.pos += 1; }
+            Some(ch) if ch.is_ascii_whitespace() => {
+                self.pos += 1;
+            }
             Some('>') => {
                 self.pos += 1;
                 self.emit_doctype();
@@ -1754,7 +1804,9 @@ impl Tokenizer {
 
     fn step_before_doctype_system_id(&mut self, c: Option<char>) {
         match c {
-            Some(ch) if ch.is_ascii_whitespace() => { self.pos += 1; }
+            Some(ch) if ch.is_ascii_whitespace() => {
+                self.pos += 1;
+            }
             Some('"') => {
                 self.pos += 1;
                 self.pending_doctype.system_id = Some(String::new());
@@ -1834,7 +1886,9 @@ impl Tokenizer {
 
     fn step_after_doctype_system_id(&mut self, c: Option<char>) {
         match c {
-            Some(ch) if ch.is_ascii_whitespace() => { self.pos += 1; }
+            Some(ch) if ch.is_ascii_whitespace() => {
+                self.pos += 1;
+            }
             Some('>') => {
                 self.pos += 1;
                 self.emit_doctype();
@@ -1856,7 +1910,9 @@ impl Tokenizer {
                 self.state = State::Data;
             }
             None => self.emit_doctype(),
-            Some(_) => { self.pos += 1; }
+            Some(_) => {
+                self.pos += 1;
+            }
         }
     }
 
@@ -1879,7 +1935,8 @@ impl Tokenizer {
         match c {
             Some(']') => {
                 self.pos += 1;
-                self.tokens.push(Token::Comment(std::mem::take(&mut self.pending_comment)));
+                self.tokens
+                    .push(Token::Comment(std::mem::take(&mut self.pending_comment)));
                 self.state = State::Data;
             }
             _ => {
@@ -1948,7 +2005,9 @@ impl Tokenizer {
         if self.peek(0) == Some('#') {
             self.pos += 1;
             let is_hex = matches!(self.peek(0), Some('x') | Some('X'));
-            if is_hex { self.pos += 1; }
+            if is_hex {
+                self.pos += 1;
+            }
             let mut code_str = String::new();
             while let Some(ch) = self.peek(0) {
                 if is_hex && ch.is_ascii_hexdigit() {
@@ -1967,13 +2026,15 @@ impl Tokenizer {
                 return None;
             }
             // Consume trailing ';'.
-            if self.peek(0) == Some(';') { self.pos += 1; }
+            if self.peek(0) == Some(';') {
+                self.pos += 1;
+            }
             let code = if is_hex {
                 u32::from_str_radix(&code_str, 16).ok()
             } else {
                 code_str.parse::<u32>().ok()
             };
-            return code.and_then(|c| decode_code_point(c));
+            return code.and_then(decode_code_point);
         }
         // Named reference — try to match the longest entity.
         // Walk forward until we hit ';' or a non-alphanumeric.
@@ -1987,18 +2048,23 @@ impl Tokenizer {
                 Some(c) => c,
                 None => break,
             };
-            if !ch.is_ascii_alphanumeric() { break; }
+            if !ch.is_ascii_alphanumeric() {
+                break;
+            }
             name.push(ch);
             i += 1;
             if let Some(v) = named_entities::lookup(&name) {
-                best_match = Some(unsafe { std::mem::transmute::<&str, &'static str>(name.as_str()) });
+                best_match =
+                    Some(unsafe { std::mem::transmute::<&str, &'static str>(name.as_str()) });
                 best_value = Some(v);
                 best_end = self.pos + i;
             }
         }
         if let (Some(_), Some(value)) = (best_match, best_value) {
             self.pos = best_end;
-            if self.peek(0) == Some(';') { self.pos += 1; }
+            if self.peek(0) == Some(';') {
+                self.pos += 1;
+            }
             // If next char after the entity is '=' and we're in an attribute,
             // spec says to NOT consume the ';' (legacy behavior). We'll be lenient.
             return Some(value.to_string());
@@ -2045,16 +2111,19 @@ fn decode_code_point(mut code: u32) -> Option<String> {
         // Surrogates and out-of-range.
         0xD800..=0xDFFF => Some('\u{FFFD}'.to_string()),
         0xFDD0..=0xFDEF => Some('\u{FFFD}'.to_string()),
-        0xFFFE | 0xFFFF | 0x1FFFE | 0x1FFFF | 0x2FFFE | 0x2FFFF
-        | 0x3FFFE | 0x3FFFF | 0x4FFFE | 0x4FFFF | 0x5FFFE | 0x5FFFF
-        | 0x6FFFE | 0x6FFFF | 0x7FFFE | 0x7FFFF | 0x8FFFE | 0x8FFFF
-        | 0x9FFFE | 0x9FFFF | 0xAFFFE | 0xAFFFF | 0xBFFFE | 0xBFFFF
-        | 0xCFFFE | 0xCFFFF | 0xDFFFE | 0xDFFFF | 0xEFFFE | 0xEFFFF
-        | 0xFFFFE | 0xFFFFF | 0x10FFFE | 0x10FFFF => Some('\u{FFFD}'.to_string()),
+        0xFFFE | 0xFFFF | 0x1FFFE | 0x1FFFF | 0x2FFFE | 0x2FFFF | 0x3FFFE | 0x3FFFF | 0x4FFFE
+        | 0x4FFFF | 0x5FFFE | 0x5FFFF | 0x6FFFE | 0x6FFFF | 0x7FFFE | 0x7FFFF | 0x8FFFE
+        | 0x8FFFF | 0x9FFFE | 0x9FFFF | 0xAFFFE | 0xAFFFF | 0xBFFFE | 0xBFFFF | 0xCFFFE
+        | 0xCFFFF | 0xDFFFE | 0xDFFFF | 0xEFFFE | 0xEFFFF | 0xFFFFE | 0xFFFFF | 0x10FFFE
+        | 0x10FFFF => Some('\u{FFFD}'.to_string()),
         _ => None,
     };
-    if let Some(s) = replacement { return Some(s); }
-    if code > 0x10FFFF { code = 0xFFFD; }
+    if let Some(s) = replacement {
+        return Some(s);
+    }
+    if code > 0x10FFFF {
+        code = 0xFFFD;
+    }
     char::from_u32(code).map(|c| c.to_string())
 }
 
@@ -2246,7 +2315,11 @@ mod tests {
     use super::*;
 
     fn tokenize(src: &str) -> Vec<Token> {
-        Tokenizer::new(src).run().into_iter().filter(|t| !matches!(t, Token::Eof)).collect()
+        Tokenizer::new(src)
+            .run()
+            .into_iter()
+            .filter(|t| !matches!(t, Token::Eof))
+            .collect()
     }
 
     #[test]
@@ -2308,18 +2381,32 @@ mod tests {
     #[test]
     fn decodes_numeric_entities() {
         let tokens = tokenize("&#65;&#x42;");
-        let chars: String = tokens.iter().filter_map(|t| {
-            if let Token::Character(c) = t { Some(*c) } else { None }
-        }).collect();
+        let chars: String = tokens
+            .iter()
+            .filter_map(|t| {
+                if let Token::Character(c) = t {
+                    Some(*c)
+                } else {
+                    None
+                }
+            })
+            .collect();
         assert_eq!(chars, "AB");
     }
 
     #[test]
     fn decodes_named_entities() {
         let tokens = tokenize("&amp;&copy;");
-        let chars: String = tokens.iter().filter_map(|t| {
-            if let Token::Character(c) = t { Some(*c) } else { None }
-        }).collect();
+        let chars: String = tokens
+            .iter()
+            .filter_map(|t| {
+                if let Token::Character(c) = t {
+                    Some(*c)
+                } else {
+                    None
+                }
+            })
+            .collect();
         assert_eq!(chars, "&©");
     }
 
@@ -2341,7 +2428,9 @@ mod tests {
         t.set_content_model(ContentModel::Data);
         let tokens = t.run();
         // Should produce StartTag(style), Text("a < b"), EndTag(style), Eof
-        assert!(tokens.iter().any(|tok| matches!(tok, Token::StartTag { ref name, .. } if name == "style")));
+        assert!(tokens
+            .iter()
+            .any(|tok| matches!(tok, Token::StartTag { ref name, .. } if name == "style")));
     }
 
     #[test]

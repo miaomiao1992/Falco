@@ -30,15 +30,15 @@
 //! (custom elements) from the user's 100-item roadmap. It builds on
 //! the `dom2` module's spec-compliant DOM.
 
+pub mod encoding;
+pub mod serializer;
 pub mod tokenizer;
 pub mod tree_builder;
-pub mod serializer;
 pub mod xml;
-pub mod encoding;
 
-pub use tokenizer::{Tokenizer, Token, ContentModel, State};
-pub use tree_builder::{TreeBuilder, InsertionMode};
 pub use serializer::serialize;
+pub use tokenizer::{ContentModel, State, Token, Tokenizer};
+pub use tree_builder::{InsertionMode, TreeBuilder};
 
 use crate::dom2::{Document, DocumentHandle};
 
@@ -62,7 +62,7 @@ pub fn parse(html: &str) -> DocumentHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom2::{tag_name, append_child};
+    use crate::dom2::{append_child, tag_name};
 
     #[test]
     fn parses_minimal_document() {
@@ -96,7 +96,11 @@ mod tests {
         // The <div> should appear BEFORE the <table> in serialization.
         let div_pos = ser.find("<div").unwrap_or(usize::MAX);
         let table_pos = ser.find("<table").unwrap_or(usize::MAX);
-        assert!(div_pos < table_pos, "div should be foster-parented before table, got:\n{}", ser);
+        assert!(
+            div_pos < table_pos,
+            "div should be foster-parented before table, got:\n{}",
+            ser
+        );
     }
 
     #[test]

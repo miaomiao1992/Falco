@@ -27,14 +27,14 @@ pub fn get(url: &str) -> Option<Vec<u8>> {
     let cache = CACHE.lock().unwrap();
     let cache = cache.as_ref()?;
     let entry = cache.get(url)?;
-    
+
     // Check max-age expiration.
     if let Some(max_age) = entry.max_age {
         if entry.cached_at.elapsed() > max_age {
             return None;
         }
     }
-    
+
     Some(entry.body.clone())
 }
 
@@ -53,16 +53,21 @@ pub fn get_last_modified(url: &str) -> Option<String> {
 /// Store a response in the cache.
 pub fn put(url: &str, body: Vec<u8>) {
     let mut cache = CACHE.lock().unwrap();
-    if cache.is_none() { *cache = Some(HashMap::new()); }
-    
+    if cache.is_none() {
+        *cache = Some(HashMap::new());
+    }
+
     if let Some(ref mut cache) = *cache {
-        cache.insert(url.to_string(), CachedResponse {
-            body,
-            etag: None,
-            last_modified: None,
-            cached_at: Instant::now(),
-            max_age: None,
-        });
+        cache.insert(
+            url.to_string(),
+            CachedResponse {
+                body,
+                etag: None,
+                last_modified: None,
+                cached_at: Instant::now(),
+                max_age: None,
+            },
+        );
     }
 }
 
@@ -78,7 +83,9 @@ pub fn put_with_metadata(
         // Parse "max-age=3600" from Cache-Control header.
         if let Some(pos) = cc.find("max-age=") {
             let rest = &cc[pos + 8..];
-            let end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+            let end = rest
+                .find(|c: char| !c.is_ascii_digit())
+                .unwrap_or(rest.len());
             rest[..end].parse::<u64>().ok().map(Duration::from_secs)
         } else {
             None
@@ -86,16 +93,21 @@ pub fn put_with_metadata(
     });
 
     let mut cache = CACHE.lock().unwrap();
-    if cache.is_none() { *cache = Some(HashMap::new()); }
-    
+    if cache.is_none() {
+        *cache = Some(HashMap::new());
+    }
+
     if let Some(ref mut cache) = *cache {
-        cache.insert(url.to_string(), CachedResponse {
-            body,
-            etag,
-            last_modified,
-            cached_at: Instant::now(),
-            max_age,
-        });
+        cache.insert(
+            url.to_string(),
+            CachedResponse {
+                body,
+                etag,
+                last_modified,
+                cached_at: Instant::now(),
+                max_age,
+            },
+        );
     }
 }
 

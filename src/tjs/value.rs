@@ -3,10 +3,10 @@
 //! All TJS values are one of: Number, String, Boolean, Null, Undefined,
 //! Object (HashMap), Array (Vec), Function (closure).
 
-use std::collections::HashMap;
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt;
+use std::rc::Rc;
 
 /// A TJS runtime value.
 #[derive(Clone)]
@@ -92,7 +92,13 @@ impl Value {
             Value::Number(n) => *n,
             Value::BigInt(s) => s.parse().unwrap_or(f64::NAN),
             Value::String(s) => s.parse().unwrap_or(f64::NAN),
-            Value::Boolean(b) => if *b { 1.0 } else { 0.0 },
+            Value::Boolean(b) => {
+                if *b {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
             Value::Null => 0.0,
             Value::Undefined => f64::NAN,
             _ => f64::NAN,
@@ -116,7 +122,10 @@ impl Value {
             Value::Object(_) => "[object Object]".to_string(),
             Value::Array(arr) => {
                 let arr = arr.borrow();
-                arr.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
+                arr.iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
             }
             Value::Function(f) => format!("function {}() {{}}", f.name),
             Value::Builtin(f) => format!("function {}() {{ [native code] }}", f.name),
@@ -145,8 +154,12 @@ impl Value {
             (a, b) if a.equals(b) => true,
             (Value::Number(a), Value::String(b)) => *a == b.parse::<f64>().unwrap_or(f64::NAN),
             (Value::String(a), Value::Number(b)) => a.parse::<f64>().unwrap_or(f64::NAN) == *b,
-            (Value::Boolean(b), other) => Value::Number(if *b { 1.0 } else { 0.0 }).loose_equals(other),
-            (other, Value::Boolean(b)) => other.loose_equals(&Value::Number(if *b { 1.0 } else { 0.0 })),
+            (Value::Boolean(b), other) => {
+                Value::Number(if *b { 1.0 } else { 0.0 }).loose_equals(other)
+            }
+            (other, Value::Boolean(b)) => {
+                other.loose_equals(&Value::Number(if *b { 1.0 } else { 0.0 }))
+            }
             (Value::Null, Value::Undefined) => true,
             (Value::Undefined, Value::Null) => true,
             _ => false,
@@ -177,9 +190,18 @@ impl PartialEq for Value {
     }
 }
 
+impl Default for ObjectValue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ObjectValue {
     pub fn new() -> Self {
-        Self { properties: HashMap::new(), prototype: None }
+        Self {
+            properties: HashMap::new(),
+            prototype: None,
+        }
     }
 
     pub fn get(&self, key: &str) -> Value {
@@ -207,7 +229,7 @@ impl Value {
                     "length" => Value::Number(arr.borrow().len() as f64),
                     "push" => Value::Builtin(BuiltinFn {
                         name: "push".to_string(),
-                        func: Rc::new(move |args| {
+                        func: Rc::new(move |_args| {
                             // Note: this creates a new closure each time, which is slow.
                             // But it works.
                             Ok(Value::Undefined)
@@ -257,8 +279,13 @@ impl Value {
                         Value::Builtin(BuiltinFn {
                             name: "charAt".to_string(),
                             func: Rc::new(move |args| {
-                                let idx = args.get(0).map(|v| v.to_number() as usize).unwrap_or(0);
-                                Ok(Value::String(s.chars().nth(idx).map(|c| c.to_string()).unwrap_or_default()))
+                                let idx = args.first().map(|v| v.to_number() as usize).unwrap_or(0);
+                                Ok(Value::String(
+                                    s.chars()
+                                        .nth(idx)
+                                        .map(|c| c.to_string())
+                                        .unwrap_or_default(),
+                                ))
                             }),
                         })
                     }
@@ -267,11 +294,16 @@ impl Value {
                         Value::Builtin(BuiltinFn {
                             name: "indexOf".to_string(),
                             func: Rc::new(move |args| {
-                                let search = args.get(0).map(|v| v.to_string()).unwrap_or_default();
-                                Ok(Value::Number(s.find(&search).map(|i| {
-                                    // Convert byte index to char index.
-                                    s[..i].chars().count() as f64
-                                }).unwrap_or(-1.0)))
+                                let search =
+                                    args.first().map(|v| v.to_string()).unwrap_or_default();
+                                Ok(Value::Number(
+                                    s.find(&search)
+                                        .map(|i| {
+                                            // Convert byte index to char index.
+                                            s[..i].chars().count() as f64
+                                        })
+                                        .unwrap_or(-1.0),
+                                ))
                             }),
                         })
                     }
@@ -280,7 +312,8 @@ impl Value {
                         Value::Builtin(BuiltinFn {
                             name: "includes".to_string(),
                             func: Rc::new(move |args| {
-                                let search = args.get(0).map(|v| v.to_string()).unwrap_or_default();
+                                let search =
+                                    args.first().map(|v| v.to_string()).unwrap_or_default();
                                 Ok(Value::Boolean(s.contains(&search)))
                             }),
                         })
@@ -290,7 +323,8 @@ impl Value {
                         Value::Builtin(BuiltinFn {
                             name: "startsWith".to_string(),
                             func: Rc::new(move |args| {
-                                let search = args.get(0).map(|v| v.to_string()).unwrap_or_default();
+                                let search =
+                                    args.first().map(|v| v.to_string()).unwrap_or_default();
                                 Ok(Value::Boolean(s.starts_with(&search)))
                             }),
                         })
@@ -300,7 +334,8 @@ impl Value {
                         Value::Builtin(BuiltinFn {
                             name: "endsWith".to_string(),
                             func: Rc::new(move |args| {
-                                let search = args.get(0).map(|v| v.to_string()).unwrap_or_default();
+                                let search =
+                                    args.first().map(|v| v.to_string()).unwrap_or_default();
                                 Ok(Value::Boolean(s.ends_with(&search)))
                             }),
                         })
@@ -311,11 +346,24 @@ impl Value {
                             name: "slice".to_string(),
                             func: Rc::new(move |args| {
                                 let chars: Vec<char> = s.chars().collect();
-                                let start = args.get(0).map(|v| v.to_number() as i64).unwrap_or(0);
-                                let end = args.get(1).map(|v| v.to_number() as i64).unwrap_or(chars.len() as i64);
-                                let start = if start < 0 { (chars.len() as i64 + start).max(0) as usize } else { start as usize };
-                                let end = if end < 0 { (chars.len() as i64 + end).max(0) as usize } else { end.min(chars.len() as i64) as usize };
-                                if start >= end { return Ok(Value::String(String::new())); }
+                                let start = args.first().map(|v| v.to_number() as i64).unwrap_or(0);
+                                let end = args
+                                    .get(1)
+                                    .map(|v| v.to_number() as i64)
+                                    .unwrap_or(chars.len() as i64);
+                                let start = if start < 0 {
+                                    (chars.len() as i64 + start).max(0) as usize
+                                } else {
+                                    start as usize
+                                };
+                                let end = if end < 0 {
+                                    (chars.len() as i64 + end).max(0) as usize
+                                } else {
+                                    end.min(chars.len() as i64) as usize
+                                };
+                                if start >= end {
+                                    return Ok(Value::String(String::new()));
+                                }
                                 Ok(Value::String(chars[start..end].iter().collect()))
                             }),
                         })
@@ -326,9 +374,15 @@ impl Value {
                             name: "substring".to_string(),
                             func: Rc::new(move |args| {
                                 let chars: Vec<char> = s.chars().collect();
-                                let mut start = args.get(0).map(|v| v.to_number() as usize).unwrap_or(0);
-                                let mut end = args.get(1).map(|v| v.to_number() as usize).unwrap_or(chars.len());
-                                if start > end { std::mem::swap(&mut start, &mut end); }
+                                let mut start =
+                                    args.first().map(|v| v.to_number() as usize).unwrap_or(0);
+                                let mut end = args
+                                    .get(1)
+                                    .map(|v| v.to_number() as usize)
+                                    .unwrap_or(chars.len());
+                                if start > end {
+                                    std::mem::swap(&mut start, &mut end);
+                                }
                                 start = start.min(chars.len());
                                 end = end.min(chars.len());
                                 Ok(Value::String(chars[start..end].iter().collect()))
@@ -340,11 +394,13 @@ impl Value {
                         Value::Builtin(BuiltinFn {
                             name: "split".to_string(),
                             func: Rc::new(move |args| {
-                                let sep = args.get(0).map(|v| v.to_string()).unwrap_or_default();
+                                let sep = args.first().map(|v| v.to_string()).unwrap_or_default();
                                 let parts: Vec<Value> = if sep.is_empty() {
                                     s.chars().map(|c| Value::String(c.to_string())).collect()
                                 } else {
-                                    s.split(&sep).map(|p| Value::String(p.to_string())).collect()
+                                    s.split(&sep)
+                                        .map(|p| Value::String(p.to_string()))
+                                        .collect()
                                 };
                                 Ok(Value::Array(Rc::new(RefCell::new(parts))))
                             }),
@@ -362,7 +418,7 @@ impl Value {
                         Value::Builtin(BuiltinFn {
                             name: "replace".to_string(),
                             func: Rc::new(move |args| {
-                                let from = args.get(0).map(|v| v.to_string()).unwrap_or_default();
+                                let from = args.first().map(|v| v.to_string()).unwrap_or_default();
                                 let to = args.get(1).map(|v| v.to_string()).unwrap_or_default();
                                 Ok(Value::String(s.replacen(&from, &to, 1)))
                             }),
@@ -370,21 +426,31 @@ impl Value {
                     }
                     _ => {
                         if let Ok(idx) = key.parse::<usize>() {
-                            s.chars().nth(idx).map(|c| Value::String(c.to_string())).unwrap_or(Value::Undefined)
+                            s.chars()
+                                .nth(idx)
+                                .map(|c| Value::String(c.to_string()))
+                                .unwrap_or(Value::Undefined)
                         } else {
                             Value::Undefined
                         }
                     }
                 }
             }
-            Value::Function(_) | Value::Builtin(_) => {
-                match key {
-                    "call" => Value::Builtin(BuiltinFn { name: "call".to_string(), func: Rc::new(|_| Ok(Value::Undefined)) }),
-                    "apply" => Value::Builtin(BuiltinFn { name: "apply".to_string(), func: Rc::new(|_| Ok(Value::Undefined)) }),
-                    "bind" => Value::Builtin(BuiltinFn { name: "bind".to_string(), func: Rc::new(|_| Ok(Value::Undefined)) }),
-                    _ => Value::Undefined,
-                }
-            }
+            Value::Function(_) | Value::Builtin(_) => match key {
+                "call" => Value::Builtin(BuiltinFn {
+                    name: "call".to_string(),
+                    func: Rc::new(|_| Ok(Value::Undefined)),
+                }),
+                "apply" => Value::Builtin(BuiltinFn {
+                    name: "apply".to_string(),
+                    func: Rc::new(|_| Ok(Value::Undefined)),
+                }),
+                "bind" => Value::Builtin(BuiltinFn {
+                    name: "bind".to_string(),
+                    func: Rc::new(|_| Ok(Value::Undefined)),
+                }),
+                _ => Value::Undefined,
+            },
             _ => Value::Undefined,
         }
     }

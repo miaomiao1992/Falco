@@ -19,9 +19,9 @@
 //!   click input   — focus
 //!   click address bar — focus address bar
 
-use crate::layout::{LayoutBox, BoxContent, InlineItem};
-use crate::paint::{Canvas, FontRasterizer, PaintCommand};
 use crate::css::Color;
+use crate::layout::{BoxContent, InlineItem, LayoutBox};
+use crate::paint::{Canvas, FontRasterizer};
 use minifb::{Key, KeyRepeat, MouseMode, ScaleMode, Window, WindowOptions};
 use std::time::{Duration, Instant};
 
@@ -124,7 +124,11 @@ impl Browser {
 
         let window_buffer = vec![0xFFFFFFFFu32; window_width * window_height];
 
-        let first_page = Page { url: url.clone(), html_src, css_src };
+        let first_page = Page {
+            url: url.clone(),
+            html_src,
+            css_src,
+        };
         let mut browser = Browser {
             window,
             rasterizer,
@@ -179,15 +183,21 @@ impl Browser {
         let dom = crate::html::parse(&clean_html);
         let stylesheet = crate::css::parse(&all_css);
         let style_tree = crate::style::build_style_tree(&dom, &stylesheet);
-        let mut layout_root = crate::layout::build_layout_tree(&style_tree, self.viewport_width as f32);
+        let layout_root = crate::layout::build_layout_tree(&style_tree, self.viewport_width as f32);
         let mut commands = Vec::new();
-        crate::layout::collect_paint_commands(&mut layout_root, &mut commands);
+        crate::layout::collect_paint_commands(&layout_root, &mut commands);
 
         let actual_height = (layout_root.bounds.y + layout_root.bounds.height).ceil() as u32;
         let canvas_height = actual_height.max(400);
         let mut canvas = Canvas::new(self.viewport_width, canvas_height);
         if self.background.a > 0 {
-            canvas.fill_rect(0.0, 0.0, self.viewport_width as f32, canvas_height as f32, self.background);
+            canvas.fill_rect(
+                0.0,
+                0.0,
+                self.viewport_width as f32,
+                canvas_height as f32,
+                self.background,
+            );
         }
         crate::paint::paint(&commands, &mut canvas, &self.rasterizer);
 
@@ -200,7 +210,10 @@ impl Browser {
 
         // Scan the layout tree for interactive elements.
         let mut interactive_elements = Vec::new();
-        let mut scanner = ElementScanner { elements: &mut interactive_elements, next_id: 1 };
+        let mut scanner = ElementScanner {
+            elements: &mut interactive_elements,
+            next_id: 1,
+        };
         scanner.scan(&self.layout_root);
         self.interactive_elements = interactive_elements;
 
@@ -227,8 +240,11 @@ impl Browser {
             url.to_string()
         } else if url.starts_with("/") {
             // Absolute path — resolve against base URL's origin.
-            if let Some(origin_end) = base.find("://").and_then(|i| base[i + 3..].find('/').map(|j| i + 3 + j)) {
-                format!("{}", &base[..origin_end]) + url
+            if let Some(origin_end) = base
+                .find("://")
+                .and_then(|i| base[i + 3..].find('/').map(|j| i + 3 + j))
+            {
+                base[..origin_end].to_string() + url
             } else {
                 format!("{}{}", base, url)
             }
@@ -252,7 +268,11 @@ impl Browser {
         let current = &self.history[self.history_index];
         match self.fetch_url(url, &current.url) {
             Ok((html, css)) => {
-                let page = Page { url: url.to_string(), html_src: html, css_src: css };
+                let page = Page {
+                    url: url.to_string(),
+                    html_src: html,
+                    css_src: css,
+                };
                 // Truncate forward history.
                 if self.history_index + 1 < self.history.len() {
                     self.history.truncate(self.history_index + 1);
@@ -276,7 +296,11 @@ impl Browser {
         eprintln!("[falco] reloading: {}", page.url);
         match self.fetch_url(&page.url, &page.url) {
             Ok((html, css)) => {
-                let new_page = Page { url: page.url.clone(), html_src: html, css_src: css };
+                let new_page = Page {
+                    url: page.url.clone(),
+                    html_src: html,
+                    css_src: css,
+                };
                 self.history[self.history_index] = new_page.clone();
                 if let Err(e) = self.load_page(&new_page) {
                     self.status = format!("Error reloading: {e}");
@@ -313,22 +337,29 @@ impl Browser {
         let mut prev_scroll = self.scroll_y;
         let mut prev_focused = self.focused_element;
 
-        while self.window.is_open() && !self.window.is_key_down(Key::Escape) && !self.window.is_key_down(Key::Q) {
+        while self.window.is_open()
+            && !self.window.is_key_down(Key::Escape)
+            && !self.window.is_key_down(Key::Q)
+        {
             // Handle navigation keys.
             if self.window.is_key_pressed(Key::R, KeyRepeat::No) {
                 self.reload();
             }
             if self.window.is_key_pressed(Key::Left, KeyRepeat::No)
-                && (self.window.is_key_down(Key::LeftAlt) || self.window.is_key_down(Key::RightAlt)) {
+                && (self.window.is_key_down(Key::LeftAlt) || self.window.is_key_down(Key::RightAlt))
+            {
                 self.go_back();
             }
             if self.window.is_key_pressed(Key::Right, KeyRepeat::No)
-                && (self.window.is_key_down(Key::LeftAlt) || self.window.is_key_down(Key::RightAlt)) {
+                && (self.window.is_key_down(Key::LeftAlt) || self.window.is_key_down(Key::RightAlt))
+            {
                 self.go_forward();
             }
 
             // Address bar focus.
-            if self.window.is_key_pressed(Key::F6, KeyRepeat::No) || self.window.is_key_pressed(Key::F6, KeyRepeat::No) {
+            if self.window.is_key_pressed(Key::F6, KeyRepeat::No)
+                || self.window.is_key_pressed(Key::F6, KeyRepeat::No)
+            {
                 self.address_bar_focused = true;
                 self.focused_element = None;
             }
@@ -362,7 +393,10 @@ impl Browser {
 
             // Tab — cycle focus (unless address bar has focus).
             if !self.address_bar_focused && self.window.is_key_pressed(Key::Tab, KeyRepeat::No) {
-                self.cycle_focus(self.window.is_key_down(Key::LeftShift) || self.window.is_key_down(Key::RightShift));
+                self.cycle_focus(
+                    self.window.is_key_down(Key::LeftShift)
+                        || self.window.is_key_down(Key::RightShift),
+                );
             }
 
             // Backspace.
@@ -382,7 +416,12 @@ impl Browser {
                     self.address_bar_focused = false;
                     self.navigate(&url);
                 } else if let Some(focused_id) = self.focused_element {
-                    if let Some(elem) = self.interactive_elements.iter().find(|e| e.id == focused_id).cloned() {
+                    if let Some(elem) = self
+                        .interactive_elements
+                        .iter()
+                        .find(|e| e.id == focused_id)
+                        .cloned()
+                    {
                         match elem.kind {
                             InteractiveKind::Link => {
                                 if let Some(href) = &elem.href {
@@ -392,10 +431,12 @@ impl Browser {
                             InteractiveKind::Button | InteractiveKind::Input => {
                                 if elem.kind == InteractiveKind::Input
                                     && elem.initial_value.is_empty()
-                                    && self.input_text.is_empty() {
+                                    && self.input_text.is_empty()
+                                {
                                     // Empty input — ignore.
                                 } else {
-                                    self.status = format!("Button clicked: {:?}", elem.initial_value);
+                                    self.status =
+                                        format!("Button clicked: {:?}", elem.initial_value);
                                 }
                             }
                             _ => {}
@@ -405,7 +446,8 @@ impl Browser {
             }
 
             // Text input.
-            let shift = self.window.is_key_down(Key::LeftShift) || self.window.is_key_down(Key::RightShift);
+            let shift =
+                self.window.is_key_down(Key::LeftShift) || self.window.is_key_down(Key::RightShift);
             let typed = self.window.get_keys_pressed(KeyRepeat::Yes);
             let mut typed_something = false;
             for key in typed {
@@ -467,14 +509,22 @@ impl Browser {
                 self.draw_address_bar();
                 self.draw_focus_indicator();
                 self.draw_status_bar();
-                self.window.update_with_buffer(&self.window_buffer, self.window_width, self.window_height)?;
+                self.window.update_with_buffer(
+                    &self.window_buffer,
+                    self.window_width,
+                    self.window_height,
+                )?;
                 self.needs_full_repaint = false;
             } else {
                 // Just redraw address bar + status + focus (cheap overlays).
                 self.draw_address_bar();
                 self.draw_focus_indicator();
                 self.draw_status_bar();
-                self.window.update_with_buffer(&self.window_buffer, self.window_width, self.window_height)?;
+                self.window.update_with_buffer(
+                    &self.window_buffer,
+                    self.window_width,
+                    self.window_height,
+                )?;
             }
 
             prev_input_text = self.input_text.clone();
@@ -491,13 +541,16 @@ impl Browser {
     }
 
     fn max_scroll(&self) -> usize {
-        (self.page_canvas.height as usize).saturating_sub(self.window_height - ADDRESS_BAR_HEIGHT - STATUS_BAR_HEIGHT)
+        (self.page_canvas.height as usize)
+            .saturating_sub(self.window_height - ADDRESS_BAR_HEIGHT - STATUS_BAR_HEIGHT)
     }
 
     fn update_status(&mut self) {
         let pct = if self.page_canvas.height > 0 {
             (self.scroll_y * 100 / (self.page_canvas.height as usize).max(1)).min(100)
-        } else { 0 };
+        } else {
+            0
+        };
         if let Some(href) = &self.find_hovered_href() {
             self.status = format!("→ {}", href);
         } else {
@@ -528,7 +581,7 @@ impl Browser {
         }
 
         let mut commands = Vec::new();
-        crate::layout::collect_paint_commands(&mut self.layout_root, &mut commands);
+        crate::layout::collect_paint_commands(&self.layout_root, &mut commands);
         crate::paint::paint(&commands, &mut canvas, &self.rasterizer);
         self.page_canvas = canvas;
         self.needs_full_repaint = true;
@@ -580,7 +633,8 @@ impl Browser {
                 let r = self.page_canvas.pixels[src_idx];
                 let g = self.page_canvas.pixels[src_idx + 1];
                 let b = self.page_canvas.pixels[src_idx + 2];
-                self.window_buffer[(y + page_top) * w + x] = ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
+                self.window_buffer[(y + page_top) * w + x] =
+                    ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
             }
         }
     }
@@ -602,31 +656,55 @@ impl Browser {
 
         // Draw the URL text.
         let text = self.address_bar_text.clone();
-        let text_color = if self.address_bar_focused { 0xFFFFFF } else { 0xCCCCCC };
+        let text_color = if self.address_bar_focused {
+            0xFFFFFF
+        } else {
+            0xCCCCCC
+        };
         let mut cx = bar_x as i32 + 8;
         let cy = bar_y as i32 + 6;
         for c in text.chars() {
-            if let Some(glyph) = self.rasterizer.rasterize(c, 14.0, "sans-serif", false, false) {
-                let gw = glyph.width as i32;
-                let gh = glyph.height as i32;
+            if let Some(glyph) = self
+                .rasterizer
+                .rasterize(c, 14.0, "sans-serif", false, false)
+            {
+                let gw = glyph.width;
+                let gh = glyph.height;
                 for gy in 0..gh {
                     for gx in 0..gw {
                         let alpha = glyph.mask[(gy * gw + gx) as usize];
-                        if alpha == 0 { continue; }
+                        if alpha == 0 {
+                            continue;
+                        }
                         let px = cx + gx + glyph.offset_x;
                         let py = cy + gy + glyph.offset_y;
-                        if px < 0 || px >= w as i32 || py < 0 || py >= self.window_height as i32 { continue; }
-                        let val = ((text_color >> 16) & 0xff) as u32;
-                        let v = (val * alpha as u32 + (self.window_buffer[(py as usize) * w + (px as usize)] >> 16 & 0xff) as u32 * (255 - alpha as u32) / 255) & 0xff;
+                        if px < 0 || px >= w as i32 || py < 0 || py >= self.window_height as i32 {
+                            continue;
+                        }
+                        let val = (text_color >> 16) & 0xff;
+                        let _v = (val * alpha as u32
+                            + (self.window_buffer[(py as usize) * w + (px as usize)] >> 16 & 0xff)
+                                * (255 - alpha as u32)
+                                / 255)
+                            & 0xff;
                         let cur = self.window_buffer[(py as usize) * w + (px as usize)];
-                        let r = (((cur >> 16) & 0xff) as u32 * (255 - alpha as u32) + (text_color >> 16 & 0xff) * alpha as u32) / 255;
-                        let g = (((cur >> 8) & 0xff) as u32 * (255 - alpha as u32) + (text_color >> 8 & 0xff) * alpha as u32) / 255;
-                        let b = ((cur & 0xff) as u32 * (255 - alpha as u32) + (text_color & 0xff) * alpha as u32) / 255;
-                        self.window_buffer[(py as usize) * w + (px as usize)] = (r << 16) | (g << 8) | b;
+                        let r = (((cur >> 16) & 0xff) * (255 - alpha as u32)
+                            + (text_color >> 16 & 0xff) * alpha as u32)
+                            / 255;
+                        let g = (((cur >> 8) & 0xff) * (255 - alpha as u32)
+                            + (text_color >> 8 & 0xff) * alpha as u32)
+                            / 255;
+                        let b = ((cur & 0xff) * (255 - alpha as u32)
+                            + (text_color & 0xff) * alpha as u32)
+                            / 255;
+                        self.window_buffer[(py as usize) * w + (px as usize)] =
+                            (r << 16) | (g << 8) | b;
                     }
                 }
                 cx += gw + glyph.offset_x;
-                if cx > (bar_x + bar_w) as i32 - 8 { break; }
+                if cx > (bar_x + bar_w) as i32 - 8 {
+                    break;
+                }
             }
         }
 
@@ -648,24 +726,36 @@ impl Browser {
         let mut hint_chars: Vec<char> = hint.chars().collect();
         hint_chars.reverse();
         for c in hint_chars {
-            if let Some(glyph) = self.rasterizer.rasterize(c, 11.0, "sans-serif", false, false) {
+            if let Some(glyph) = self
+                .rasterizer
+                .rasterize(c, 11.0, "sans-serif", false, false)
+            {
                 cx -= glyph.width + 1;
-                if cx < (bar_x + bar_w + 16) as i32 { break; }
-                let gh = glyph.height as i32;
-                let gw = glyph.width as i32;
+                if cx < (bar_x + bar_w + 16) as i32 {
+                    break;
+                }
+                let gh = glyph.height;
+                let gw = glyph.width;
                 let cy_off = 9;
                 for gy in 0..gh {
                     for gx in 0..gw {
                         let alpha = glyph.mask[(gy * gw + gx) as usize];
-                        if alpha == 0 { continue; }
+                        if alpha == 0 {
+                            continue;
+                        }
                         let px = cx + gx + glyph.offset_x;
                         let py = cy_off + gy + glyph.offset_y;
-                        if px < 0 || px >= w as i32 || py < 0 || py >= ADDRESS_BAR_HEIGHT as i32 { continue; }
+                        if px < 0 || px >= w as i32 || py < 0 || py >= ADDRESS_BAR_HEIGHT as i32 {
+                            continue;
+                        }
                         let cur = self.window_buffer[py as usize * w + px as usize];
-                        let r = (((cur >> 16) & 0xff) as u32 * (255 - alpha as u32) + 0x88 * alpha as u32) / 255;
-                        let g = (((cur >> 8) & 0xff) as u32 * (255 - alpha as u32) + 0x88 * alpha as u32) / 255;
-                        let b = ((cur & 0xff) as u32 * (255 - alpha as u32) + 0x88 * alpha as u32) / 255;
-                        self.window_buffer[py as usize * w + px as usize] = (r << 16) | (g << 8) | b;
+                        let r = (((cur >> 16) & 0xff) * (255 - alpha as u32) + 0x88 * alpha as u32)
+                            / 255;
+                        let g = (((cur >> 8) & 0xff) * (255 - alpha as u32) + 0x88 * alpha as u32)
+                            / 255;
+                        let b = ((cur & 0xff) * (255 - alpha as u32) + 0x88 * alpha as u32) / 255;
+                        self.window_buffer[py as usize * w + px as usize] =
+                            (r << 16) | (g << 8) | b;
                     }
                 }
             }
@@ -675,7 +765,11 @@ impl Browser {
     /// Draw a focus ring around the focused element.
     fn draw_focus_indicator(&mut self) {
         if let Some(focused_id) = self.focused_element {
-            if let Some(elem) = self.interactive_elements.iter().find(|e| e.id == focused_id) {
+            if let Some(elem) = self
+                .interactive_elements
+                .iter()
+                .find(|e| e.id == focused_id)
+            {
                 let b = elem.bounds;
                 let sy = self.scroll_y as f32;
                 let y_offset = ADDRESS_BAR_HEIGHT as f32;
@@ -691,17 +785,25 @@ impl Browser {
                 for y in y0..y1 {
                     for dx in 0..2 {
                         let px = x0 + dx;
-                        if px < self.window_width { self.window_buffer[y * self.window_width + px] = ring_color; }
+                        if px < self.window_width {
+                            self.window_buffer[y * self.window_width + px] = ring_color;
+                        }
                         let px = x1.saturating_sub(1 + dx);
-                        if px < self.window_width { self.window_buffer[y * self.window_width + px] = ring_color; }
+                        if px < self.window_width {
+                            self.window_buffer[y * self.window_width + px] = ring_color;
+                        }
                     }
                 }
                 for x in x0..x1 {
                     for dy in 0..2 {
                         let py = y0 + dy;
-                        if py < self.window_height { self.window_buffer[py * self.window_width + x] = ring_color; }
+                        if py < self.window_height {
+                            self.window_buffer[py * self.window_width + x] = ring_color;
+                        }
                         let py = y1.saturating_sub(1 + dy);
-                        if py < self.window_height { self.window_buffer[py * self.window_width + x] = ring_color; }
+                        if py < self.window_height {
+                            self.window_buffer[py * self.window_width + x] = ring_color;
+                        }
                     }
                 }
 
@@ -715,7 +817,8 @@ impl Browser {
                     if cx >= 0 && cx < self.window_width as i32 {
                         for cy in cy0..cy1 {
                             if cy >= 0 && cy < self.window_height as i32 {
-                                self.window_buffer[cy as usize * self.window_width + cx as usize] = 0x000000;
+                                self.window_buffer[cy as usize * self.window_width + cx as usize] =
+                                    0x000000;
                             }
                         }
                     }
@@ -737,35 +840,53 @@ impl Browser {
         }
 
         let text = self.status.clone();
-        let text = if text.len() > 120 { text[..120].to_string() } else { text };
+        let text = if text.len() > 120 {
+            text[..120].to_string()
+        } else {
+            text
+        };
         let mut cx = 8i32;
         let cy = (bar_y as i32) + 4;
         for c in text.chars() {
-            if let Some(glyph) = self.rasterizer.rasterize(c, 14.0, "sans-serif", false, false) {
-                let gw = glyph.width as i32;
-                let gh = glyph.height as i32;
+            if let Some(glyph) = self
+                .rasterizer
+                .rasterize(c, 14.0, "sans-serif", false, false)
+            {
+                let gw = glyph.width;
+                let gh = glyph.height;
                 for gy in 0..gh {
                     for gx in 0..gw {
                         let alpha = glyph.mask[(gy * gw + gx) as usize];
-                        if alpha == 0 { continue; }
+                        if alpha == 0 {
+                            continue;
+                        }
                         let px = cx + gx + glyph.offset_x;
                         let py = cy + gy + glyph.offset_y;
-                        if px < 0 || px >= w as i32 || py < 0 || py >= h as i32 { continue; }
+                        if px < 0 || px >= w as i32 || py < 0 || py >= h as i32 {
+                            continue;
+                        }
                         let val = 200u32 + ((alpha as u32) * 55 / 255);
-                        self.window_buffer[(py as usize) * w + (px as usize)] = (val << 16) | (val << 8) | val;
+                        self.window_buffer[(py as usize) * w + (px as usize)] =
+                            (val << 16) | (val << 8) | val;
                     }
                 }
                 cx += gw + glyph.offset_x;
-                if cx > w as i32 - 16 { break; }
+                if cx > w as i32 - 16 {
+                    break;
+                }
             }
         }
     }
 
     fn check_hover(&mut self, mx: isize, my: isize) {
-        if mx < 0 || my < 0 { return; }
+        if mx < 0 || my < 0 {
+            return;
+        }
         // Adjust for address bar offset.
         let abs_y = (my - ADDRESS_BAR_HEIGHT as isize) as f32 + self.scroll_y as f32;
-        if abs_y < 0.0 { return; }
+        if abs_y < 0.0 {
+            return;
+        }
         let new_hover = self.find_link_at(mx as f32, abs_y);
         if new_hover.is_some() {
             self.status = format!("→ {}", new_hover.unwrap());
@@ -775,7 +896,9 @@ impl Browser {
     }
 
     fn handle_click(&mut self, mx: isize, my: isize) {
-        if mx < 0 || my < 0 { return; }
+        if mx < 0 || my < 0 {
+            return;
+        }
 
         // Click in address bar?
         if (my as usize) < ADDRESS_BAR_HEIGHT {
@@ -789,12 +912,27 @@ impl Browser {
         let abs_y = (my - ADDRESS_BAR_HEIGHT as isize) as f32 + self.scroll_y as f32;
 
         // Find the clicked element (clone to avoid borrow conflict).
-        let mut clicked: Option<(InteractiveKind, Option<String>, usize, String, std::collections::HashMap<String, String>)> = None;
+        let mut clicked: Option<(
+            InteractiveKind,
+            Option<String>,
+            usize,
+            String,
+            std::collections::HashMap<String, String>,
+        )> = None;
         for elem in &self.interactive_elements {
             let b = elem.bounds;
-            if mx as f32 >= b.x && mx as f32 <= b.x + b.width
-                && abs_y >= b.y && abs_y <= b.y + b.height {
-                clicked = Some((elem.kind.clone(), elem.href.clone(), elem.id, elem.initial_value.clone(), elem.event_handlers.clone()));
+            if mx as f32 >= b.x
+                && mx as f32 <= b.x + b.width
+                && abs_y >= b.y
+                && abs_y <= b.y + b.height
+            {
+                clicked = Some((
+                    elem.kind.clone(),
+                    elem.href.clone(),
+                    elem.id,
+                    elem.initial_value.clone(),
+                    elem.event_handlers.clone(),
+                ));
                 break;
             }
         }
@@ -811,13 +949,15 @@ impl Browser {
 
             match kind {
                 InteractiveKind::Link => {
-                    if let Some(h) = href { self.navigate(&h); }
+                    if let Some(h) = href {
+                        self.navigate(&h);
+                    }
                 }
                 InteractiveKind::Input | InteractiveKind::Textarea => {
                     self.focused_element = Some(id);
                     self.input_text = value;
                     if handlers.is_empty() {
-                        self.status = format!("Focused input — type to enter text");
+                        self.status = "Focused input — type to enter text".to_string();
                     }
                 }
                 InteractiveKind::Button => {
@@ -827,7 +967,7 @@ impl Browser {
                     eprintln!("[falco] button clicked");
                 }
                 InteractiveKind::Checkbox => {
-                    self.status = format!("Checkbox toggled");
+                    self.status = "Checkbox toggled".to_string();
                     eprintln!("[falco] checkbox toggled");
                 }
             }
@@ -851,7 +991,9 @@ impl Browser {
     }
 
     fn cycle_focus(&mut self, reverse: bool) {
-        if self.interactive_elements.is_empty() { return; }
+        if self.interactive_elements.is_empty() {
+            return;
+        }
         let ids: Vec<usize> = self.interactive_elements.iter().map(|e| e.id).collect();
         if let Some(current) = self.focused_element {
             let idx = ids.iter().position(|&id| id == current);
@@ -888,50 +1030,68 @@ impl<'a> ElementScanner<'a> {
         if let Some(tag) = &box_node.tag {
             // Extract event handlers from attrs.
             let handlers = crate::js_runner::extract_event_handlers(&box_node.attrs);
-            let handlers_map: std::collections::HashMap<String, String> = handlers.into_iter().collect();
+            let handlers_map: std::collections::HashMap<String, String> =
+                handlers.into_iter().collect();
 
             match tag.as_str() {
                 "a" if box_node.attrs.contains_key("href") => {
                     let href = box_node.attrs.get("href").cloned();
-                    let id = self.next_id; self.next_id += 1;
+                    let id = self.next_id;
+                    self.next_id += 1;
                     self.elements.push(InteractiveElement {
-                        id, bounds: box_node.bounds,
+                        id,
+                        bounds: box_node.bounds,
                         kind: InteractiveKind::Link,
-                        href, initial_value: String::new(),
+                        href,
+                        initial_value: String::new(),
                         event_handlers: handlers_map,
                     });
                 }
                 "input" => {
-                    let input_type = box_node.attrs.get("type").map(|s| s.as_str()).unwrap_or("text");
+                    let input_type = box_node
+                        .attrs
+                        .get("type")
+                        .map(|s| s.as_str())
+                        .unwrap_or("text");
                     let kind = match input_type {
                         "submit" | "button" | "reset" => InteractiveKind::Button,
                         "checkbox" | "radio" => InteractiveKind::Checkbox,
                         _ => InteractiveKind::Input,
                     };
-                    let id = self.next_id; self.next_id += 1;
+                    let id = self.next_id;
+                    self.next_id += 1;
                     let value = box_node.attrs.get("value").cloned().unwrap_or_default();
                     self.elements.push(InteractiveElement {
-                        id, bounds: box_node.bounds,
-                        kind, href: None, initial_value: value,
+                        id,
+                        bounds: box_node.bounds,
+                        kind,
+                        href: None,
+                        initial_value: value,
                         event_handlers: handlers_map,
                     });
                 }
                 "button" => {
-                    let id = self.next_id; self.next_id += 1;
+                    let id = self.next_id;
+                    self.next_id += 1;
                     let mut text = String::new();
                     collect_text(box_node, &mut text);
                     self.elements.push(InteractiveElement {
-                        id, bounds: box_node.bounds,
-                        kind: InteractiveKind::Button, href: None,
+                        id,
+                        bounds: box_node.bounds,
+                        kind: InteractiveKind::Button,
+                        href: None,
                         initial_value: text,
                         event_handlers: handlers_map,
                     });
                 }
                 "textarea" => {
-                    let id = self.next_id; self.next_id += 1;
+                    let id = self.next_id;
+                    self.next_id += 1;
                     self.elements.push(InteractiveElement {
-                        id, bounds: box_node.bounds,
-                        kind: InteractiveKind::Textarea, href: None,
+                        id,
+                        bounds: box_node.bounds,
+                        kind: InteractiveKind::Textarea,
+                        href: None,
                         initial_value: String::new(),
                         event_handlers: handlers_map,
                     });
@@ -939,10 +1099,13 @@ impl<'a> ElementScanner<'a> {
                 _ => {
                     // Even non-interactive elements can have onclick handlers.
                     if handlers_map.contains_key("onclick") {
-                        let id = self.next_id; self.next_id += 1;
+                        let id = self.next_id;
+                        self.next_id += 1;
                         self.elements.push(InteractiveElement {
-                            id, bounds: box_node.bounds,
-                            kind: InteractiveKind::Button, href: None,
+                            id,
+                            bounds: box_node.bounds,
+                            kind: InteractiveKind::Button,
+                            href: None,
                             initial_value: String::new(),
                             event_handlers: handlers_map,
                         });
@@ -952,14 +1115,21 @@ impl<'a> ElementScanner<'a> {
         }
         // Recurse.
         let mut elements = std::mem::take(self.elements);
-        let mut scanner = ElementScanner { elements: &mut elements, next_id: self.next_id };
+        let mut scanner = ElementScanner {
+            elements: &mut elements,
+            next_id: self.next_id,
+        };
         match &box_node.content {
             BoxContent::Block(children) | BoxContent::Flex(children) => {
-                for c in children { scanner.scan(c); }
+                for c in children {
+                    scanner.scan(c);
+                }
             }
             BoxContent::Inline(items) => {
                 for item in items {
-                    if let InlineItem::Text(child) = item { scanner.scan(child); }
+                    if let InlineItem::Text(child) = item {
+                        scanner.scan(child);
+                    }
                 }
             }
             _ => {}
@@ -971,19 +1141,29 @@ impl<'a> ElementScanner<'a> {
 
 fn patch_input_value(box_node: &mut LayoutBox, _target_id: usize, new_value: &str) {
     if box_node.tag.as_deref() == Some("input") {
-        let input_type = box_node.attrs.get("type").map(|s| s.as_str()).unwrap_or("text");
+        let input_type = box_node
+            .attrs
+            .get("type")
+            .map(|s| s.as_str())
+            .unwrap_or("text");
         if input_type == "text" || input_type == "password" || input_type == "email" {
-            box_node.attrs.insert("value".to_string(), new_value.to_string());
+            box_node
+                .attrs
+                .insert("value".to_string(), new_value.to_string());
             return;
         }
     }
     match &mut box_node.content {
         BoxContent::Block(children) | BoxContent::Flex(children) => {
-            for c in children { patch_input_value(c, _target_id, new_value); }
+            for c in children {
+                patch_input_value(c, _target_id, new_value);
+            }
         }
         BoxContent::Inline(items) => {
             for item in items {
-                if let InlineItem::Text(child) = item { patch_input_value(child, _target_id, new_value); }
+                if let InlineItem::Text(child) = item {
+                    patch_input_value(child, _target_id, new_value);
+                }
             }
         }
         _ => {}
@@ -994,11 +1174,15 @@ fn collect_text(box_node: &LayoutBox, out: &mut String) {
     match &box_node.content {
         BoxContent::Text { text, .. } => out.push_str(text),
         BoxContent::Block(children) | BoxContent::Flex(children) => {
-            for c in children { collect_text(c, out); }
+            for c in children {
+                collect_text(c, out);
+            }
         }
         BoxContent::Inline(items) => {
             for item in items {
-                if let InlineItem::Text(child) = item { collect_text(child, out); }
+                if let InlineItem::Text(child) = item {
+                    collect_text(child, out);
+                }
             }
         }
         _ => {}
@@ -1008,30 +1192,81 @@ fn collect_text(box_node: &LayoutBox, out: &mut String) {
 fn key_to_char(key: Key, shift: bool) -> Option<char> {
     use Key::*;
     let c = match key {
-        A => 'a', B => 'b', C => 'c', D => 'd', E => 'e', F => 'f', G => 'g',
-        H => 'h', I => 'i', J => 'j', K => 'k', L => 'l', M => 'm', N => 'n',
-        O => 'o', P => 'p', Q => 'q', R => 'r', S => 's', T => 't', U => 'u',
-        V => 'v', W => 'w', X => 'x', Y => 'y', Z => 'z',
-        Key0 => '0', Key1 => '1', Key2 => '2', Key3 => '3', Key4 => '4',
-        Key5 => '5', Key6 => '6', Key7 => '7', Key8 => '8', Key9 => '9',
+        A => 'a',
+        B => 'b',
+        C => 'c',
+        D => 'd',
+        E => 'e',
+        F => 'f',
+        G => 'g',
+        H => 'h',
+        I => 'i',
+        J => 'j',
+        K => 'k',
+        L => 'l',
+        M => 'm',
+        N => 'n',
+        O => 'o',
+        P => 'p',
+        Q => 'q',
+        R => 'r',
+        S => 's',
+        T => 't',
+        U => 'u',
+        V => 'v',
+        W => 'w',
+        X => 'x',
+        Y => 'y',
+        Z => 'z',
+        Key0 => '0',
+        Key1 => '1',
+        Key2 => '2',
+        Key3 => '3',
+        Key4 => '4',
+        Key5 => '5',
+        Key6 => '6',
+        Key7 => '7',
+        Key8 => '8',
+        Key9 => '9',
         Space => ' ',
-        Minus => '-', Equal => '=',
-        LeftBracket => '[', RightBracket => ']',
-        Semicolon => ';', Apostrophe => '\'',
-        Comma => ',', Period => '.',
-        Slash => '/', Backslash => '\\',
-        Grave => '`',
+        Minus => '-',
+        Equal => '=',
+        LeftBracket => '[',
+        RightBracket => ']',
+        Semicolon => ';',
+        Apostrophe => '\'',
+        Comma => ',',
+        Period => '.',
+        Slash => '/',
+        Backslash => '\\',
+        _Grave => '`',
         _ => return None,
     };
     if shift && c.is_ascii_alphabetic() {
         Some(c.to_ascii_uppercase())
     } else if shift {
         Some(match c {
-            '1' => '!', '2' => '@', '3' => '#', '4' => '$', '5' => '%',
-            '6' => '^', '7' => '&', '8' => '*', '9' => '(', '0' => ')',
-            '-' => '_', '=' => '+', '[' => '{', ']' => '}',
-            ';' => ':', '\'' => '"', ',' => '<', '.' => '>',
-            '/' => '?', '\\' => '|', '`' => '~',
+            '1' => '!',
+            '2' => '@',
+            '3' => '#',
+            '4' => '$',
+            '5' => '%',
+            '6' => '^',
+            '7' => '&',
+            '8' => '*',
+            '9' => '(',
+            '0' => ')',
+            '-' => '_',
+            '=' => '+',
+            '[' => '{',
+            ']' => '}',
+            ';' => ':',
+            '\'' => '"',
+            ',' => '<',
+            '.' => '>',
+            '/' => '?',
+            '\\' => '|',
+            '`' => '~',
             other => other,
         })
     } else {
@@ -1046,9 +1281,13 @@ fn extract_style_tags(html: &str) -> String {
     let mut search_from = 0;
     while let Some(open) = lower[search_from..].find("<style") {
         let open_abs = search_from + open;
-        let Some(close_rel) = lower[open_abs..].find('>') else { break };
+        let Some(close_rel) = lower[open_abs..].find('>') else {
+            break;
+        };
         let content_start = open_abs + close_rel + 1;
-        let Some(end_rel) = lower[content_start..].find("</style>") else { break };
+        let Some(end_rel) = lower[content_start..].find("</style>") else {
+            break;
+        };
         let content_end = content_start + end_rel;
         out.push_str(&html[content_start..content_end]);
         out.push('\n');

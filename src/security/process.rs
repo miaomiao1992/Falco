@@ -21,9 +21,6 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
-#[cfg(target_os = "linux")]
-use std::os::unix::process::CommandExt;
-
 use crate::security::origin::Origin;
 
 static NEXT_PROCESS_ID: AtomicU64 = AtomicU64::new(1);
@@ -251,9 +248,12 @@ impl ProcessManager {
             // Reuse an existing process (this would be a "shared process"
             // for low-priority origins, marked as such).
             // For simplicity, we just pick the one with the lowest frame count.
-            if let Some((&reuse_pid, _)) = self.processes.iter()
+            if let Some((&reuse_pid, _)) = self
+                .processes
+                .iter()
                 .filter(|(_, p)| p.kind == ProcessKind::Renderer && p.alive)
-                .min_by_key(|(_, p)| p.frame_count) {
+                .min_by_key(|(_, p)| p.frame_count)
+            {
                 self.processes.get_mut(&reuse_pid).unwrap().add_frame();
                 return Ok(reuse_pid);
             }
@@ -270,8 +270,11 @@ impl ProcessManager {
     /// Get the GPU process (singleton).
     pub fn get_or_create_gpu(&mut self) -> std::io::Result<ProcessId> {
         // Check if we already have a GPU process.
-        if let Some((&pid, _)) = self.processes.iter()
-            .find(|(_, p)| p.kind == ProcessKind::Gpu && p.alive) {
+        if let Some((&pid, _)) = self
+            .processes
+            .iter()
+            .find(|(_, p)| p.kind == ProcessKind::Gpu && p.alive)
+        {
             return Ok(pid);
         }
         let proc_ = Process::launch(ProcessKind::Gpu, None)?;
@@ -285,7 +288,9 @@ impl ProcessManager {
     pub fn release_frame(&mut self, pid: ProcessId) {
         let should_shutdown = if let Some(proc_) = self.processes.get_mut(&pid) {
             proc_.release_frame()
-        } else { false };
+        } else {
+            false
+        };
         if should_shutdown {
             if let Some(mut proc_) = self.processes.remove(&pid) {
                 // Remove from site map.
@@ -318,7 +323,10 @@ impl ProcessManager {
                                 if let Some(p) = self.processes.get_mut(&new_pid) {
                                     p.crash_count = crash_count;
                                 }
-                                CrashAction::Restarted { old_pid: pid, new_pid }
+                                CrashAction::Restarted {
+                                    old_pid: pid,
+                                    new_pid,
+                                }
                             }
                             Err(_) => CrashAction::SadTab { pid },
                         }
@@ -354,14 +362,19 @@ impl ProcessManager {
 }
 
 impl Default for ProcessManager {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// The action taken after a crash.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CrashAction {
     /// Process was restarted. The new process has the given ID.
-    Restarted { old_pid: ProcessId, new_pid: ProcessId },
+    Restarted {
+        old_pid: ProcessId,
+        new_pid: ProcessId,
+    },
     /// Process crashed too many times — show "sad tab" UI.
     SadTab { pid: ProcessId },
     /// Fatal crash — browser should exit.
@@ -415,7 +428,10 @@ mod tests {
         let b = Origin::parse("https://b.example.com");
         let pid_a = pm.get_or_create_renderer(&a).unwrap();
         let pid_b = pm.get_or_create_renderer(&b).unwrap();
-        assert_ne!(pid_a, pid_b, "different origins should get different processes");
+        assert_ne!(
+            pid_a, pid_b,
+            "different origins should get different processes"
+        );
     }
 
     #[test]
@@ -494,21 +510,33 @@ mod tests {
         let a = Origin::parse("https://a.example.com");
         let b = Origin::parse("https://b.example.com");
         assert!(!should_share_process(&a, &b, SiteIsolationPolicy::Strict));
-        assert!(should_share_process(&a, &Origin::parse("https://a.example.com/x"), SiteIsolationPolicy::Strict));
+        assert!(should_share_process(
+            &a,
+            &Origin::parse("https://a.example.com/x"),
+            SiteIsolationPolicy::Strict
+        ));
     }
 
     #[test]
     fn should_share_process_per_site() {
         let a = Origin::parse("https://a.example.com");
         let b = Origin::parse("https://b.example.com");
-        assert!(should_share_process(&a, &b, SiteIsolationPolicy::ProcessPerSite));
+        assert!(should_share_process(
+            &a,
+            &b,
+            SiteIsolationPolicy::ProcessPerSite
+        ));
     }
 
     #[test]
     fn shutdown_all_clears_state() {
         let mut pm = ProcessManager::new();
-        let _ = pm.get_or_create_renderer(&Origin::parse("https://a.com")).unwrap();
-        let _ = pm.get_or_create_renderer(&Origin::parse("https://b.com")).unwrap();
+        let _ = pm
+            .get_or_create_renderer(&Origin::parse("https://a.com"))
+            .unwrap();
+        let _ = pm
+            .get_or_create_renderer(&Origin::parse("https://b.com"))
+            .unwrap();
         assert_eq!(pm.live_processes().len(), 2);
         pm.shutdown_all();
         assert_eq!(pm.live_processes().len(), 0);

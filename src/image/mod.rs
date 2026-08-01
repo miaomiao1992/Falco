@@ -64,7 +64,9 @@ pub fn load_image(src: &str, base_url: &str) -> Option<Image> {
     // Cache the result (including None, to avoid retrying broken URLs).
     if let Some(ref img) = image {
         let mut cache = IMAGE_CACHE.lock().unwrap();
-        if cache.is_none() { *cache = Some(HashMap::new()); }
+        if cache.is_none() {
+            *cache = Some(HashMap::new());
+        }
         cache.as_mut().unwrap().insert(resolved, img.clone());
     }
 
@@ -161,32 +163,46 @@ pub fn draw_image_to_canvas(canvas: &mut Canvas, img: &Image, x: f32, y: f32, w:
 
     for py in y0..y1 {
         for px in x0..x1 {
-            if px < 0 || px >= canvas.width as i32 || py < 0 || py >= canvas.height as i32 { continue; }
+            if px < 0 || px >= canvas.width as i32 || py < 0 || py >= canvas.height as i32 {
+                continue;
+            }
             // Map canvas pixel to image pixel (nearest-neighbor).
             let src_x = ((px as f32 - x) * scale_x) as u32;
             let src_y = ((py as f32 - y) * scale_y) as u32;
-            if src_x >= img.width || src_y >= img.height { continue; }
+            if src_x >= img.width || src_y >= img.height {
+                continue;
+            }
             let src_idx = ((src_y * img.width + src_x) * 4) as usize;
             let r = img.pixels[src_idx];
             let g = img.pixels[src_idx + 1];
             let b = img.pixels[src_idx + 2];
             let a = img.pixels[src_idx + 3];
             let dst_idx = ((py as u32 * canvas.width + px as u32) * 4) as usize;
-            blend(&mut canvas.pixels[dst_idx..dst_idx + 4], Color::rgba(r, g, b, a));
+            blend(
+                &mut canvas.pixels[dst_idx..dst_idx + 4],
+                Color::rgba(r, g, b, a),
+            );
         }
     }
 }
 
 fn blend(dst: &mut [u8], src: Color) {
-    if src.a == 0 { return; }
+    if src.a == 0 {
+        return;
+    }
     if src.a == 255 {
-        dst[0] = src.r; dst[1] = src.g; dst[2] = src.b; dst[3] = 255;
+        dst[0] = src.r;
+        dst[1] = src.g;
+        dst[2] = src.b;
+        dst[3] = 255;
         return;
     }
     let sa = src.a as f32 / 255.0;
     let da = dst[3] as f32 / 255.0;
     let out_a = sa + da * (1.0 - sa);
-    if out_a == 0.0 { return; }
+    if out_a == 0.0 {
+        return;
+    }
     dst[0] = ((src.r as f32 * sa + dst[0] as f32 * da * (1.0 - sa)) / out_a) as u8;
     dst[1] = ((src.g as f32 * sa + dst[1] as f32 * da * (1.0 - sa)) / out_a) as u8;
     dst[2] = ((src.b as f32 * sa + dst[2] as f32 * da * (1.0 - sa)) / out_a) as u8;
@@ -205,10 +221,22 @@ mod tests {
 
     #[test]
     fn resolves_relative_urls() {
-        assert_eq!(resolve_url("/foo", "https://example.com/bar"), "https://example.com/foo");
-        assert_eq!(resolve_url("img.png", "https://example.com/page.html"), "https://example.com/img.png");
-        assert_eq!(resolve_url("https://other.com/x", "https://example.com"), "https://other.com/x");
-        assert_eq!(resolve_url("#anchor", "https://example.com"), "https://example.com");
+        assert_eq!(
+            resolve_url("/foo", "https://example.com/bar"),
+            "https://example.com/foo"
+        );
+        assert_eq!(
+            resolve_url("img.png", "https://example.com/page.html"),
+            "https://example.com/img.png"
+        );
+        assert_eq!(
+            resolve_url("https://other.com/x", "https://example.com"),
+            "https://other.com/x"
+        );
+        assert_eq!(
+            resolve_url("#anchor", "https://example.com"),
+            "https://example.com"
+        );
     }
 
     #[test]

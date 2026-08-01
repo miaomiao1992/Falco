@@ -65,7 +65,9 @@ impl Encoding {
             "utf-8" | "utf8" | "us-ascii" | "ascii" => Encoding::Utf8,
             "utf-16" | "utf-16le" | "utf16" => Encoding::Utf16Le,
             "utf-16be" => Encoding::Utf16Be,
-            "windows-1252" | "cp1252" | "iso-8859-1" | "iso8859-1" | "latin1" | "latin-1" => Encoding::Windows1252,
+            "windows-1252" | "cp1252" | "iso-8859-1" | "iso8859-1" | "latin1" | "latin-1" => {
+                Encoding::Windows1252
+            }
             "iso-8859-15" | "iso8859-15" => Encoding::Iso88591,
             "shift_jis" | "shift-jis" | "sjis" | "ms_kanji" => Encoding::ShiftJis,
             "euc-jp" | "eucjp" => Encoding::EucJp,
@@ -135,7 +137,10 @@ pub fn strip_bom(bytes: &[u8]) -> &[u8] {
 pub fn parse_content_type_charset(content_type: &str) -> Option<Encoding> {
     for part in content_type.split(';') {
         let part = part.trim();
-        if let Some(rest) = part.strip_prefix("charset=").or_else(|| part.strip_prefix("Charset=")) {
+        if let Some(rest) = part
+            .strip_prefix("charset=")
+            .or_else(|| part.strip_prefix("Charset="))
+        {
             let name = rest.trim_matches(|c: char| c == '"' || c == '\'' || c.is_whitespace());
             let enc = Encoding::from_name(name);
             return Some(enc);
@@ -166,7 +171,9 @@ pub fn prescan_meta_charset(bytes: &[u8]) -> Option<Encoding> {
                 return Some(enc);
             }
             // Check for http-equiv="Content-Type" with content containing charset.
-            if tag.to_lowercase().contains("http-equiv") && tag.to_lowercase().contains("content-type") {
+            if tag.to_lowercase().contains("http-equiv")
+                && tag.to_lowercase().contains("content-type")
+            {
                 if let Some(content) = extract_attr_value(tag, "content") {
                     if let Some(enc) = parse_content_type_charset(&content) {
                         return Some(enc);
@@ -225,7 +232,9 @@ fn extract_attr_value(tag: &str, attr_name: &str) -> Option<String> {
 /// - For single-byte encodings we can't reliably distinguish without a
 ///   language model, so we fall back to Windows-1252.
 pub fn heuristic_detect(bytes: &[u8]) -> Option<Encoding> {
-    if bytes.is_empty() { return None; }
+    if bytes.is_empty() {
+        return None;
+    }
     // UTF-8 validation.
     if is_valid_utf8(bytes) {
         return Some(Encoding::Utf8);
@@ -236,7 +245,11 @@ pub fn heuristic_detect(bytes: &[u8]) -> Option<Encoding> {
     let mut odd_zeros = 0;
     for (i, &b) in sample.iter().enumerate() {
         if b == 0 {
-            if i % 2 == 0 { even_zeros += 1; } else { odd_zeros += 1; }
+            if i % 2 == 0 {
+                even_zeros += 1;
+            } else {
+                odd_zeros += 1;
+            }
         }
     }
     let total = sample.len();

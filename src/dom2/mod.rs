@@ -61,7 +61,11 @@ pub enum NodeKind {
     /// `Document` — the root of every DOM tree.
     Document,
     /// `DocumentType` — e.g. `<!DOCTYPE html>`.
-    DocumentType { name: String, public_id: String, system_id: String },
+    DocumentType {
+        name: String,
+        public_id: String,
+        system_id: String,
+    },
     /// `Element` — `<div>`, `<span>`, etc.
     Element(ElementData),
     /// `Text` — character content.
@@ -138,7 +142,10 @@ pub struct ShadowRootData {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ShadowRootMode { Open, Closed }
+pub enum ShadowRootMode {
+    Open,
+    Closed,
+}
 
 /// A DOM node. The full set of fields specified in the DOM spec.
 #[derive(Debug, Clone)]
@@ -276,8 +283,10 @@ impl Document {
                 shadow: None,
                 template_contents: None,
                 inline_style: Vec::new(),
-                focusable: matches!(tag.to_lowercase().as_str(),
-                    "a" | "button" | "input" | "select" | "textarea" | "summary"),
+                focusable: matches!(
+                    tag.to_lowercase().as_str(),
+                    "a" | "button" | "input" | "select" | "textarea" | "summary"
+                ),
             }),
             owner_document: Some(Rc::downgrade(&root)),
             doc: Some(weak),
@@ -381,7 +390,7 @@ impl Document {
     /// Register a mutation observer. Returns a handle that can be used to
     /// disconnect it.
     pub fn add_observer(this: &DocumentHandle, observer: ObserverSlot) -> usize {
-        let mut doc = this.borrow_mut();
+        let doc = this.borrow_mut();
         let mut obs = doc.observers.borrow_mut();
         let idx = obs.len();
         obs.push(observer);
@@ -390,7 +399,7 @@ impl Document {
 
     /// Disconnect a mutation observer by handle.
     pub fn disconnect_observer(this: &DocumentHandle, idx: usize) {
-        let mut doc = this.borrow_mut();
+        let doc = this.borrow_mut();
         let mut obs = doc.observers.borrow_mut();
         if idx < obs.len() {
             obs[idx] = Rc::new(RefCell::new(MutationObserver::detached()));
@@ -402,7 +411,10 @@ impl Document {
         let observers = this.borrow().observers.borrow().clone();
         for obs in observers {
             if obs.borrow().matches(&record) {
-                this.borrow().pending_records.borrow_mut().push_back((obs.clone(), record.clone()));
+                this.borrow()
+                    .pending_records
+                    .borrow_mut()
+                    .push_back((obs.clone(), record.clone()));
             }
         }
     }
@@ -410,7 +422,12 @@ impl Document {
     /// Drain pending mutation records into observers. Called by the event
     /// loop at microtask checkpoints.
     pub fn deliver_mutations(this: &DocumentHandle) {
-        let records: Vec<_> = this.borrow().pending_records.borrow_mut().drain(..).collect();
+        let records: Vec<_> = this
+            .borrow()
+            .pending_records
+            .borrow_mut()
+            .drain(..)
+            .collect();
         for (obs, record) in records {
             obs.borrow_mut().records.push(record);
         }
@@ -430,11 +447,16 @@ impl Default for Document {
         // Used only by internal machinery; users should call `Document::create()`.
         Self {
             root: NodeRef::new(RefCell::new(Node {
-                id: 0, kind: NodeKind::Document,
-                owner_document: None, doc: None,
-                parent: None, parent_element: None,
-                first_child: None, last_child: None,
-                previous_sibling: None, next_sibling: None,
+                id: 0,
+                kind: NodeKind::Document,
+                owner_document: None,
+                doc: None,
+                parent: None,
+                parent_element: None,
+                first_child: None,
+                last_child: None,
+                previous_sibling: None,
+                next_sibling: None,
                 user_data: HashMap::new(),
             })),
             next_id: RefCell::new(1),
@@ -469,7 +491,11 @@ pub fn append_child(parent: &NodeRef, child: NodeRef) {
     {
         let mut c = child.borrow_mut();
         c.parent = Some(Rc::downgrade(parent));
-        c.parent_element = if parent_is_element { Some(Rc::downgrade(parent)) } else { None };
+        c.parent_element = if parent_is_element {
+            Some(Rc::downgrade(parent))
+        } else {
+            None
+        };
         if let Some(prev_weak) = &prev_last {
             if let Some(prev) = prev_weak.upgrade() {
                 c.previous_sibling = Some(Rc::downgrade(&prev));
@@ -488,7 +514,10 @@ pub fn append_child(parent: &NodeRef, child: NodeRef) {
 
     // 5. Fire mutation records.
     if let Some(doc) = parent_doc(parent) {
-        Document::queue_mutation(&doc, MutationRecord::child_list(parent.clone(), None, Some(child.clone())));
+        Document::queue_mutation(
+            &doc,
+            MutationRecord::child_list(parent.clone(), None, Some(child.clone())),
+        );
     }
 }
 
@@ -508,7 +537,11 @@ pub fn insert_before(parent: &NodeRef, child: NodeRef, ref_child: Option<&NodeRe
             {
                 let mut c = child.borrow_mut();
                 c.parent = Some(Rc::downgrade(parent));
-                c.parent_element = if parent_is_element { Some(Rc::downgrade(parent)) } else { None };
+                c.parent_element = if parent_is_element {
+                    Some(Rc::downgrade(parent))
+                } else {
+                    None
+                };
                 c.next_sibling = Some(Rc::downgrade(ref_node));
                 if let Some(prev_weak) = &ref_prev {
                     if let Some(prev) = prev_weak.upgrade() {
@@ -532,7 +565,10 @@ pub fn insert_before(parent: &NodeRef, child: NodeRef, ref_child: Option<&NodeRe
             }
 
             if let Some(doc) = parent_doc(parent) {
-                Document::queue_mutation(&doc, MutationRecord::child_list(parent.clone(), None, Some(child.clone())));
+                Document::queue_mutation(
+                    &doc,
+                    MutationRecord::child_list(parent.clone(), None, Some(child.clone())),
+                );
             }
         }
     }
@@ -542,9 +578,15 @@ pub fn insert_before(parent: &NodeRef, child: NodeRef, ref_child: Option<&NodeRe
 pub fn remove_from_parent(node: &NodeRef) {
     let (parent, prev, next) = {
         let n = node.borrow();
-        (n.parent.clone(), n.previous_sibling.clone(), n.next_sibling.clone())
+        (
+            n.parent.clone(),
+            n.previous_sibling.clone(),
+            n.next_sibling.clone(),
+        )
     };
-    let Some(parent) = parent.and_then(|w| w.upgrade()) else { return; };
+    let Some(parent) = parent.and_then(|w| w.upgrade()) else {
+        return;
+    };
     // Fix previous sibling.
     if let Some(prev_weak) = prev.clone() {
         if let Some(prev) = prev_weak.upgrade() {
@@ -573,7 +615,10 @@ pub fn remove_from_parent(node: &NodeRef) {
         n.next_sibling = None;
     }
     if let Some(doc) = parent_doc(&parent) {
-        Document::queue_mutation(&doc, MutationRecord::child_list(parent.clone(), Some(node.clone()), None));
+        Document::queue_mutation(
+            &doc,
+            MutationRecord::child_list(parent.clone(), Some(node.clone()), None),
+        );
     }
 }
 
@@ -596,7 +641,11 @@ pub fn for_each_child<F: FnMut(&NodeRef)>(node: &NodeRef, mut f: F) {
     let mut cursor = node.borrow().first_child.clone();
     while let Some(child) = cursor {
         f(&child);
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
 }
 
@@ -607,7 +656,11 @@ pub fn descendants(node: &NodeRef) -> Vec<NodeRef> {
     let mut cursor = node.borrow().first_child.clone();
     while let Some(child) = cursor {
         stack.push(child.clone());
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
     while let Some(n) = stack.pop() {
         out.push(n.clone());
@@ -617,7 +670,11 @@ pub fn descendants(node: &NodeRef) -> Vec<NodeRef> {
         let mut c = n.borrow().first_child.clone();
         while let Some(child) = c {
             sub.push(child.clone());
-            c = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+            c = child
+                .borrow()
+                .next_sibling
+                .clone()
+                .and_then(|w| w.upgrade());
         }
         // Reverse to keep document order on pop... actually we want BFS by
         // depth so just push everything.
@@ -636,7 +693,9 @@ fn parent_doc(node: &NodeRef) -> Option<DocumentHandle> {
 
 /// Serialize a node and its descendants to a debug string.
 fn serialize_node(node: &NodeRef, out: &mut String, depth: usize) {
-    for _ in 0..depth { out.push_str("  "); }
+    for _ in 0..depth {
+        out.push_str("  ");
+    }
     let n = node.borrow();
     match &n.kind {
         NodeKind::Document => out.push_str("Document\n"),
@@ -659,7 +718,10 @@ fn serialize_node(node: &NodeRef, out: &mut String, depth: usize) {
             out.push_str(&format!("\"{}\"\n", t.chars().take(40).collect::<String>()));
         }
         NodeKind::Comment(c) => {
-            out.push_str(&format!("<!--{}-->\n", c.chars().take(40).collect::<String>()));
+            out.push_str(&format!(
+                "<!--{}-->\n",
+                c.chars().take(40).collect::<String>()
+            ));
         }
         NodeKind::DocumentFragment => out.push_str("#document-fragment\n"),
         NodeKind::ShadowRoot(_) => out.push_str("#shadow-root\n"),
@@ -675,7 +737,11 @@ fn serialize_node(node: &NodeRef, out: &mut String, depth: usize) {
     let mut cursor = node.borrow().first_child.clone();
     while let Some(child) = cursor {
         serialize_node(&child, out, depth + 1);
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
 }
 
@@ -695,7 +761,8 @@ pub fn as_element(node: &NodeRef) -> Option<std::cell::Ref<'_, ElementData>> {
         std::cell::Ref::map(n2, |n| match &n.kind {
             NodeKind::Element(e) => e,
             _ => unsafe { std::hint::unreachable_unchecked() },
-        }).into()
+        })
+        .into()
     } else {
         None
     }
@@ -726,14 +793,21 @@ pub fn as_element_data(node: &NodeRef) -> Option<std::cell::Ref<'_, ElementData>
 impl Node {
     /// Convenience accessor: returns the ElementData if this is an Element.
     pub fn kind_as_element(&self) -> Option<&ElementData> {
-        if let NodeKind::Element(e) = &self.kind { Some(e) } else { None }
+        if let NodeKind::Element(e) = &self.kind {
+            Some(e)
+        } else {
+            None
+        }
     }
 }
 
 /// Helper — get an attribute value.
 pub fn get_attribute(node: &NodeRef, name: &str) -> Option<String> {
     if let NodeKind::Element(e) = &node.borrow().kind {
-        e.attrs.iter().find(|a| a.name == name).map(|a| a.value.clone())
+        e.attrs
+            .iter()
+            .find(|a| a.name == name)
+            .map(|a| a.value.clone())
     } else {
         None
     }
@@ -764,9 +838,15 @@ pub fn set_attribute(node: &NodeRef, name: &str, value: &str) {
     }
     // Now queue mutation outside the borrow.
     if let Some(doc) = parent_doc(node) {
-        Document::queue_mutation(&doc, MutationRecord::attributes(
-            node.clone(), name.to_string(), old_value, Some(value.to_string()),
-        ));
+        Document::queue_mutation(
+            &doc,
+            MutationRecord::attributes(
+                node.clone(),
+                name.to_string(),
+                old_value,
+                Some(value.to_string()),
+            ),
+        );
     }
 }
 
@@ -787,9 +867,10 @@ pub fn remove_attribute(node: &NodeRef, name: &str) {
         }
     }
     if let Some(doc) = parent_doc(node) {
-        Document::queue_mutation(&doc, MutationRecord::attributes(
-            node.clone(), name.to_string(), removed_value, None,
-        ));
+        Document::queue_mutation(
+            &doc,
+            MutationRecord::attributes(node.clone(), name.to_string(), removed_value, None),
+        );
     }
 }
 
@@ -798,13 +879,17 @@ pub fn has_class(node: &NodeRef, class: &str) -> bool {
     if let NodeKind::Element(e) = &node.borrow().kind {
         if let Some(c) = e.attrs.iter().find(|a| a.name == "class") {
             c.value.split_whitespace().any(|c| c == class)
-        } else { false }
-    } else { false }
+        } else {
+            false
+        }
+    } else {
+        false
+    }
 }
 
-pub mod observer;
-pub mod custom_elements;
 pub mod accessibility;
+pub mod custom_elements;
+pub mod observer;
 pub mod shadow;
 
 pub const SVG_NS: &str = "http://www.w3.org/2000/svg";
@@ -854,7 +939,11 @@ mod tests {
         let mut cursor = parent.borrow().first_child.clone();
         while let Some(child) = cursor {
             order.push(tag_name(&child));
-            cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+            cursor = child
+                .borrow()
+                .next_sibling
+                .clone()
+                .and_then(|w| w.upgrade());
         }
         assert_eq!(order, vec!["a", "b", "c"]);
     }
@@ -873,9 +962,22 @@ mod tests {
         append_child(&parent, c.clone());
         remove_from_parent(&b);
         // a.next should be c.
-        assert_eq!(tag_name(&a.borrow().next_sibling.as_ref().unwrap().upgrade().unwrap()), "c");
+        assert_eq!(
+            tag_name(&a.borrow().next_sibling.as_ref().unwrap().upgrade().unwrap()),
+            "c"
+        );
         // c.previous should be a.
-        assert_eq!(tag_name(&c.borrow().previous_sibling.as_ref().unwrap().upgrade().unwrap()), "a");
+        assert_eq!(
+            tag_name(
+                &c.borrow()
+                    .previous_sibling
+                    .as_ref()
+                    .unwrap()
+                    .upgrade()
+                    .unwrap()
+            ),
+            "a"
+        );
         // b should have no parent.
         assert!(b.borrow().parent.is_none());
     }

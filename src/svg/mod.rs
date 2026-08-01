@@ -8,31 +8,36 @@
 pub mod parser;
 pub mod renderer;
 
-use parser::SvgDocument;
 use crate::paint::Canvas;
-use crate::css::Color;
+use parser::SvgDocument;
 
 /// Parse an SVG XML string into an SvgDocument.
 pub fn parse_svg(xml: &str) -> Option<SvgDocument> {
     // Use the HTML parser to tokenize, then extract SVG elements.
     // This is a simplified parser — it uses regex-like string scanning.
     let lower = xml.to_lowercase();
-    if !lower.contains("<svg") { return None; }
+    if !lower.contains("<svg") {
+        return None;
+    }
 
     // Extract svg root attributes.
     let svg_start = lower.find("<svg")?;
     let svg_tag_end = lower[svg_start..].find('>')?;
     let svg_tag = &xml[svg_start..svg_start + svg_tag_end];
-    
+
     let width = extract_attr_f32(svg_tag, "width").unwrap_or(300.0);
     let height = extract_attr_f32(svg_tag, "height").unwrap_or(150.0);
-    let viewBox = extract_attr_str(svg_tag, "viewbox")
-        .and_then(|s| {
-            let parts: Vec<f32> = s.split(|c: char| c.is_whitespace() || c == ',')
-                .filter_map(|x| x.parse().ok())
-                .collect();
-            if parts.len() == 4 { Some((parts[0], parts[1], parts[2], parts[3])) } else { None }
-        });
+    let viewBox = extract_attr_str(svg_tag, "viewbox").and_then(|s| {
+        let parts: Vec<f32> = s
+            .split(|c: char| c.is_whitespace() || c == ',')
+            .filter_map(|x| x.parse().ok())
+            .collect();
+        if parts.len() == 4 {
+            Some((parts[0], parts[1], parts[2], parts[3]))
+        } else {
+            None
+        }
+    });
 
     // Extract content between <svg> and </svg>.
     let content_start = svg_start + svg_tag_end + 1;
@@ -42,14 +47,19 @@ pub fn parse_svg(xml: &str) -> Option<SvgDocument> {
     // Parse child elements.
     let children = parse_svg_children(content);
 
-    Some(SvgDocument { width, height, viewBox, children })
+    Some(SvgDocument {
+        width,
+        height,
+        viewBox,
+        children,
+    })
 }
 
 fn parse_svg_children(content: &str) -> Vec<parser::SvgElement> {
     let mut children = Vec::new();
     let lower = content.to_lowercase();
     let mut pos = 0;
-    
+
     while pos < content.len() {
         // Find next tag.
         let tag_start = match lower[pos..].find('<') {
@@ -61,7 +71,9 @@ fn parse_svg_children(content: &str) -> Vec<parser::SvgElement> {
             // Skip to '>'.
             if let Some(end) = lower[tag_start..].find('>') {
                 pos = tag_start + end + 1;
-            } else { break; }
+            } else {
+                break;
+            }
             continue;
         }
         // Find tag name.
@@ -70,11 +82,15 @@ fn parse_svg_children(content: &str) -> Vec<parser::SvgElement> {
             None => break,
         };
         let tag_content = &content[tag_start + 1..tag_end];
-        let tag_name = tag_content.split_whitespace().next().unwrap_or("").to_lowercase();
-        
+        let tag_name = tag_content
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .to_lowercase();
+
         // Parse attributes.
         let attrs = parse_attrs(tag_content);
-        
+
         // Find content (for self-closing tags, no content).
         let self_closing = tag_content.ends_with('/');
         let element = match tag_name.as_str() {
@@ -148,14 +164,18 @@ fn parse_svg_children(content: &str) -> Vec<parser::SvgElement> {
                     let close_tag = format!("</{}>", tag_name);
                     if let Some(end) = lower[tag_end + 1..].find(&close_tag.to_lowercase()) {
                         content[tag_end + 1..tag_end + 1 + end].trim().to_string()
-                    } else { String::new() }
+                    } else {
+                        String::new()
+                    }
                 };
                 Some(parser::SvgElement::Text(parser::SvgText {
                     x: extract_attr_f32(tag_content, "x").unwrap_or(0.0),
                     y: extract_attr_f32(tag_content, "y").unwrap_or(0.0),
                     text: text_content,
                     font_size: extract_attr_f32(tag_content, "font-size").unwrap_or(16.0),
-                    font_weight: extract_attr_str(tag_content, "font-weight").and_then(|s| s.parse().ok()).unwrap_or(400),
+                    font_weight: extract_attr_str(tag_content, "font-weight")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(400),
                     style: parser::SvgStyle::from_attrs(&attrs),
                 }))
             }
@@ -169,7 +189,9 @@ fn parse_svg_children(content: &str) -> Vec<parser::SvgElement> {
                     let close_tag = "</g>";
                     if let Some(end) = lower[tag_end + 1..].find(close_tag) {
                         &content[tag_end + 1..tag_end + 1 + end]
-                    } else { "" }
+                    } else {
+                        ""
+                    }
                 };
                 let group_children = parse_svg_children(group_content);
                 Some(parser::SvgElement::Group(parser::SvgGroup {
@@ -180,11 +202,11 @@ fn parse_svg_children(content: &str) -> Vec<parser::SvgElement> {
             }
             _ => None,
         };
-        
+
         if let Some(e) = element {
             children.push(e);
         }
-        
+
         // Advance position.
         if self_closing {
             pos = tag_end + 1;
@@ -198,7 +220,7 @@ fn parse_svg_children(content: &str) -> Vec<parser::SvgElement> {
             }
         }
     }
-    
+
     children
 }
 
@@ -211,7 +233,7 @@ fn parse_attrs(tag_content: &str) -> std::collections::HashMap<String, String> {
     let mut quote = '"';
     let mut value = String::new();
     let mut reading_key = false;
-    
+
     while let Some(c) = chars.next() {
         if !in_value {
             if c == '=' && !key.is_empty() {
@@ -252,17 +274,20 @@ fn parse_attrs(tag_content: &str) -> std::collections::HashMap<String, String> {
             }
         }
     }
-    
+
     // Remove the tag name from attrs (it gets added as the first "attribute").
     // The first entry will be like "rect" with empty value — remove it.
     let tag_name = tag_content.split_whitespace().next().unwrap_or("");
     attrs.remove(tag_name);
-    
+
     attrs
 }
 
 fn extract_attr_f32(tag: &str, name: &str) -> Option<f32> {
-    extract_attr_str(tag, name)?.trim_end_matches("px").parse().ok()
+    extract_attr_str(tag, name)?
+        .trim_end_matches("px")
+        .parse()
+        .ok()
 }
 
 fn extract_attr_str(tag: &str, name: &str) -> Option<String> {
@@ -284,7 +309,14 @@ fn extract_attr_str(tag: &str, name: &str) -> Option<String> {
 }
 
 /// Render an SVG string onto a canvas.
-pub fn render_svg_to_canvas(svg_xml: &str, canvas: &mut Canvas, x: f32, y: f32, w: f32, h: f32) -> bool {
+pub fn render_svg_to_canvas(
+    svg_xml: &str,
+    canvas: &mut Canvas,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+) -> bool {
     if let Some(doc) = parse_svg(svg_xml) {
         renderer::render_svg(canvas, &doc, x, y, w, h);
         true
@@ -313,7 +345,8 @@ mod tests {
 
     #[test]
     fn parses_path() {
-        let svg = r##"<svg width="100" height="100"><path d="M 10 10 L 50 50 Z" fill="red"/></svg>"##;
+        let svg =
+            r##"<svg width="100" height="100"><path d="M 10 10 L 50 50 Z" fill="red"/></svg>"##;
         let doc = parse_svg(svg).unwrap();
         assert_eq!(doc.children.len(), 1);
     }

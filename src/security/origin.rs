@@ -55,14 +55,18 @@ impl Origin {
             // IPv6: [addr]:port
             if let Some(end) = authority.find(']') {
                 let h = &authority[1..end];
-                let p = authority[end + 1..].strip_prefix(':')
+                let p = authority[end + 1..]
+                    .strip_prefix(':')
                     .and_then(|s| s.parse::<u16>().ok());
                 (h.to_string(), p)
             } else {
                 (authority.to_string(), None)
             }
         } else if let Some(i) = authority.rfind(':') {
-            (authority[..i].to_string(), authority[i + 1..].parse::<u16>().ok())
+            (
+                authority[..i].to_string(),
+                authority[i + 1..].parse::<u16>().ok(),
+            )
         } else {
             (authority.to_string(), None)
         };
@@ -88,15 +92,21 @@ impl Origin {
 
     /// Check if two origins are same-origin.
     pub fn is_same_origin(&self, other: &Origin) -> bool {
-        if self.opaque || other.opaque { return false; }
+        if self.opaque || other.opaque {
+            return false;
+        }
         self.scheme == other.scheme && self.host == other.host && self.port == other.port
     }
 
     /// Check if `other` is same-site (same registrable domain).
     /// Example: `a.example.com` and `b.example.com` are same-site.
     pub fn is_same_site(&self, other: &Origin) -> bool {
-        if self.opaque || other.opaque { return false; }
-        if self.scheme != other.scheme { return false; }
+        if self.opaque || other.opaque {
+            return false;
+        }
+        if self.scheme != other.scheme {
+            return false;
+        }
         let r1 = registrable_domain(&self.host);
         let r2 = registrable_domain(&other.host);
         r1 == r2
@@ -104,7 +114,9 @@ impl Origin {
 
     /// Serialize to the origin header form: `scheme://host:port`.
     pub fn serialize(&self) -> String {
-        if self.opaque { return "null".to_string(); }
+        if self.opaque {
+            return "null".to_string();
+        }
         match self.port {
             Some(p) => format!("{}://{}:{}", self.scheme, self.host, p),
             None => format!("{}://{}", self.scheme, self.host),
@@ -134,16 +146,23 @@ pub fn default_port_for_scheme(scheme: &str) -> Option<u16> {
 pub fn registrable_domain(host: &str) -> String {
     // Split on dots.
     let parts: Vec<&str> = host.split('.').collect();
-    if parts.len() < 2 { return host.to_string(); }
+    if parts.len() < 2 {
+        return host.to_string();
+    }
     // Check if the last part is a "two-part TLD" (e.g. co.uk, com.au).
     let last_two = format!("{}.{}", parts[parts.len() - 2], parts[parts.len() - 1]);
     let two_part_tlds = [
-        "co.uk", "org.uk", "ac.uk", "gov.uk", "com.au", "net.au", "org.au",
-        "co.jp", "co.kr", "co.nz", "co.in", "co.za", "com.br", "com.cn",
-        "com.tw", "com.hk", "com.sg", "com.mx", "com.ar",
+        "co.uk", "org.uk", "ac.uk", "gov.uk", "com.au", "net.au", "org.au", "co.jp", "co.kr",
+        "co.nz", "co.in", "co.za", "com.br", "com.cn", "com.tw", "com.hk", "com.sg", "com.mx",
+        "com.ar",
     ];
     if two_part_tlds.contains(&last_two.as_str()) && parts.len() >= 3 {
-        return format!("{}.{}.{}", parts[parts.len() - 3], parts[parts.len() - 2], parts[parts.len() - 1]);
+        return format!(
+            "{}.{}.{}",
+            parts[parts.len() - 3],
+            parts[parts.len() - 2],
+            parts[parts.len() - 1]
+        );
     }
     format!("{}.{}", parts[parts.len() - 2], parts[parts.len() - 1])
 }

@@ -14,7 +14,9 @@
 //! * **List of active formatting elements** — tracks in-flight formatting.
 //! * **Foreign content** — SVG, MathML namespaces.
 
-use crate::dom2::{Document, DocumentHandle, NodeRef, Node, NodeKind, ElementData, Attribute, append_child, set_attribute, tag_name};
+use crate::dom2::{
+    append_child, set_attribute, tag_name, Document, DocumentHandle, Node, NodeKind, NodeRef,
+};
 use crate::html5::tokenizer::Token;
 
 /// The insertion mode of the tree builder.
@@ -140,7 +142,9 @@ impl TreeBuilder {
                 let comment = Document::create_comment_for(&self.doc, &s);
                 append_child(&self.doc.borrow().root.clone(), comment);
             }
-            Token::Doctype { name, force_quirks, .. } => {
+            Token::Doctype {
+                name, force_quirks, ..
+            } => {
                 let doc_type = NodeRef::new(std::cell::RefCell::new(Node {
                     id: 0, // will be set by create
                     kind: NodeKind::DocumentType {
@@ -148,10 +152,14 @@ impl TreeBuilder {
                         public_id: String::new(),
                         system_id: String::new(),
                     },
-                    owner_document: None, doc: None,
-                    parent: None, parent_element: None,
-                    first_child: None, last_child: None,
-                    previous_sibling: None, next_sibling: None,
+                    owner_document: None,
+                    doc: None,
+                    parent: None,
+                    parent_element: None,
+                    first_child: None,
+                    last_child: None,
+                    previous_sibling: None,
+                    next_sibling: None,
                     user_data: std::collections::HashMap::new(),
                 }));
                 // Set proper ID and register.
@@ -237,25 +245,44 @@ impl TreeBuilder {
             }
             Token::Doctype { .. } => { /* ignore */ }
             Token::StartTag { ref name, .. } if name == "html" => self.in_body(token),
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "base" | "basefont" | "bgsound" | "link") => {
-                let el = self.create_element(&name, &attrs);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "base" | "basefont" | "bgsound" | "link") => {
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el);
                 // Void element — pop immediately.
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "meta" => {
-                let el = self.create_element(&name, &attrs);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "meta" => {
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el);
                 // Spec: handle charset switching here. We assume UTF-8.
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "title" => {
-                self.insert_element_and_switch_to_text(&name, &attrs, InsertionMode::Text);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "title" => {
+                self.insert_element_and_switch_to_text(name, attrs, InsertionMode::Text);
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(), "noframes" | "style" | "noscript") => {
-                self.insert_element_and_switch_to_text(&name, &attrs, InsertionMode::Text);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "noframes" | "style" | "noscript") => {
+                self.insert_element_and_switch_to_text(name, attrs, InsertionMode::Text);
             }
-            Token::StartTag { ref name, ref attrs, .. } if name.as_str() == "script" => {
-                let el = self.create_element(&name, &attrs);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name.as_str() == "script" => {
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
                 self.original_mode = self.mode;
@@ -305,8 +332,15 @@ impl TreeBuilder {
             }
             Token::Character(c) if c.is_ascii_whitespace() => self.in_head(token),
             Token::Comment(_) => self.in_head(token),
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "basefont" | "bgsound" | "link" | "meta" | "noframes" | "style") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(
+                name.as_str(),
+                "basefont" | "bgsound" | "link" | "meta" | "noframes" | "style"
+            ) =>
+            {
                 self.in_head(token);
             }
             Token::StartTag { ref name, .. } if matches!(name.as_str(), "head" | "noscript") => {
@@ -331,28 +365,54 @@ impl TreeBuilder {
             }
             Token::Doctype { .. } => { /* ignore */ }
             Token::StartTag { ref name, .. } if name == "html" => self.in_body(token),
-            Token::StartTag { ref name, ref attrs, .. } if name == "body" => {
-                let body = self.create_element(&name, &attrs);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "body" => {
+                let body = self.create_element(name, attrs);
                 append_child(&self.current(), body.clone());
                 self.open_elements.push(body);
                 self.frameset_ok = false;
                 self.mode = InsertionMode::InBody;
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "frameset" => {
-                let frameset = self.create_element(&name, &attrs);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "frameset" => {
+                let frameset = self.create_element(name, attrs);
                 append_child(&self.current(), frameset.clone());
                 self.open_elements.push(frameset);
                 self.mode = InsertionMode::InFrameset;
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "base" | "basefont" | "bgsound" | "link" | "meta" | "noframes" | "script" | "style" | "template" | "title") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(
+                name.as_str(),
+                "base"
+                    | "basefont"
+                    | "bgsound"
+                    | "link"
+                    | "meta"
+                    | "noframes"
+                    | "script"
+                    | "style"
+                    | "template"
+                    | "title"
+            ) =>
+            {
                 // Insert into head, but stay in after_head.
                 let head = self.head_element.clone().unwrap();
                 self.open_elements.push(head);
                 self.in_head(token);
                 // Pop back to where we were.
                 while let Some(top) = self.open_elements.last() {
-                    if tag_name(top) == "html" { break; }
+                    if tag_name(top) == "html" {
+                        break;
+                    }
                     self.open_elements.pop();
                 }
             }
@@ -388,63 +448,133 @@ impl TreeBuilder {
             Token::StartTag { ref name, .. } if name == "html" => {
                 /* merge attributes onto <html>, ignore */
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "base" | "basefont" | "bgsound" | "link" | "meta" | "noframes" | "script" | "style" | "template" | "title") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(
+                name.as_str(),
+                "base"
+                    | "basefont"
+                    | "bgsound"
+                    | "link"
+                    | "meta"
+                    | "noframes"
+                    | "script"
+                    | "style"
+                    | "template"
+                    | "title"
+            ) =>
+            {
                 self.in_head(token);
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "body" => {
-                /* merge attributes onto <body>, ignore */
-            }
-            Token::StartTag { ref name, ref attrs, .. } if name == "frameset" => {
-                if !self.frameset_ok { return; }
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "body" => { /* merge attributes onto <body>, ignore */ }
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "frameset" => {
+                if !self.frameset_ok {
+                    return;
+                }
                 // Replace body with frameset.
                 if self.open_elements.len() >= 2 {
                     let body = self.open_elements[1].clone();
                     if tag_name(&body) == "body" {
-                        let parent = body.borrow().parent.as_ref().and_then(|w| w.upgrade()).unwrap();
+                        let parent = body
+                            .borrow()
+                            .parent
+                            .as_ref()
+                            .and_then(|w| w.upgrade())
+                            .unwrap();
                         crate::dom2::remove_from_parent(&body);
-                        let frameset = self.create_element(&name, &attrs);
+                        let frameset = self.create_element(name, attrs);
                         append_child(&parent, frameset.clone());
                         self.open_elements[1] = frameset;
                         self.mode = InsertionMode::InFrameset;
                     }
                 }
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "address" | "article" | "aside" | "blockquote" | "center" | "details" | "dialog" |
-                "dir" | "div" | "dl" | "fieldset" | "figcaption" | "figure" | "footer" |
-                "header" | "hgroup" | "main" | "menu" | "nav" | "ol" | "p" | "search" |
-                "section" | "summary" | "ul") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(
+                name.as_str(),
+                "address"
+                    | "article"
+                    | "aside"
+                    | "blockquote"
+                    | "center"
+                    | "details"
+                    | "dialog"
+                    | "dir"
+                    | "div"
+                    | "dl"
+                    | "fieldset"
+                    | "figcaption"
+                    | "figure"
+                    | "footer"
+                    | "header"
+                    | "hgroup"
+                    | "main"
+                    | "menu"
+                    | "nav"
+                    | "ol"
+                    | "p"
+                    | "search"
+                    | "section"
+                    | "summary"
+                    | "ul"
+            ) =>
+            {
                 self.close_p_if_open();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "h1" | "h2" | "h3" | "h4" | "h5" | "h6") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "h1" | "h2" | "h3" | "h4" | "h5" | "h6") => {
                 self.close_p_if_open();
                 // If current is an h-tag, pop it (parse error recovery).
                 if let Some(top) = self.open_elements.last() {
-                    if matches!(tag_name(top).as_str(), "h1"|"h2"|"h3"|"h4"|"h5"|"h6") {
+                    if matches!(
+                        tag_name(top).as_str(),
+                        "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
+                    ) {
                         self.pop_current_node();
                     }
                 }
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "pre" | "listing") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "pre" | "listing") => {
                 self.close_p_if_open();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
                 self.frameset_ok = false;
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "form" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "form" => {
                 if self.form_element.is_none() || !self.has_template_in_stack() {
                     self.close_p_if_open();
-                    let form = self.create_element(&name, &attrs);
+                    let form = self.create_element(name, attrs);
                     if !self.has_template_in_stack() {
                         self.form_element = Some(form.clone());
                     }
@@ -452,16 +582,15 @@ impl TreeBuilder {
                     self.open_elements.push(form);
                 }
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "li" | "dd" | "dt") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "li" | "dd" | "dt") => {
                 self.frameset_ok = false;
                 // Stop at the nearest <li> or <dd>/<dt>.
                 let stop_at = if name == "li" { "li" } else { "dd" };
-                let target_tags: &[&str] = if name == "li" {
-                    &["li"]
-                } else {
-                    &["dd", "dt"]
-                };
+                let target_tags: &[&str] = if name == "li" { &["li"] } else { &["dd", "dt"] };
                 // Walk stack to find a node to close.
                 let mut node_idx = self.open_elements.len();
                 while node_idx > 0 {
@@ -475,26 +604,35 @@ impl TreeBuilder {
                         self.pop_current_node();
                         break;
                     }
-                    if is_special(tag.as_str()) && !matches!(tag.as_str(), "address"|"div"|"p") {
+                    if is_special(tag.as_str()) && !matches!(tag.as_str(), "address" | "div" | "p")
+                    {
                         break;
                     }
                 }
                 self.close_p_if_open();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
                 let _ = stop_at;
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "plaintext" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "plaintext" => {
                 self.close_p_if_open();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
                 // Spec says: switch tokenizer to PLAINTEXT state.
                 // We don't have direct access here; the parser entry point
                 // would normally do this. For now, we continue.
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "button" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "button" => {
                 // Close any open <button>.
                 if self.has_in_scope("button") {
                     self.generate_implied_end_tags_except(None);
@@ -503,79 +641,124 @@ impl TreeBuilder {
                     }
                 }
                 self.reconstruct_active_formatting();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
                 self.frameset_ok = false;
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "marquee" | "object") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "marquee" | "object") => {
                 self.reconstruct_active_formatting();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
                 self.frameset_ok = false;
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "hr" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "hr" => {
                 self.reconstruct_active_formatting();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el);
                 self.frameset_ok = false;
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "image" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "image" => {
                 // Parse error — treat as <img>.
-                let el = self.create_element("img", &attrs);
+                let el = self.create_element("img", attrs);
                 append_child(&self.current(), el);
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(), "img" | "br" | "wbr") && (
-                matches!(name.as_str(), "img" | "br" | "wbr")) => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "img" | "br" | "wbr")
+                && (matches!(name.as_str(), "img" | "br" | "wbr")) =>
+            {
                 self.reconstruct_active_formatting();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el);
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "input" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "input" => {
                 self.reconstruct_active_formatting();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el);
                 // Check type=hidden — does not affect frameset_ok if hidden.
-                let is_hidden = attrs.iter().any(|(k, v)| k == "type" && v.eq_ignore_ascii_case("hidden"));
-                if !is_hidden { self.frameset_ok = false; }
+                let is_hidden = attrs
+                    .iter()
+                    .any(|(k, v)| k == "type" && v.eq_ignore_ascii_case("hidden"));
+                if !is_hidden {
+                    self.frameset_ok = false;
+                }
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "param" | "source" | "track") => {
-                let el = self.create_element(&name, &attrs);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "param" | "source" | "track") => {
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el);
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "textarea" => {
-                let el = self.create_element(&name, &attrs);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "textarea" => {
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
                 self.frameset_ok = false;
                 self.original_mode = self.mode;
                 self.mode = InsertionMode::Text;
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "a" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "a" => {
                 // If there's an <a> in active formatting, run adoption agency.
                 if self.has_a_in_active_formatting() {
                     // Run adoption agency for "a".
                     self.adoption_agency("a");
                 }
                 self.reconstruct_active_formatting();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
-                self.active_formatting.push(FormattingEntry::Element(el.clone()));
+                self.active_formatting
+                    .push(FormattingEntry::Element(el.clone()));
                 self.open_elements.push(el);
             }
-            Token::StartTag { ref name, ref attrs, .. } if is_formatting_element(name.as_str()) => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if is_formatting_element(name.as_str()) => {
                 self.reconstruct_active_formatting();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
-                self.active_formatting.push(FormattingEntry::Element(el.clone()));
+                self.active_formatting
+                    .push(FormattingEntry::Element(el.clone()));
                 self.open_elements.push(el);
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "table" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "table" => {
                 self.close_p_if_open();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
                 self.mode = InsertionMode::InTable;
@@ -589,15 +772,44 @@ impl TreeBuilder {
             Token::EndTag { ref name } if name == "html" => {
                 if self.has_in_scope("body") {
                     self.mode = InsertionMode::AfterBody;
-                    self.consume(Token::EndTag { name: "html".into() });
+                    self.consume(Token::EndTag {
+                        name: "html".into(),
+                    });
                 }
             }
-            Token::EndTag { ref name } if matches!(name.as_str(),
-                "address" | "article" | "aside" | "blockquote" | "button" | "center" |
-                "details" | "dialog" | "dir" | "div" | "dl" | "fieldset" | "figcaption" |
-                "figure" | "footer" | "header" | "hgroup" | "listing" | "main" | "menu" |
-                "nav" | "ol" | "pre" | "search" | "section" | "summary" | "ul") => {
-                if self.has_in_scope(&name) {
+            Token::EndTag { ref name }
+                if matches!(
+                    name.as_str(),
+                    "address"
+                        | "article"
+                        | "aside"
+                        | "blockquote"
+                        | "button"
+                        | "center"
+                        | "details"
+                        | "dialog"
+                        | "dir"
+                        | "div"
+                        | "dl"
+                        | "fieldset"
+                        | "figcaption"
+                        | "figure"
+                        | "footer"
+                        | "header"
+                        | "hgroup"
+                        | "listing"
+                        | "main"
+                        | "menu"
+                        | "nav"
+                        | "ol"
+                        | "pre"
+                        | "search"
+                        | "section"
+                        | "summary"
+                        | "ul"
+                ) =>
+            {
+                if self.has_in_scope(name) {
                     self.generate_implied_end_tags_except(None);
                     while tag_name(&self.current()).as_str() != name.as_str() {
                         self.pop_current_node();
@@ -605,12 +817,17 @@ impl TreeBuilder {
                     self.pop_current_node();
                 }
             }
-            Token::EndTag { ref name } if matches!(name.as_str(), "h1"|"h2"|"h3"|"h4"|"h5"|"h6") => {
+            Token::EndTag { ref name }
+                if matches!(name.as_str(), "h1" | "h2" | "h3" | "h4" | "h5" | "h6") =>
+            {
                 // Close any open heading.
-                for h in &["h1","h2","h3","h4","h5","h6"] {
+                for h in &["h1", "h2", "h3", "h4", "h5", "h6"] {
                     if self.has_in_scope(h) {
                         self.generate_implied_end_tags_except(None);
-                        while !matches!(tag_name(&self.current()).as_str(), "h1"|"h2"|"h3"|"h4"|"h5"|"h6") {
+                        while !matches!(
+                            tag_name(&self.current()).as_str(),
+                            "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
+                        ) {
                             self.pop_current_node();
                         }
                         self.pop_current_node();
@@ -628,8 +845,8 @@ impl TreeBuilder {
                 self.close_p_element();
             }
             Token::EndTag { ref name } if name == "li" || name == "dd" || name == "dt" => {
-                if self.has_in_list_item_scope(&name) {
-                    self.generate_implied_end_tags_except(Some(&name));
+                if self.has_in_list_item_scope(name) {
+                    self.generate_implied_end_tags_except(Some(name));
                     while tag_name(&self.current()).as_str() != name.as_str() {
                         self.pop_current_node();
                     }
@@ -637,7 +854,7 @@ impl TreeBuilder {
                 }
             }
             Token::EndTag { ref name } if is_formatting_element(name) => {
-                self.adoption_agency(&name);
+                self.adoption_agency(name);
             }
             Token::EndTag { ref name } if name == "form" => {
                 if !self.has_template_in_stack() {
@@ -647,7 +864,9 @@ impl TreeBuilder {
                     }
                     self.generate_implied_end_tags_except(None);
                     while let Some(top) = self.open_elements.last() {
-                        if std::ptr::eq(top.as_ptr(), form.as_ref().unwrap().as_ptr()) { break; }
+                        if std::ptr::eq(top.as_ptr(), form.as_ref().unwrap().as_ptr()) {
+                            break;
+                        }
                         self.open_elements.pop();
                     }
                     self.open_elements.pop();
@@ -663,9 +882,14 @@ impl TreeBuilder {
             }
             _ => {
                 // Default: insert as block element or treat as error.
-                if let Token::StartTag { ref name, ref attrs, .. } = token {
+                if let Token::StartTag {
+                    ref name,
+                    ref attrs,
+                    ..
+                } = token
+                {
                     self.reconstruct_active_formatting();
-                    let el = self.create_element(&name, &attrs);
+                    let el = self.create_element(name, attrs);
                     append_child(&self.current(), el.clone());
                     self.open_elements.push(el);
                 }
@@ -715,45 +939,77 @@ impl TreeBuilder {
             }
             Token::Doctype { .. } => { /* parse error */ }
             Token::StartTag { ref name, .. } if name == "html" => self.in_body(token),
-            Token::StartTag { ref name, ref attrs, .. } if name == "caption" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "caption" => {
                 self.clear_stack_back_to_table_context();
                 self.active_formatting.push(FormattingEntry::Marker);
-                let caption = self.create_element(&name, &attrs);
+                let caption = self.create_element(name, attrs);
                 append_child(&self.current(), caption.clone());
                 self.open_elements.push(caption);
                 self.mode = InsertionMode::InCaption;
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "colgroup" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "colgroup" => {
                 self.clear_stack_back_to_table_context();
-                let colgroup = self.create_element(&name, &attrs);
+                let colgroup = self.create_element(name, attrs);
                 append_child(&self.current(), colgroup.clone());
                 self.open_elements.push(colgroup);
                 self.mode = InsertionMode::InColumnGroup;
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "col" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "col" => {
                 self.clear_stack_back_to_table_context();
                 let colgroup = Document::create_element(&self.doc, "colgroup");
                 append_child(&self.current(), colgroup.clone());
                 self.open_elements.push(colgroup);
                 self.mode = InsertionMode::InColumnGroup;
-                self.consume(Token::StartTag { name: name.clone(), attrs: attrs.clone(), self_closing: false });
+                self.consume(Token::StartTag {
+                    name: name.clone(),
+                    attrs: attrs.clone(),
+                    self_closing: false,
+                });
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(), "tbody" | "tfoot" | "thead") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "tbody" | "tfoot" | "thead") => {
                 self.clear_stack_back_to_table_context();
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
                 self.mode = InsertionMode::InTableBody;
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(), "td" | "th" | "tr") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "td" | "th" | "tr") => {
                 self.clear_stack_back_to_table_context();
                 let tbody = Document::create_element(&self.doc, "tbody");
                 append_child(&self.current(), tbody.clone());
                 self.open_elements.push(tbody);
                 self.mode = InsertionMode::InTableBody;
-                self.consume(Token::StartTag { name: name.clone(), attrs: attrs.clone(), self_closing: false });
+                self.consume(Token::StartTag {
+                    name: name.clone(),
+                    attrs: attrs.clone(),
+                    self_closing: false,
+                });
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "table" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "table" => {
                 // Parse error. Pop until we close the current table.
                 while tag_name(&self.current()) != "table" && !self.open_elements.is_empty() {
                     self.pop_current_node();
@@ -771,12 +1027,27 @@ impl TreeBuilder {
                     self.mode = InsertionMode::InBody;
                 }
             }
-            Token::EndTag { ref name } if matches!(name.as_str(),
-                "body" | "caption" | "col" | "colgroup" | "html" | "tbody" | "td" | "tfoot" | "th" | "thead" | "tr") => {
-                /* parse error, ignore */
-            }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "style" | "script" | "template") => {
+            Token::EndTag { ref name }
+                if matches!(
+                    name.as_str(),
+                    "body"
+                        | "caption"
+                        | "col"
+                        | "colgroup"
+                        | "html"
+                        | "tbody"
+                        | "td"
+                        | "tfoot"
+                        | "th"
+                        | "thead"
+                        | "tr"
+                ) =>
+            { /* parse error, ignore */ }
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "style" | "script" | "template") => {
                 self.in_head(token);
             }
             Token::EndTag { ref name } if name == "template" => {
@@ -810,16 +1081,20 @@ impl TreeBuilder {
                 let pending: String = std::mem::take(&mut self.pending_table_chars).concat();
                 if !pending.is_empty() {
                     let parent = self.current();
-                    let text = crate::dom2::NodeRef::new(std::cell::RefCell::new(
-                        crate::dom2::Node {
-                            id: 0, kind: crate::dom2::NodeKind::Text(pending),
-                            owner_document: None, doc: None,
-                            parent: None, parent_element: None,
-                            first_child: None, last_child: None,
-                            previous_sibling: None, next_sibling: None,
+                    let text =
+                        crate::dom2::NodeRef::new(std::cell::RefCell::new(crate::dom2::Node {
+                            id: 0,
+                            kind: crate::dom2::NodeKind::Text(pending),
+                            owner_document: None,
+                            doc: None,
+                            parent: None,
+                            parent_element: None,
+                            first_child: None,
+                            last_child: None,
+                            previous_sibling: None,
+                            next_sibling: None,
                             user_data: std::collections::HashMap::new(),
-                        }
-                    ));
+                        }));
                     let id = self.doc.borrow().next_node_id();
                     text.borrow_mut().id = id;
                     text.borrow_mut().doc = Some(std::rc::Rc::downgrade(&self.doc));
@@ -845,14 +1120,29 @@ impl TreeBuilder {
                     self.mode = InsertionMode::InTable;
                 }
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "tbody" | "tfoot" | "thead" | "td" | "th" | "tr") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(
+                name.as_str(),
+                "tbody" | "tfoot" | "thead" | "td" | "th" | "tr"
+            ) =>
+            {
                 // Close caption first.
-                self.consume(Token::EndTag { name: "caption".to_string() });
-                self.consume(Token::StartTag { name: name.clone(), attrs: attrs.clone(), self_closing: false });
+                self.consume(Token::EndTag {
+                    name: "caption".to_string(),
+                });
+                self.consume(Token::StartTag {
+                    name: name.clone(),
+                    attrs: attrs.clone(),
+                    self_closing: false,
+                });
             }
             Token::EndTag { ref name } if name == "table" => {
-                self.consume(Token::EndTag { name: "caption".to_string() });
+                self.consume(Token::EndTag {
+                    name: "caption".to_string(),
+                });
                 self.consume(token);
             }
             _ => self.in_body(token),
@@ -867,9 +1157,17 @@ impl TreeBuilder {
                 append_child(&self.current(), comment);
             }
             Token::Doctype { .. } => { /* ignore */ }
-            Token::StartTag { ref name, ref attrs, .. } if name == "html" => self.in_body(token),
-            Token::StartTag { ref name, ref attrs, .. } if name == "col" => {
-                let el = self.create_element(&name, &attrs);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "html" => self.in_body(token),
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "col" => {
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el);
             }
             Token::EndTag { ref name } if name == "colgroup" => {
@@ -878,7 +1176,11 @@ impl TreeBuilder {
                     self.mode = InsertionMode::InTable;
                 }
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(), "template" | "style" | "script") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "template" | "style" | "script") => {
                 self.in_head(token);
             }
             Token::EndTag { ref name } if name == "template" => self.in_head(token),
@@ -894,31 +1196,53 @@ impl TreeBuilder {
 
     fn in_table_body(&mut self, token: Token) {
         match token {
-            Token::StartTag { ref name, ref attrs, .. } if name == "tr" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "tr" => {
                 self.clear_stack_back_to_table_body_context();
-                let tr = self.create_element(&name, &attrs);
+                let tr = self.create_element(name, attrs);
                 append_child(&self.current(), tr.clone());
                 self.open_elements.push(tr);
                 self.mode = InsertionMode::InRow;
             }
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(), "th" | "td") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "th" | "td") => {
                 self.clear_stack_back_to_table_body_context();
                 let tr = Document::create_element(&self.doc, "tr");
                 append_child(&self.current(), tr.clone());
                 self.open_elements.push(tr);
                 self.mode = InsertionMode::InRow;
-                self.consume(Token::StartTag { name: name.clone(), attrs: attrs.clone(), self_closing: false });
+                self.consume(Token::StartTag {
+                    name: name.clone(),
+                    attrs: attrs.clone(),
+                    self_closing: false,
+                });
             }
             Token::EndTag { ref name } if matches!(name.as_str(), "tbody" | "tfoot" | "thead") => {
-                if self.has_in_table_scope(&name) {
+                if self.has_in_table_scope(name) {
                     self.clear_stack_back_to_table_body_context();
                     self.pop_current_node();
                     self.mode = InsertionMode::InTable;
                 }
             }
-            Token::StartTag { ref name, .. } if name == "caption" || name == "col" || name == "colgroup" || name == "tbody" || name == "tfoot" || name == "thead" => {
+            Token::StartTag { ref name, .. }
+                if name == "caption"
+                    || name == "col"
+                    || name == "colgroup"
+                    || name == "tbody"
+                    || name == "tfoot"
+                    || name == "thead" =>
+            {
                 // Close tbody if present.
-                if self.has_in_table_scope("tbody") || self.has_in_table_scope("thead") || self.has_in_table_scope("tfoot") {
+                if self.has_in_table_scope("tbody")
+                    || self.has_in_table_scope("thead")
+                    || self.has_in_table_scope("tfoot")
+                {
                     self.clear_stack_back_to_table_body_context();
                     self.pop_current_node();
                     self.mode = InsertionMode::InTable;
@@ -926,7 +1250,10 @@ impl TreeBuilder {
                 }
             }
             Token::EndTag { ref name } if name == "table" => {
-                if self.has_in_table_scope("tbody") || self.has_in_table_scope("thead") || self.has_in_table_scope("tfoot") {
+                if self.has_in_table_scope("tbody")
+                    || self.has_in_table_scope("thead")
+                    || self.has_in_table_scope("tfoot")
+                {
                     self.clear_stack_back_to_table_body_context();
                     self.pop_current_node();
                     self.mode = InsertionMode::InTable;
@@ -939,9 +1266,13 @@ impl TreeBuilder {
 
     fn in_row(&mut self, token: Token) {
         match token {
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(), "th" | "td") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(name.as_str(), "th" | "td") => {
                 self.clear_stack_back_to_row_context();
-                let cell = self.create_element(&name, &attrs);
+                let cell = self.create_element(name, attrs);
                 append_child(&self.current(), cell.clone());
                 self.open_elements.push(cell);
                 self.active_formatting.push(FormattingEntry::Marker);
@@ -954,7 +1285,12 @@ impl TreeBuilder {
                     self.mode = InsertionMode::InTableBody;
                 }
             }
-            Token::StartTag { ref name, .. } if matches!(name.as_str(), "caption" | "col" | "colgroup" | "tbody" | "tfoot" | "thead" | "tr") || (matches!(token, Token::EndTag { ref name } if name == "table")) => {
+            Token::StartTag { ref name, .. }
+                if matches!(
+                    name.as_str(),
+                    "caption" | "col" | "colgroup" | "tbody" | "tfoot" | "thead" | "tr"
+                ) || (matches!(token, Token::EndTag { ref name } if name == "table")) =>
+            {
                 if self.has_in_table_scope("tr") {
                     self.clear_stack_back_to_row_context();
                     self.pop_current_node();
@@ -963,13 +1299,11 @@ impl TreeBuilder {
                 }
             }
             Token::EndTag { ref name } if matches!(name.as_str(), "tbody" | "tfoot" | "thead") => {
-                if self.has_in_table_scope(&name) {
-                    if self.has_in_table_scope("tr") {
-                        self.clear_stack_back_to_row_context();
-                        self.pop_current_node();
-                        self.mode = InsertionMode::InTableBody;
-                        self.consume(token);
-                    }
+                if self.has_in_table_scope(name) && self.has_in_table_scope("tr") {
+                    self.clear_stack_back_to_row_context();
+                    self.pop_current_node();
+                    self.mode = InsertionMode::InTableBody;
+                    self.consume(token);
                 }
             }
             _ => self.in_table(token),
@@ -979,7 +1313,7 @@ impl TreeBuilder {
     fn in_cell(&mut self, token: Token) {
         match token {
             Token::EndTag { ref name } if matches!(name.as_str(), "td" | "th") => {
-                if self.has_in_table_scope(&name) {
+                if self.has_in_table_scope(name) {
                     self.generate_implied_end_tags_except(None);
                     while tag_name(&self.current()).as_str() != name.as_str() {
                         self.pop_current_node();
@@ -989,17 +1323,35 @@ impl TreeBuilder {
                     self.mode = InsertionMode::InRow;
                 }
             }
-            Token::StartTag { ref name, .. } if matches!(name.as_str(), "caption" | "col" | "colgroup" | "tbody" | "td" | "tfoot" | "th" | "thead" | "tr") => {
+            Token::StartTag { ref name, .. }
+                if matches!(
+                    name.as_str(),
+                    "caption"
+                        | "col"
+                        | "colgroup"
+                        | "tbody"
+                        | "td"
+                        | "tfoot"
+                        | "th"
+                        | "thead"
+                        | "tr"
+                ) =>
+            {
                 if self.has_in_table_scope("td") || self.has_in_table_scope("th") {
                     self.close_cell();
                     self.consume(token);
                 }
             }
-            Token::EndTag { ref name } if matches!(name.as_str(), "body" | "caption" | "col" | "colgroup" | "html") => {
-                /* parse error, ignore */
-            }
-            Token::EndTag { ref name } if matches!(name.as_str(), "table" | "tbody" | "tfoot" | "thead" | "tr") => {
-                if self.has_in_table_scope(&name) {
+            Token::EndTag { ref name }
+                if matches!(
+                    name.as_str(),
+                    "body" | "caption" | "col" | "colgroup" | "html"
+                ) =>
+            { /* parse error, ignore */ }
+            Token::EndTag { ref name }
+                if matches!(name.as_str(), "table" | "tbody" | "tfoot" | "thead" | "tr") =>
+            {
+                if self.has_in_table_scope(name) {
                     self.close_cell();
                     self.consume(token);
                 }
@@ -1017,38 +1369,52 @@ impl TreeBuilder {
             }
             Token::Doctype { .. } => { /* ignore */ }
             Token::StartTag { ref name, .. } if name == "html" => self.in_body(token),
-            Token::StartTag { ref name, ref attrs, .. } if name == "option" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "option" => {
                 if tag_name(&self.current()) == "option" {
                     self.pop_current_node();
                 }
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "optgroup" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "optgroup" => {
                 if tag_name(&self.current()) == "option" {
                     self.pop_current_node();
                 }
                 if tag_name(&self.current()) == "optgroup" {
                     self.pop_current_node();
                 }
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "hr" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "hr" => {
                 if tag_name(&self.current()) == "option" {
                     self.pop_current_node();
                 }
                 if tag_name(&self.current()) == "optgroup" {
                     self.pop_current_node();
                 }
-                let el = self.create_element(&name, &attrs);
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el);
             }
             Token::EndTag { ref name } if name == "optgroup" => {
-                if tag_name(&self.current()) == "option" && self.open_elements.len() >= 2
-                    && tag_name(&self.open_elements[self.open_elements.len() - 2]) == "optgroup" {
+                if tag_name(&self.current()) == "option"
+                    && self.open_elements.len() >= 2
+                    && tag_name(&self.open_elements[self.open_elements.len() - 2]) == "optgroup"
+                {
                     self.pop_current_node();
                 }
                 if tag_name(&self.current()) == "optgroup" {
@@ -1075,13 +1441,23 @@ impl TreeBuilder {
 
     fn in_select_in_table(&mut self, token: Token) {
         match token {
-            Token::StartTag { ref name, .. } if matches!(name.as_str(), "caption" | "table" | "tbody" | "tfoot" | "thead" | "tr" | "td" | "th") => {
-                self.consume(Token::EndTag { name: "select".into() });
+            Token::StartTag { ref name, .. }
+                if matches!(
+                    name.as_str(),
+                    "caption" | "table" | "tbody" | "tfoot" | "thead" | "tr" | "td" | "th"
+                ) =>
+            {
+                self.consume(Token::EndTag {
+                    name: "select".into(),
+                });
                 self.consume(token);
             }
-            Token::EndTag { ref name } if matches!(name.as_str(), "caption" | "table" | "tbody" | "tfoot" | "thead" | "tr" | "td" | "th") => {
-                /* parse error, ignore */
-            }
+            Token::EndTag { ref name }
+                if matches!(
+                    name.as_str(),
+                    "caption" | "table" | "tbody" | "tfoot" | "thead" | "tr" | "td" | "th"
+                ) =>
+            { /* parse error, ignore */ }
             _ => self.in_select(token),
         }
     }
@@ -1091,14 +1467,34 @@ impl TreeBuilder {
             Token::Character(c) => self.in_body(Token::Character(c)),
             Token::Comment(s) => self.in_body(Token::Comment(s)),
             Token::Doctype { .. } => self.in_body(token),
-            Token::StartTag { ref name, ref attrs, .. } if matches!(name.as_str(),
-                "base" | "basefont" | "bgsound" | "link" | "meta" | "noframes" | "script" | "style" | "template" | "title") => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if matches!(
+                name.as_str(),
+                "base"
+                    | "basefont"
+                    | "bgsound"
+                    | "link"
+                    | "meta"
+                    | "noframes"
+                    | "script"
+                    | "style"
+                    | "template"
+                    | "title"
+            ) =>
+            {
                 self.in_head(token);
             }
             Token::EndTag { ref name } if name == "template" => {
                 self.in_head(token);
             }
-            Token::StartTag { ref name, ref attrs, .. } => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } => {
                 // Pop template's stack then push new context.
                 let _ = (attrs, name);
                 self.pop_current_node(); // pop template
@@ -1151,23 +1547,37 @@ impl TreeBuilder {
             }
             Token::Doctype { .. } => { /* ignore */ }
             Token::StartTag { ref name, .. } if name == "html" => self.in_body(token),
-            Token::StartTag { ref name, ref attrs, .. } if name == "frameset" => {
-                let el = self.create_element(&name, &attrs);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "frameset" => {
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el.clone());
                 self.open_elements.push(el);
             }
             Token::EndTag { ref name } if name == "frameset" => {
-                if self.open_elements.len() == 1 { return; }
+                if self.open_elements.len() == 1 {
+                    return;
+                }
                 self.pop_current_node();
                 if self.open_elements.len() > 1 && tag_name(&self.current()) == "frameset" {
                     /* keep going */
                 }
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "frame" => {
-                let el = self.create_element(&name, &attrs);
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "frame" => {
+                let el = self.create_element(name, attrs);
                 append_child(&self.current(), el);
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "noframes" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "noframes" => {
                 self.in_head(token);
             }
             _ => { /* parse error, ignore */ }
@@ -1186,7 +1596,11 @@ impl TreeBuilder {
             Token::EndTag { ref name } if name == "html" => {
                 self.mode = InsertionMode::AfterAfterFrameset;
             }
-            Token::StartTag { ref name, ref attrs, .. } if name == "noframes" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "noframes" => {
                 self.in_head(token);
             }
             _ => { /* parse error, ignore */ }
@@ -1218,7 +1632,11 @@ impl TreeBuilder {
             Token::Doctype { .. } => self.in_body(token),
             Token::StartTag { ref name, .. } if name == "html" => self.in_body(token),
             Token::Eof => { /* done */ }
-            Token::StartTag { ref name, ref attrs, .. } if name == "noframes" => {
+            Token::StartTag {
+                ref name,
+                ref attrs,
+                ..
+            } if name == "noframes" => {
                 self.in_head(token);
             }
             _ => { /* parse error, ignore */ }
@@ -1242,7 +1660,11 @@ impl TreeBuilder {
     fn insert_character(&mut self, c: char) {
         let current = self.current();
         // Append to last text node if it exists.
-        let last_child = current.borrow().last_child.clone().and_then(|w| w.upgrade());
+        let last_child = current
+            .borrow()
+            .last_child
+            .clone()
+            .and_then(|w| w.upgrade());
         if let Some(last) = last_child {
             let is_text = matches!(last.borrow().kind, NodeKind::Text(_));
             if is_text {
@@ -1253,11 +1675,16 @@ impl TreeBuilder {
             }
         }
         let text = crate::dom2::NodeRef::new(std::cell::RefCell::new(crate::dom2::Node {
-            id: 0, kind: crate::dom2::NodeKind::Text(c.to_string()),
-            owner_document: None, doc: None,
-            parent: None, parent_element: None,
-            first_child: None, last_child: None,
-            previous_sibling: None, next_sibling: None,
+            id: 0,
+            kind: crate::dom2::NodeKind::Text(c.to_string()),
+            owner_document: None,
+            doc: None,
+            parent: None,
+            parent_element: None,
+            first_child: None,
+            last_child: None,
+            previous_sibling: None,
+            next_sibling: None,
             user_data: std::collections::HashMap::new(),
         }));
         let id = self.doc.borrow().next_node_id();
@@ -1267,7 +1694,12 @@ impl TreeBuilder {
         append_child(&current, text);
     }
 
-    fn insert_element_and_switch_to_text(&mut self, tag: &str, attrs: &[(String, String)], new_mode: InsertionMode) {
+    fn insert_element_and_switch_to_text(
+        &mut self,
+        tag: &str,
+        attrs: &[(String, String)],
+        new_mode: InsertionMode,
+    ) {
         let el = self.create_element(tag, attrs);
         append_child(&self.current(), el.clone());
         self.open_elements.push(el);
@@ -1316,10 +1748,14 @@ impl TreeBuilder {
         while let Some(top) = self.open_elements.last() {
             let tag = tag_name(top);
             if let Some(ex) = except {
-                if tag == ex { return; }
+                if tag == ex {
+                    return;
+                }
             }
-            if matches!(tag.as_str(),
-                "dd" | "dt" | "li" | "optgroup" | "option" | "p" | "rb" | "rp" | "rt" | "rtc") {
+            if matches!(
+                tag.as_str(),
+                "dd" | "dt" | "li" | "optgroup" | "option" | "p" | "rb" | "rp" | "rt" | "rtc"
+            ) {
                 self.pop_current_node();
             } else {
                 return;
@@ -1331,7 +1767,9 @@ impl TreeBuilder {
         while !self.open_elements.is_empty() {
             let top = self.open_elements.last().unwrap().clone();
             let tag = tag_name(&top);
-            if tag == "table" || tag == "html" { return; }
+            if tag == "table" || tag == "html" {
+                return;
+            }
             self.pop_current_node();
         }
     }
@@ -1340,7 +1778,9 @@ impl TreeBuilder {
         while !self.open_elements.is_empty() {
             let top = self.open_elements.last().unwrap().clone();
             let tag = tag_name(&top);
-            if matches!(tag.as_str(), "tbody" | "tfoot" | "thead" | "html") { return; }
+            if matches!(tag.as_str(), "tbody" | "tfoot" | "thead" | "html") {
+                return;
+            }
             self.pop_current_node();
         }
     }
@@ -1349,42 +1789,66 @@ impl TreeBuilder {
         while !self.open_elements.is_empty() {
             let top = self.open_elements.last().unwrap().clone();
             let tag = tag_name(&top);
-            if tag == "tr" || tag == "html" { return; }
+            if tag == "tr" || tag == "html" {
+                return;
+            }
             self.pop_current_node();
         }
     }
 
     fn clear_active_formatting_to_last_marker(&mut self) {
         while let Some(entry) = self.active_formatting.pop() {
-            if matches!(entry, FormattingEntry::Marker) { return; }
+            if matches!(entry, FormattingEntry::Marker) {
+                return;
+            }
         }
     }
 
     fn reconstruct_active_formatting(&mut self) {
-        if self.active_formatting.is_empty() { return; }
+        if self.active_formatting.is_empty() {
+            return;
+        }
         // If last entry is a marker, nothing to reconstruct.
-        if let Some(FormattingEntry::Marker) = self.active_formatting.last() { return; }
+        if let Some(FormattingEntry::Marker) = self.active_formatting.last() {
+            return;
+        }
         // If last entry is already in the stack, nothing to do.
         let last = self.active_formatting.last().unwrap().clone();
         if let FormattingEntry::Element(el) = &last {
-            if self.open_elements.iter().any(|n| std::ptr::eq(n.as_ptr(), el.as_ptr())) {
+            if self
+                .open_elements
+                .iter()
+                .any(|n| std::ptr::eq(n.as_ptr(), el.as_ptr()))
+            {
                 return;
             }
         }
         // Walk backwards to find the first entry that's either a marker or in the stack.
         let mut idx = self.active_formatting.len();
         loop {
-            if idx == 0 { break; }
+            if idx == 0 {
+                break;
+            }
             idx -= 1;
             match &self.active_formatting[idx] {
-                FormattingEntry::Marker => { idx += 1; break; }
+                FormattingEntry::Marker => {
+                    idx += 1;
+                    break;
+                }
                 FormattingEntry::Element(el) => {
-                    if self.open_elements.iter().any(|n| std::ptr::eq(n.as_ptr(), el.as_ptr())) {
-                        idx += 1; break;
+                    if self
+                        .open_elements
+                        .iter()
+                        .any(|n| std::ptr::eq(n.as_ptr(), el.as_ptr()))
+                    {
+                        idx += 1;
+                        break;
                     }
                 }
             }
-            if idx == 0 { break; }
+            if idx == 0 {
+                break;
+            }
         }
         // Reconstruct from idx forward.
         while idx < self.active_formatting.len() {
@@ -1454,7 +1918,9 @@ impl TreeBuilder {
             // 4. Find formatting element in stack.
             let fmt_el = if let FormattingEntry::Element(el) = &self.active_formatting[fmt_idx] {
                 el.clone()
-            } else { return };
+            } else {
+                return;
+            };
             let mut stack_idx = None;
             for (i, n) in self.open_elements.iter().enumerate() {
                 if std::ptr::eq(n.as_ptr(), fmt_el.as_ptr()) {
@@ -1500,7 +1966,9 @@ impl TreeBuilder {
             // 10. Inner loop.
             let mut last_node = node.clone();
             loop {
-                if node_idx == 0 { break; }
+                if node_idx == 0 {
+                    break;
+                }
                 node_idx -= 1;
                 node = self.open_elements[node_idx].clone();
                 // 10.3. If node is formatting element, break.
@@ -1580,10 +2048,14 @@ impl TreeBuilder {
             self.active_formatting.remove(fmt_idx);
             let insert_at = if bookmark > self.active_formatting.len() {
                 self.active_formatting.len()
-            } else { bookmark.min(self.active_formatting.len()) };
-            self.active_formatting.insert(insert_at, FormattingEntry::Element(new_fmt.clone()));
+            } else {
+                bookmark.min(self.active_formatting.len())
+            };
+            self.active_formatting
+                .insert(insert_at, FormattingEntry::Element(new_fmt.clone()));
             // 15. Remove fmt from stack, insert new_fmt right after furthest_block.
-            self.open_elements.retain(|n| !std::ptr::eq(n.as_ptr(), fmt_el.as_ptr()));
+            self.open_elements
+                .retain(|n| !std::ptr::eq(n.as_ptr(), fmt_el.as_ptr()));
             // Find furthest_block's new position.
             let mut new_pos = None;
             for (i, n) in self.open_elements.iter().enumerate() {
@@ -1619,8 +2091,12 @@ impl TreeBuilder {
     fn has_in_scope_with(&self, tag: &str, scope: &[&str]) -> bool {
         for n in self.open_elements.iter().rev() {
             let t = tag_name(n);
-            if t == tag { return true; }
-            if scope.contains(&t.as_str()) { return false; }
+            if t == tag {
+                return true;
+            }
+            if scope.contains(&t.as_str()) {
+                return false;
+            }
         }
         false
     }
@@ -1632,7 +2108,9 @@ impl TreeBuilder {
     fn has_a_in_active_formatting(&self) -> bool {
         for entry in &self.active_formatting {
             if let FormattingEntry::Element(el) = entry {
-                if tag_name(el) == "a" { return true; }
+                if tag_name(el) == "a" {
+                    return true;
+                }
             }
         }
         false
@@ -1641,62 +2119,68 @@ impl TreeBuilder {
     fn reset_insertion_mode(&mut self) {
         // Walk stack from top to find the right mode.
         for i in (0..self.open_elements.len()).rev() {
-        let last = i == 0;
-        let tag = tag_name(&self.open_elements[i]);
-        match tag.as_str() {
-            "select" => {
-                self.mode = InsertionMode::InSelect;
-                return;
+            let last = i == 0;
+            let tag = tag_name(&self.open_elements[i]);
+            match tag.as_str() {
+                "select" => {
+                    self.mode = InsertionMode::InSelect;
+                    return;
+                }
+                "td" | "th" if !last => {
+                    self.mode = InsertionMode::InCell;
+                    return;
+                }
+                "tr" => {
+                    self.mode = InsertionMode::InRow;
+                    return;
+                }
+                "tbody" | "thead" | "tfoot" => {
+                    self.mode = InsertionMode::InTableBody;
+                    return;
+                }
+                "caption" => {
+                    self.mode = InsertionMode::InCaption;
+                    return;
+                }
+                "colgroup" => {
+                    self.mode = InsertionMode::InColumnGroup;
+                    return;
+                }
+                "table" => {
+                    self.mode = InsertionMode::InTable;
+                    return;
+                }
+                "template" => {
+                    self.mode = *self.template_modes.last().unwrap_or(&InsertionMode::InBody);
+                    return;
+                }
+                "head" | "body" | "html" => break,
+                _ => continue,
             }
-            "td" | "th" if !last => {
-                self.mode = InsertionMode::InCell;
-                return;
-            }
-            "tr" => {
-                self.mode = InsertionMode::InRow;
-                return;
-            }
-            "tbody" | "thead" | "tfoot" => {
-                self.mode = InsertionMode::InTableBody;
-                return;
-            }
-            "caption" => {
-                self.mode = InsertionMode::InCaption;
-                return;
-            }
-            "colgroup" => {
-                self.mode = InsertionMode::InColumnGroup;
-                return;
-            }
-            "table" => {
-                self.mode = InsertionMode::InTable;
-                return;
-            }
-            "template" => {
-                self.mode = *self.template_modes.last().unwrap_or(&InsertionMode::InBody);
-                return;
-            }
-            "head" | "body" | "html" => break,
-            _ => continue,
-        }
         }
         self.mode = InsertionMode::InBody;
     }
 
     fn foster_parent_character(&mut self, c: char) {
         // Insert into the element before the last table in the stack.
-        let last_table_idx = self.open_elements.iter().rposition(
-            |n| tag_name(n) == "table"
-        );
+        let last_table_idx = self
+            .open_elements
+            .iter()
+            .rposition(|n| tag_name(n) == "table");
         if let Some(idx) = last_table_idx {
             if idx > 0 {
                 let parent = self.open_elements[idx - 1].clone();
                 let text = crate::dom2::NodeRef::new(std::cell::RefCell::new(crate::dom2::Node {
-                    id: 0, kind: crate::dom2::NodeKind::Text(c.to_string()),
-                    owner_document: None, doc: None,
-                    parent: None, parent_element: None,
-                    first_child: None, last_child: None,
-                    previous_sibling: None, next_sibling: None,
+                    id: 0,
+                    kind: crate::dom2::NodeKind::Text(c.to_string()),
+                    owner_document: None,
+                    doc: None,
+                    parent: None,
+                    parent_element: None,
+                    first_child: None,
+                    last_child: None,
+                    previous_sibling: None,
+                    next_sibling: None,
                     user_data: std::collections::HashMap::new(),
                 }));
                 let id = self.doc.borrow().next_node_id();
@@ -1725,11 +2209,26 @@ impl TreeBuilder {
 }
 
 const SCOPE_DEFAULT: &[&str] = &[
-    "applet", "caption", "html", "table", "td", "th", "marquee", "object",
-    "template", "mi", "mo", "mn", "ms", "mtext", "annotation-xml",
-    "foreignObject", "desc", "title",
+    "applet",
+    "caption",
+    "html",
+    "table",
+    "td",
+    "th",
+    "marquee",
+    "object",
+    "template",
+    "mi",
+    "mo",
+    "mn",
+    "ms",
+    "mtext",
+    "annotation-xml",
+    "foreignObject",
+    "desc",
+    "title",
 ];
-const SCOPE_BUTTON: &[&str] = &[ "button" ];
+const SCOPE_BUTTON: &[&str] = &["button"];
 const SCOPE_TABLE: &[&str] = &["html", "table", "template"];
 const SCOPE_SELECT: &[&str] = &["optgroup", "option"];
 const SCOPE_LIST_ITEM: &[&str] = &["html", "ol", "ul", "button"];
@@ -1737,25 +2236,109 @@ const SCOPE_LIST_ITEM: &[&str] = &["html", "ol", "ul", "button"];
 /// Elements considered "special" by the spec — used in adoption agency
 /// and list-item auto-close.
 fn is_special(tag: &str) -> bool {
-    matches!(tag,
-        "address" | "applet" | "area" | "article" | "aside" | "base" | "basefont" |
-        "bgsound" | "blockquote" | "body" | "br" | "button" | "caption" | "center" |
-        "col" | "colgroup" | "dd" | "details" | "dir" | "div" | "dl" | "dt" |
-        "embed" | "fieldset" | "figcaption" | "figure" | "footer" | "form" |
-        "frame" | "frameset" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" |
-        "head" | "header" | "hgroup" | "hr" | "html" | "iframe" | "img" |
-        "input" | "li" | "link" | "listing" | "main" | "marquee" | "menu" |
-        "meta" | "nav" | "noembed" | "noframes" | "noscript" | "object" | "ol" |
-        "p" | "param" | "plaintext" | "pre" | "script" | "section" | "select" |
-        "source" | "style" | "summary" | "table" | "tbody" | "td" | "template" |
-        "textarea" | "tfoot" | "th" | "thead" | "title" | "tr" | "track" | "ul" |
-        "wbr" | "xmp"
+    matches!(
+        tag,
+        "address"
+            | "applet"
+            | "area"
+            | "article"
+            | "aside"
+            | "base"
+            | "basefont"
+            | "bgsound"
+            | "blockquote"
+            | "body"
+            | "br"
+            | "button"
+            | "caption"
+            | "center"
+            | "col"
+            | "colgroup"
+            | "dd"
+            | "details"
+            | "dir"
+            | "div"
+            | "dl"
+            | "dt"
+            | "embed"
+            | "fieldset"
+            | "figcaption"
+            | "figure"
+            | "footer"
+            | "form"
+            | "frame"
+            | "frameset"
+            | "h1"
+            | "h2"
+            | "h3"
+            | "h4"
+            | "h5"
+            | "h6"
+            | "head"
+            | "header"
+            | "hgroup"
+            | "hr"
+            | "html"
+            | "iframe"
+            | "img"
+            | "input"
+            | "li"
+            | "link"
+            | "listing"
+            | "main"
+            | "marquee"
+            | "menu"
+            | "meta"
+            | "nav"
+            | "noembed"
+            | "noframes"
+            | "noscript"
+            | "object"
+            | "ol"
+            | "p"
+            | "param"
+            | "plaintext"
+            | "pre"
+            | "script"
+            | "section"
+            | "select"
+            | "source"
+            | "style"
+            | "summary"
+            | "table"
+            | "tbody"
+            | "td"
+            | "template"
+            | "textarea"
+            | "tfoot"
+            | "th"
+            | "thead"
+            | "title"
+            | "tr"
+            | "track"
+            | "ul"
+            | "wbr"
+            | "xmp"
     )
 }
 
 /// Formatting elements that participate in the active formatting elements
 /// algorithm. Spec: §13.2.6.2.
 fn is_formatting_element(tag: &str) -> bool {
-    matches!(tag, "a" | "b" | "big" | "code" | "em" | "font" | "i" | "nobr" |
-        "s" | "small" | "strike" | "strong" | "tt" | "u")
+    matches!(
+        tag,
+        "a" | "b"
+            | "big"
+            | "code"
+            | "em"
+            | "font"
+            | "i"
+            | "nobr"
+            | "s"
+            | "small"
+            | "strike"
+            | "strong"
+            | "tt"
+            | "u"
+    )
 }

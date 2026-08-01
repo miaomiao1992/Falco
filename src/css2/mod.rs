@@ -18,23 +18,23 @@
 //! * **Writing modes** — horizontal-tb, vertical-rl/lr, sideways-rl/lr.
 //! * **Logical properties** — margin-inline-start, etc. (mapped via writing mode).
 
+pub mod advanced;
 pub mod cascade;
 pub mod selectors;
-pub mod advanced;
 
-pub use cascade::{Specificity, CascadeOrigin, CascadedDeclaration, cascade_compare, selector_specificity};
-pub use selectors::{
-    SelectorList, ComplexSelector, CompoundSelector, SimpleSelector,
-    Combinator, PseudoClass, AttrOp, matches,
-};
 pub use advanced::{
-    CascadeLayers, ContainerQuery, ContainerCondition, ContainerFeature,
-    ComparisonOp, ContainerUnit, evaluate_container_query,
-    FontFace, FontSource, FontDisplay, FontFaceRegistry,
-    Keyframes, Keyframe, Animation, AnimationDirection, AnimationFillMode,
-    AnimationPlayState, TimingFunction, StepPosition,
-    Transition, ClipPath, FilterFunction, Containment,
-    CounterState, WritingMode, interpolate,
+    evaluate_container_query, interpolate, Animation, AnimationDirection, AnimationFillMode,
+    AnimationPlayState, CascadeLayers, ClipPath, ComparisonOp, ContainerCondition,
+    ContainerFeature, ContainerQuery, ContainerUnit, Containment, CounterState, FilterFunction,
+    FontDisplay, FontFace, FontFaceRegistry, FontSource, Keyframe, Keyframes, StepPosition,
+    TimingFunction, Transition, WritingMode,
+};
+pub use cascade::{
+    cascade_compare, selector_specificity, CascadeOrigin, CascadedDeclaration, Specificity,
+};
+pub use selectors::{
+    matches, AttrOp, Combinator, ComplexSelector, CompoundSelector, PseudoClass, SelectorList,
+    SimpleSelector,
 };
 
 /// Logical property → physical property mapping based on writing mode.
@@ -73,15 +73,33 @@ mod tests {
 
     #[test]
     fn logical_to_physical_horizontal() {
-        assert_eq!(resolve_logical_property("margin-inline-start", WritingMode::HorizontalTb), "margin-left");
-        assert_eq!(resolve_logical_property("margin-block-start", WritingMode::HorizontalTb), "margin-top");
-        assert_eq!(resolve_logical_property("inline-size", WritingMode::HorizontalTb), "width");
+        assert_eq!(
+            resolve_logical_property("margin-inline-start", WritingMode::HorizontalTb),
+            "margin-left"
+        );
+        assert_eq!(
+            resolve_logical_property("margin-block-start", WritingMode::HorizontalTb),
+            "margin-top"
+        );
+        assert_eq!(
+            resolve_logical_property("inline-size", WritingMode::HorizontalTb),
+            "width"
+        );
     }
 
     #[test]
     fn logical_to_physical_vertical() {
-        assert_eq!(resolve_logical_property("margin-block-start", WritingMode::VerticalRl), "margin-left");
-        assert_eq!(resolve_logical_property("margin-inline-start", WritingMode::VerticalRl), "margin-top");
-        assert_eq!(resolve_logical_property("inline-size", WritingMode::VerticalRl), "height");
+        assert_eq!(
+            resolve_logical_property("margin-block-start", WritingMode::VerticalRl),
+            "margin-left"
+        );
+        assert_eq!(
+            resolve_logical_property("margin-inline-start", WritingMode::VerticalRl),
+            "margin-top"
+        );
+        assert_eq!(
+            resolve_logical_property("inline-size", WritingMode::VerticalRl),
+            "height"
+        );
     }
 }

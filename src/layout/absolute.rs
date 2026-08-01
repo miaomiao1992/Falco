@@ -7,7 +7,7 @@
 //! `position: fixed` is treated the same as `absolute` but relative to
 //! the viewport (which in Falco's case is the same thing).
 
-use crate::layout::{LayoutBox, BoxContent, Rect, Length};
+use crate::layout::{BoxContent, LayoutBox, Length};
 use crate::style::Position;
 
 /// Check if an element is positioned (relative, absolute, or fixed).
@@ -50,7 +50,9 @@ pub fn resolve_absolute_position(
 
 /// Apply relative positioning offset to a box's bounds.
 pub fn apply_relative_offset(box_node: &mut LayoutBox) {
-    if box_node.style.position != Position::Relative { return; }
+    if box_node.style.position != Position::Relative {
+        return;
+    }
     let style = &box_node.style;
 
     let dx = match style.left {

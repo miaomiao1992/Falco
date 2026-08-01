@@ -57,7 +57,9 @@ struct ScheduledTimer {
 }
 
 impl PartialEq for ScheduledTimer {
-    fn eq(&self, other: &Self) -> bool { self.id == other.id }
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }
 
 /// A requestAnimationFrame callback.
@@ -99,7 +101,10 @@ impl std::fmt::Debug for EventLoop {
             .field("microtasks", &self.microtasks.lock().unwrap().len())
             .field("timers", &self.timers.lock().unwrap().len())
             .field("raf_callbacks", &self.raf_callbacks.lock().unwrap().len())
-            .field("running", &self.running.load(std::sync::atomic::Ordering::SeqCst))
+            .field(
+                "running",
+                &self.running.load(std::sync::atomic::Ordering::SeqCst),
+            )
             .finish()
     }
 }
@@ -132,7 +137,9 @@ impl EventLoop {
     /// Schedule a timer (setTimeout). Returns a timer ID that can be used
     /// with clearTimeout.
     pub fn set_timeout<F: FnOnce() + Send + 'static>(&self, callback: F, delay_ms: u64) -> u32 {
-        let id = self.next_timer_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let id = self
+            .next_timer_id
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let fire_at = Instant::now() + Duration::from_millis(delay_ms);
         self.timers.lock().unwrap().push(ScheduledTimer {
             fire_at,
@@ -146,7 +153,9 @@ impl EventLoop {
 
     /// Schedule a recurring timer (setInterval). Returns a timer ID.
     pub fn set_interval<F: FnOnce() + Send + 'static>(&self, callback: F, interval_ms: u64) -> u32 {
-        let id = self.next_timer_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let id = self
+            .next_timer_id
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let fire_at = Instant::now() + Duration::from_millis(interval_ms);
         let interval = Duration::from_millis(interval_ms);
         // Wrap the callback so it re-schedules itself after each invocation.
@@ -171,13 +180,18 @@ impl EventLoop {
     /// Schedule a requestAnimationFrame callback. Called once per frame
     /// (60 FPS by default).
     pub fn request_animation_frame<F: FnOnce(f64) + Send + 'static>(&self, callback: F) -> u32 {
-        let id = self.next_timer_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let id = self
+            .next_timer_id
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let timestamp = self.now();
         let cb: Task = Box::new(move || callback(timestamp));
-        self.raf_callbacks.lock().unwrap().push(AnimationFrameCallback {
-            callback: cb,
-            timestamp,
-        });
+        self.raf_callbacks
+            .lock()
+            .unwrap()
+            .push(AnimationFrameCallback {
+                callback: cb,
+                timestamp,
+            });
         id
     }
 
@@ -213,7 +227,8 @@ impl EventLoop {
     /// forever (until the tab is closed). Here we exit when there's nothing
     /// left to do.
     pub fn run(&self) {
-        self.running.store(true, std::sync::atomic::Ordering::SeqCst);
+        self.running
+            .store(true, std::sync::atomic::Ordering::SeqCst);
         let frame_duration = Duration::from_secs_f64(1.0 / self.frame_rate);
 
         loop {
@@ -273,8 +288,7 @@ impl EventLoop {
             }
 
             // 7. Sleep until the next event (timer or frame).
-            let next_timer = self.timers.lock().unwrap()
-                .iter().map(|t| t.fire_at).min();
+            let next_timer = self.timers.lock().unwrap().iter().map(|t| t.fire_at).min();
             let sleep_until = match next_timer {
                 Some(t) => t,
                 None => Instant::now() + frame_duration,
@@ -284,12 +298,14 @@ impl EventLoop {
                 std::thread::sleep(sleep_until - now);
             }
         }
-        self.running.store(false, std::sync::atomic::Ordering::SeqCst);
+        self.running
+            .store(false, std::sync::atomic::Ordering::SeqCst);
     }
 
     /// Stop the event loop.
     pub fn stop(&self) {
-        self.running.store(false, std::sync::atomic::Ordering::SeqCst);
+        self.running
+            .store(false, std::sync::atomic::Ordering::SeqCst);
     }
 
     /// Check if the event loop is currently running.
@@ -325,16 +341,24 @@ mod tests {
         let order = Arc::new(Mutex::new(Vec::new()));
 
         let o1 = order.clone();
-        loop_.enqueue_macro(move || { o1.lock().unwrap().push("macro"); });
+        loop_.enqueue_macro(move || {
+            o1.lock().unwrap().push("macro");
+        });
 
         let o2 = order.clone();
-        loop_.enqueue_micro(move || { o2.lock().unwrap().push("micro"); });
+        loop_.enqueue_micro(move || {
+            o2.lock().unwrap().push("micro");
+        });
 
         loop_.run();
 
         let final_order = order.lock().unwrap();
-        assert_eq!(*final_order, vec!["micro", "macro"],
-            "microtasks should run before macrotasks, got: {:?}", *final_order);
+        assert_eq!(
+            *final_order,
+            vec!["micro", "macro"],
+            "microtasks should run before macrotasks, got: {:?}",
+            *final_order
+        );
     }
 
     #[test]
@@ -362,9 +386,12 @@ mod tests {
         let loop_ = EventLoop::new();
         let fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let f = fired.clone();
-        loop_.set_timeout(move || {
-            f.store(true, Ordering::SeqCst);
-        }, 10);
+        loop_.set_timeout(
+            move || {
+                f.store(true, Ordering::SeqCst);
+            },
+            10,
+        );
         loop_.run();
         assert!(fired.load(Ordering::SeqCst));
     }
@@ -375,18 +402,27 @@ mod tests {
         let loop_ = EventLoop::new();
         let count = Arc::new(AtomicU32::new(0));
         let c = count.clone();
-        let id = loop_.set_interval(move || {
-            c.fetch_add(1, Ordering::SeqCst);
-        }, 10);
+        let id = loop_.set_interval(
+            move || {
+                c.fetch_add(1, Ordering::SeqCst);
+            },
+            10,
+        );
         // Run for a short time, then cancel.
         let l = loop_.clone();
-        loop_.set_timeout(move || {
-            l.clear_timer(id);
-        }, 50);
+        loop_.set_timeout(
+            move || {
+                l.clear_timer(id);
+            },
+            50,
+        );
         loop_.run();
         // Should have fired at least 2 times in 50ms.
-        assert!(count.load(Ordering::SeqCst) >= 2,
-            "expected at least 2 intervals, got {}", count.load(Ordering::SeqCst));
+        assert!(
+            count.load(Ordering::SeqCst) >= 2,
+            "expected at least 2 intervals, got {}",
+            count.load(Ordering::SeqCst)
+        );
     }
 
     #[test]
@@ -394,9 +430,12 @@ mod tests {
         let loop_ = EventLoop::new();
         let fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let f = fired.clone();
-        let id = loop_.set_timeout(move || {
-            f.store(true, Ordering::SeqCst);
-        }, 50);
+        let id = loop_.set_timeout(
+            move || {
+                f.store(true, Ordering::SeqCst);
+            },
+            50,
+        );
         // Cancel immediately.
         loop_.clear_timer(id);
         loop_.run();

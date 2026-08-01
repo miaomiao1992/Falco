@@ -22,11 +22,11 @@ pub fn encode(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
     let mut ihdr = Vec::with_capacity(13);
     ihdr.extend_from_slice(&width.to_be_bytes());
     ihdr.extend_from_slice(&height.to_be_bytes());
-    ihdr.push(8);          // bit depth
-    ihdr.push(6);          // color type (RGBA)
-    ihdr.push(0);          // compression
-    ihdr.push(0);          // filter
-    ihdr.push(0);          // interlace
+    ihdr.push(8); // bit depth
+    ihdr.push(6); // color type (RGBA)
+    ihdr.push(0); // compression
+    ihdr.push(0); // filter
+    ihdr.push(0); // interlace
     write_chunk(&mut out, b"IHDR", &ihdr);
 
     // IDAT — zlib stream with stored (uncompressed) blocks.
@@ -103,7 +103,9 @@ mod tests {
 
     #[test]
     fn encodes_small_image() {
-        let rgba = vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255];
+        let rgba = vec![
+            255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255,
+        ];
         let png = encode(2, 2, &rgba);
         // Verify signature.
         assert_eq!(&png[..8], &PNG_SIG);

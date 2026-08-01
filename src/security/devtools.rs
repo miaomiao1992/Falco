@@ -106,13 +106,25 @@ impl DevToolsServer {
         let result = self.dispatch(&req.method, &req.params);
         self.pending.remove(&req.id);
         match result {
-            Ok(v) => Response { id: req.id, result: Some(v), error: None },
-            Err(e) => Response { id: req.id, result: None, error: Some(e) },
+            Ok(v) => Response {
+                id: req.id,
+                result: Some(v),
+                error: None,
+            },
+            Err(e) => Response {
+                id: req.id,
+                result: None,
+                error: Some(e),
+            },
         }
     }
 
     /// Dispatch a request to its handler.
-    fn dispatch(&mut self, method: &str, params: &serde_json_lite::Value) -> Result<serde_json_lite::Value, RpcError> {
+    fn dispatch(
+        &mut self,
+        method: &str,
+        params: &serde_json_lite::Value,
+    ) -> Result<serde_json_lite::Value, RpcError> {
         match method {
             "Inspector.enable" => {
                 self.enabled = true;
@@ -123,53 +135,99 @@ impl DevToolsServer {
                 Ok(serde_json_lite::Value::Object(HashMap::new()))
             }
             "Page.navigate" => {
-                let url = params.get("url").and_then(|v| v.as_string())
-                    .ok_or(RpcError { code: -32602, message: "missing url".into(), data: None })?;
+                let url = params
+                    .get("url")
+                    .and_then(|v| v.as_string())
+                    .ok_or(RpcError {
+                        code: -32602,
+                        message: "missing url".into(),
+                        data: None,
+                    })?;
                 let mut ev = HashMap::new();
-                ev.insert("frame".to_string(), serde_json_lite::Value::Object({
-                    let mut m = HashMap::new();
-                    m.insert("url".to_string(), serde_json_lite::Value::String(url));
-                    m
-                }));
+                ev.insert(
+                    "frame".to_string(),
+                    serde_json_lite::Value::Object({
+                        let mut m = HashMap::new();
+                        m.insert("url".to_string(), serde_json_lite::Value::String(url));
+                        m
+                    }),
+                );
                 self.emit_event("Page.frameNavigated", serde_json_lite::Value::Object(ev));
                 let mut res = HashMap::new();
-                res.insert("frameId".to_string(), serde_json_lite::Value::String("1".into()));
+                res.insert(
+                    "frameId".to_string(),
+                    serde_json_lite::Value::String("1".into()),
+                );
                 Ok(serde_json_lite::Value::Object(res))
             }
             "Page.reload" => {
                 let mut ev = HashMap::new();
-                ev.insert("frame".to_string(), serde_json_lite::Value::Object({
-                    let mut m = HashMap::new();
-                    m.insert("url".to_string(), serde_json_lite::Value::String("reload".into()));
-                    m
-                }));
+                ev.insert(
+                    "frame".to_string(),
+                    serde_json_lite::Value::Object({
+                        let mut m = HashMap::new();
+                        m.insert(
+                            "url".to_string(),
+                            serde_json_lite::Value::String("reload".into()),
+                        );
+                        m
+                    }),
+                );
                 self.emit_event("Page.frameNavigated", serde_json_lite::Value::Object(ev));
                 Ok(serde_json_lite::Value::Object(HashMap::new()))
             }
             "Runtime.evaluate" => {
-                let expression = params.get("expression").and_then(|v| v.as_string())
-                    .ok_or(RpcError { code: -32602, message: "missing expression".into(), data: None })?;
+                let expression =
+                    params
+                        .get("expression")
+                        .and_then(|v| v.as_string())
+                        .ok_or(RpcError {
+                            code: -32602,
+                            message: "missing expression".into(),
+                            data: None,
+                        })?;
                 let mut result_obj = HashMap::new();
-                result_obj.insert("type".to_string(), serde_json_lite::Value::String("string".into()));
-                result_obj.insert("value".to_string(),
-                    serde_json_lite::Value::String(format!("evaluated: {}", expression)));
+                result_obj.insert(
+                    "type".to_string(),
+                    serde_json_lite::Value::String("string".into()),
+                );
+                result_obj.insert(
+                    "value".to_string(),
+                    serde_json_lite::Value::String(format!("evaluated: {}", expression)),
+                );
                 let mut res = HashMap::new();
-                res.insert("result".to_string(), serde_json_lite::Value::Object(result_obj));
+                res.insert(
+                    "result".to_string(),
+                    serde_json_lite::Value::Object(result_obj),
+                );
                 Ok(serde_json_lite::Value::Object(res))
             }
             "DOM.getDocument" => {
                 let mut root = HashMap::new();
                 root.insert("nodeId".to_string(), serde_json_lite::Value::Number(1.0));
                 root.insert("nodeType".to_string(), serde_json_lite::Value::Number(9.0));
-                root.insert("nodeName".to_string(), serde_json_lite::Value::String("#document".into()));
-                root.insert("children".to_string(), serde_json_lite::Value::Array(vec![]));
+                root.insert(
+                    "nodeName".to_string(),
+                    serde_json_lite::Value::String("#document".into()),
+                );
+                root.insert(
+                    "children".to_string(),
+                    serde_json_lite::Value::Array(vec![]),
+                );
                 let mut res = HashMap::new();
                 res.insert("root".to_string(), serde_json_lite::Value::Object(root));
                 Ok(serde_json_lite::Value::Object(res))
             }
             "DOM.querySelector" => {
-                let selector = params.get("selector").and_then(|v| v.as_string())
-                    .ok_or(RpcError { code: -32602, message: "missing selector".into(), data: None })?;
+                let selector =
+                    params
+                        .get("selector")
+                        .and_then(|v| v.as_string())
+                        .ok_or(RpcError {
+                            code: -32602,
+                            message: "missing selector".into(),
+                            data: None,
+                        })?;
                 let _ = selector;
                 let mut res = HashMap::new();
                 res.insert("nodeId".to_string(), serde_json_lite::Value::Number(0.0));
@@ -181,12 +239,30 @@ impl DevToolsServer {
                 Ok(serde_json_lite::Value::Object(res))
             }
             "DOM.setAttributeValue" => {
-                let node_id = params.get("nodeId").and_then(|v| v.as_number())
-                    .ok_or(RpcError { code: -32602, message: "missing nodeId".into(), data: None })?;
-                let name = params.get("name").and_then(|v| v.as_string())
-                    .ok_or(RpcError { code: -32602, message: "missing name".into(), data: None })?;
-                let value = params.get("value").and_then(|v| v.as_string())
-                    .ok_or(RpcError { code: -32602, message: "missing value".into(), data: None })?;
+                let node_id = params
+                    .get("nodeId")
+                    .and_then(|v| v.as_number())
+                    .ok_or(RpcError {
+                        code: -32602,
+                        message: "missing nodeId".into(),
+                        data: None,
+                    })?;
+                let name = params
+                    .get("name")
+                    .and_then(|v| v.as_string())
+                    .ok_or(RpcError {
+                        code: -32602,
+                        message: "missing name".into(),
+                        data: None,
+                    })?;
+                let value = params
+                    .get("value")
+                    .and_then(|v| v.as_string())
+                    .ok_or(RpcError {
+                        code: -32602,
+                        message: "missing value".into(),
+                        data: None,
+                    })?;
                 let _ = (node_id, name, value);
                 Ok(serde_json_lite::Value::Object(HashMap::new()))
             }
@@ -202,7 +278,10 @@ impl DevToolsServer {
 
     /// Emit an event to all subscribers.
     pub fn emit_event(&mut self, method: &str, params: serde_json_lite::Value) {
-        let event = Event { method: method.to_string(), params: params.clone() };
+        let event = Event {
+            method: method.to_string(),
+            params: params.clone(),
+        };
         if let Some(subs) = self.subscribers.get(method) {
             for sub in subs {
                 sub(&event);
@@ -211,13 +290,28 @@ impl DevToolsServer {
         // Special case: console messages get buffered.
         if method == "Runtime.consoleAPICalled" {
             let msg = ConsoleMessage {
-                level: params.get("type").and_then(|v| v.as_string()).unwrap_or("log".into()),
-                text: params.get("args").and_then(|v| v.as_array())
-                    .and_then(|a| a.first()).and_then(|v| v.as_string()).unwrap_or_default(),
-                url: params.get("stackTrace").and_then(|v| v.as_object())
-                    .and_then(|o| o.get("url")).and_then(|v| v.as_string()).unwrap_or_default(),
-                line: params.get("stackTrace").and_then(|v| v.as_object())
-                    .and_then(|o| o.get("lineNumber")).and_then(|v| v.as_number()).unwrap_or(0.0) as u32,
+                level: params
+                    .get("type")
+                    .and_then(|v| v.as_string())
+                    .unwrap_or("log".into()),
+                text: params
+                    .get("args")
+                    .and_then(|v| v.as_array())
+                    .and_then(|a| a.first())
+                    .and_then(|v| v.as_string())
+                    .unwrap_or_default(),
+                url: params
+                    .get("stackTrace")
+                    .and_then(|v| v.as_object())
+                    .and_then(|o| o.get("url"))
+                    .and_then(|v| v.as_string())
+                    .unwrap_or_default(),
+                line: params
+                    .get("stackTrace")
+                    .and_then(|v| v.as_object())
+                    .and_then(|o| o.get("lineNumber"))
+                    .and_then(|v| v.as_number())
+                    .unwrap_or(0.0) as u32,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .map(|d| d.as_secs_f64())
@@ -229,7 +323,10 @@ impl DevToolsServer {
 
     /// Subscribe to events of a given method.
     pub fn subscribe<F: Fn(&Event) + 'static>(&mut self, method: &str, handler: F) {
-        self.subscribers.entry(method.to_string()).or_default().push(Box::new(handler));
+        self.subscribers
+            .entry(method.to_string())
+            .or_default()
+            .push(Box::new(handler));
     }
 
     /// Mint a new request ID.
@@ -239,7 +336,9 @@ impl DevToolsServer {
 }
 
 impl Default for DevToolsServer {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// A console message — captured from `console.log()` etc.
@@ -280,19 +379,39 @@ pub mod serde_json_lite {
 
     impl Value {
         pub fn as_string(&self) -> Option<String> {
-            if let Value::String(s) = self { Some(s.clone()) } else { None }
+            if let Value::String(s) = self {
+                Some(s.clone())
+            } else {
+                None
+            }
         }
         pub fn as_number(&self) -> Option<f64> {
-            if let Value::Number(n) = self { Some(*n) } else { None }
+            if let Value::Number(n) = self {
+                Some(*n)
+            } else {
+                None
+            }
         }
         pub fn as_array(&self) -> Option<&Vec<Value>> {
-            if let Value::Array(a) = self { Some(a) } else { None }
+            if let Value::Array(a) = self {
+                Some(a)
+            } else {
+                None
+            }
         }
         pub fn as_object(&self) -> Option<&HashMap<String, Value>> {
-            if let Value::Object(o) = self { Some(o) } else { None }
+            if let Value::Object(o) = self {
+                Some(o)
+            } else {
+                None
+            }
         }
         pub fn get(&self, key: &str) -> Option<&Value> {
-            if let Value::Object(o) = self { o.get(key) } else { None }
+            if let Value::Object(o) = self {
+                o.get(key)
+            } else {
+                None
+            }
         }
     }
 
@@ -317,7 +436,11 @@ mod tests {
     #[test]
     fn server_starts_disabled() {
         let mut s = DevToolsServer::new();
-        let req = Request { id: 1, method: "Page.navigate".into(), params: Value::Null };
+        let req = Request {
+            id: 1,
+            method: "Page.navigate".into(),
+            params: Value::Null,
+        };
         let resp = s.handle_request(req);
         assert!(resp.error.is_some());
     }
@@ -325,7 +448,11 @@ mod tests {
     #[test]
     fn enable_server() {
         let mut s = DevToolsServer::new();
-        let req = Request { id: 1, method: "Inspector.enable".into(), params: Value::Null };
+        let req = Request {
+            id: 1,
+            method: "Inspector.enable".into(),
+            params: Value::Null,
+        };
         let resp = s.handle_request(req);
         assert!(resp.result.is_some());
         assert!(s.enabled);
@@ -336,10 +463,14 @@ mod tests {
         let mut s = DevToolsServer::new();
         s.enable();
         let req = Request {
-            id: 1, method: "Page.navigate".into(),
+            id: 1,
+            method: "Page.navigate".into(),
             params: Value::Object({
                 let mut m = HashMap::new();
-                m.insert("url".to_string(), Value::String("https://example.com".into()));
+                m.insert(
+                    "url".to_string(),
+                    Value::String("https://example.com".into()),
+                );
                 m
             }),
         };
@@ -353,7 +484,11 @@ mod tests {
     fn unknown_method_returns_error() {
         let mut s = DevToolsServer::new();
         s.enable();
-        let req = Request { id: 1, method: "Unknown.method".into(), params: Value::Null };
+        let req = Request {
+            id: 1,
+            method: "Unknown.method".into(),
+            params: Value::Null,
+        };
         let resp = s.handle_request(req);
         assert_eq!(resp.error.unwrap().code, -32601);
     }
@@ -363,7 +498,8 @@ mod tests {
         let mut s = DevToolsServer::new();
         s.enable();
         let req = Request {
-            id: 1, method: "Runtime.evaluate".into(),
+            id: 1,
+            method: "Runtime.evaluate".into(),
             params: Value::Object({
                 let mut m = HashMap::new();
                 m.insert("expression".to_string(), Value::String("1+1".into()));
@@ -381,7 +517,11 @@ mod tests {
     fn dom_get_document_returns_root() {
         let mut s = DevToolsServer::new();
         s.enable();
-        let req = Request { id: 1, method: "DOM.getDocument".into(), params: Value::Null };
+        let req = Request {
+            id: 1,
+            method: "DOM.getDocument".into(),
+            params: Value::Null,
+        };
         let resp = s.handle_request(req);
         let result = resp.result.unwrap();
         let obj = result.as_object().unwrap();
@@ -395,7 +535,10 @@ mod tests {
         s.enable();
         let mut args_map = HashMap::new();
         args_map.insert("type".to_string(), Value::String("log".into()));
-        args_map.insert("args".to_string(), Value::Array(vec![Value::String("hello".into())]));
+        args_map.insert(
+            "args".to_string(),
+            Value::Array(vec![Value::String("hello".into())]),
+        );
         s.emit_event("Runtime.consoleAPICalled", Value::Object(args_map));
         assert_eq!(s.console_messages.len(), 1);
         assert_eq!(s.console_messages[0].text, "hello");
@@ -419,7 +562,8 @@ mod tests {
         s.enable();
         // Runtime.evaluate requires "expression".
         let req = Request {
-            id: 1, method: "Runtime.evaluate".into(),
+            id: 1,
+            method: "Runtime.evaluate".into(),
             params: Value::Object(HashMap::new()),
         };
         let resp = s.handle_request(req);

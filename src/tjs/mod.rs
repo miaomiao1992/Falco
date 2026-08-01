@@ -15,15 +15,13 @@
 //!   - Template literals (basic)
 //!   - try/catch (basic)
 
+pub mod builtins;
+pub mod interpreter;
+pub mod jit;
 pub mod lexer;
 pub mod parser;
 pub mod value;
-pub mod interpreter;
-pub mod builtins;
 pub mod vm;
-pub mod jit;
-
-use std::collections::HashMap;
 
 /// TJS execution context — owns the global scope and builtin functions.
 pub struct TjsContext {
@@ -36,7 +34,10 @@ impl TjsContext {
     pub fn new() -> Self {
         let mut global = interpreter::Scope::new(None);
         builtins::register(&mut global);
-        Self { global_scope: global, use_vm: false }
+        Self {
+            global_scope: global,
+            use_vm: false,
+        }
     }
 
     /// Enable the bytecode VM for faster execution.
@@ -90,30 +91,37 @@ mod tests {
     #[test]
     fn tjs_variables() {
         let mut tjs = TjsContext::new();
-        tjs.execute("var x = 10; var y = 20; console.log(x + y)").unwrap();
+        tjs.execute("var x = 10; var y = 20; console.log(x + y)")
+            .unwrap();
     }
 
     #[test]
     fn tjs_functions() {
         let mut tjs = TjsContext::new();
-        let result = tjs.execute("function add(a, b) { return a + b } add(3, 4)").unwrap();
+        let result = tjs
+            .execute("function add(a, b) { return a + b } add(3, 4)")
+            .unwrap();
         assert_eq!(result, value::Value::Number(7.0));
     }
 
     #[test]
     fn tjs_closures() {
         let mut tjs = TjsContext::new();
-        let result = tjs.execute(
-            "function counter() { var n = 0; return function() { return ++n } }
-             var c = counter(); c(); c(); c()"
-        ).unwrap();
+        let result = tjs
+            .execute(
+                "function counter() { var n = 0; return function() { return ++n } }
+             var c = counter(); c(); c(); c()",
+            )
+            .unwrap();
         assert_eq!(result, value::Value::Number(3.0));
     }
 
     #[test]
     fn tjs_objects() {
         let mut tjs = TjsContext::new();
-        let result = tjs.execute("var obj = { x: 1, y: 2 }; obj.x + obj.y").unwrap();
+        let result = tjs
+            .execute("var obj = { x: 1, y: 2 }; obj.x + obj.y")
+            .unwrap();
         assert_eq!(result, value::Value::Number(3.0));
     }
 
@@ -127,7 +135,9 @@ mod tests {
     #[test]
     fn tjs_loops() {
         let mut tjs = TjsContext::new();
-        let result = tjs.execute("var sum = 0; for (var i = 1; i <= 100; i++) { sum += i } sum").unwrap();
+        let result = tjs
+            .execute("var sum = 0; for (var i = 1; i <= 100; i++) { sum += i } sum")
+            .unwrap();
         assert_eq!(result, value::Value::Number(5050.0));
     }
 
@@ -141,14 +151,18 @@ mod tests {
     #[test]
     fn tjs_while() {
         let mut tjs = TjsContext::new();
-        let result = tjs.execute("var n = 10; var f = 1; while (n > 1) { f *= n; n-- } f").unwrap();
+        let result = tjs
+            .execute("var n = 10; var f = 1; while (n > 1) { f *= n; n-- } f")
+            .unwrap();
         assert_eq!(result, value::Value::Number(3628800.0));
     }
 
     #[test]
     fn tjs_if_else() {
         let mut tjs = TjsContext::new();
-        let result = tjs.execute("var x = 5; if (x > 3) { 'big' } else { 'small' }").unwrap();
+        let result = tjs
+            .execute("var x = 5; if (x > 3) { 'big' } else { 'small' }")
+            .unwrap();
         assert_eq!(result, value::Value::String("big".to_string()));
     }
 }

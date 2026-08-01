@@ -12,7 +12,7 @@
 //! This implementation builds the tree by walking the DOM and applying
 //! ARIA role mappings on top of HTML implicit roles.
 
-use crate::dom2::{NodeRef, NodeKind, DocumentHandle, get_attribute, tag_name};
+use crate::dom2::{DocumentHandle, NodeKind, NodeRef};
 
 /// A node in the accessibility tree.
 #[derive(Debug, Clone)]
@@ -100,7 +100,11 @@ fn build_node(node: &NodeRef) -> A11yNode {
                 return a11y;
             }
             // Determine role.
-            let explicit_role = e.attrs.iter().find(|a| a.name == "role").map(|a| a.value.clone());
+            let explicit_role = e
+                .attrs
+                .iter()
+                .find(|a| a.name == "role")
+                .map(|a| a.value.clone());
             a11y.role = explicit_role.unwrap_or_else(|| implicit_role(&e.tag));
             if a11y.role == "presentation" || a11y.role == "none" {
                 // Children get hoisted to parent.
@@ -110,7 +114,12 @@ fn build_node(node: &NodeRef) -> A11yNode {
             }
             // Compute name.
             a11y.name = compute_name(node, &a11y.role);
-            a11y.description = e.attrs.iter().find(|a| a.name == "title").map(|a| a.value.clone()).unwrap_or_default();
+            a11y.description = e
+                .attrs
+                .iter()
+                .find(|a| a.name == "title")
+                .map(|a| a.value.clone())
+                .unwrap_or_default();
             // Set states.
             if e.focusable {
                 a11y.states.push(A11yState::Focusable);
@@ -154,7 +163,11 @@ fn walk_children(node: &NodeRef, a11y: &mut A11yNode) {
         if child_a11y.role != "none" || !child_a11y.name.is_empty() {
             a11y.children.push(child_a11y);
         }
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
 }
 
@@ -162,10 +175,14 @@ fn is_hidden(node: &NodeRef) -> bool {
     if let NodeKind::Element(e) = &node.borrow().kind {
         // aria-hidden="true".
         if let Some(hidden) = e.attrs.iter().find(|a| a.name == "aria-hidden") {
-            if hidden.value == "true" { return true; }
+            if hidden.value == "true" {
+                return true;
+            }
         }
         // hidden attribute.
-        if e.attrs.iter().any(|a| a.name == "hidden") { return true; }
+        if e.attrs.iter().any(|a| a.name == "hidden") {
+            return true;
+        }
         // Inline style with display:none or visibility:hidden.
         // (We don't parse inline styles here — the CSS engine does that.
         // For now, just check the attribute value as a string.)
@@ -256,8 +273,8 @@ fn compute_name(node: &NodeRef, role: &str) -> String {
         }
         // 3. Element-specific naming.
         match e.tag.as_str() {
-            "button" | "a" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" |
-            "summary" | "caption" | "figcaption" | "legend" => {
+            "button" | "a" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "summary" | "caption"
+            | "figcaption" | "legend" => {
                 return text_content(node);
             }
             "input" => {
@@ -305,7 +322,11 @@ fn collect_text(node: &NodeRef, out: &mut String) {
     let mut cursor = node.borrow().first_child.clone();
     while let Some(child) = cursor {
         collect_text(&child, out);
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
 }
 
@@ -314,9 +335,16 @@ fn actions_for_role(role: &str) -> Vec<A11yAction> {
     match role {
         "button" | "link" | "summary" => vec![A11yAction::Click, A11yAction::Focus],
         "textbox" | "searchbox" | "spinbutton" => vec![A11yAction::Focus, A11yAction::SetValue],
-        "checkbox" | "radio" | "switch" => vec![A11yAction::Click, A11yAction::Focus, A11yAction::Toggle],
+        "checkbox" | "radio" | "switch" => {
+            vec![A11yAction::Click, A11yAction::Focus, A11yAction::Toggle]
+        }
         "option" => vec![A11yAction::Click, A11yAction::Focus, A11yAction::Select],
-        "treeitem" => vec![A11yAction::Click, A11yAction::Focus, A11yAction::Expand, A11yAction::Collapse],
+        "treeitem" => vec![
+            A11yAction::Click,
+            A11yAction::Focus,
+            A11yAction::Expand,
+            A11yAction::Collapse,
+        ],
         "tab" => vec![A11yAction::Click, A11yAction::Focus, A11yAction::Select],
         "menuitem" => vec![A11yAction::Click, A11yAction::Focus],
         "slider" | "scrollbar" => vec![A11yAction::Focus, A11yAction::SetValue],
@@ -327,7 +355,7 @@ fn actions_for_role(role: &str) -> Vec<A11yAction> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom2::{Document, append_child, set_attribute};
+    use crate::dom2::{append_child, set_attribute, Document};
 
     #[test]
     fn builds_tree_for_button() {
@@ -356,7 +384,10 @@ mod tests {
         append_child(&root, div);
 
         let a11y = build(&doc);
-        assert!(find_by_role(&a11y, "generic").is_none() || find_by_name(&a11y, "hidden text").is_none());
+        assert!(
+            find_by_role(&a11y, "generic").is_none()
+                || find_by_name(&a11y, "hidden text").is_none()
+        );
     }
 
     #[test]
@@ -402,17 +433,25 @@ mod tests {
     }
 
     fn find_by_role<'a>(node: &'a A11yNode, role: &str) -> Option<&'a A11yNode> {
-        if node.role == role { return Some(node); }
+        if node.role == role {
+            return Some(node);
+        }
         for child in &node.children {
-            if let Some(n) = find_by_role(child, role) { return Some(n); }
+            if let Some(n) = find_by_role(child, role) {
+                return Some(n);
+            }
         }
         None
     }
 
     fn find_by_name<'a>(node: &'a A11yNode, name: &str) -> Option<&'a A11yNode> {
-        if node.name == name { return Some(node); }
+        if node.name == name {
+            return Some(node);
+        }
         for child in &node.children {
-            if let Some(n) = find_by_name(child, name) { return Some(n); }
+            if let Some(n) = find_by_name(child, name) {
+                return Some(n);
+            }
         }
         None
     }

@@ -83,7 +83,9 @@ pub struct ExtensionRegistry {
 }
 
 impl ExtensionRegistry {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Install an extension from a manifest.
     pub fn install(&mut self, manifest: ExtensionManifest, path: PathBuf) -> String {
@@ -121,12 +123,14 @@ impl ExtensionRegistry {
     pub fn content_scripts_for_url(&self, url: &str) -> Vec<(String, ContentScriptConfig)> {
         let mut out = Vec::new();
         for ext in &self.extensions {
-            if !ext.enabled { continue; }
+            if !ext.enabled {
+                continue;
+            }
             for cs in &ext.manifest.content_scripts {
-                if cs.matches.iter().any(|m| match_pattern(m, url)) {
-                    if !cs.exclude_matches.iter().any(|m| match_pattern(m, url)) {
-                        out.push((ext.id.clone(), cs.clone()));
-                    }
+                if cs.matches.iter().any(|m| match_pattern(m, url))
+                    && !cs.exclude_matches.iter().any(|m| match_pattern(m, url))
+                {
+                    out.push((ext.id.clone(), cs.clone()));
                 }
             }
         }
@@ -135,7 +139,8 @@ impl ExtensionRegistry {
 
     /// Check if an extension has a given permission.
     pub fn has_permission(&self, id: &str, permission: &str) -> bool {
-        self.extensions.iter()
+        self.extensions
+            .iter()
             .find(|e| e.id == id)
             .map(|e| e.manifest.permissions.iter().any(|p| p == permission))
             .unwrap_or(false)
@@ -143,9 +148,15 @@ impl ExtensionRegistry {
 
     /// Check if an extension has host permission for a URL.
     pub fn has_host_permission(&self, id: &str, url: &str) -> bool {
-        self.extensions.iter()
+        self.extensions
+            .iter()
             .find(|e| e.id == id)
-            .map(|e| e.manifest.host_permissions.iter().any(|m| match_pattern(m, url)))
+            .map(|e| {
+                e.manifest
+                    .host_permissions
+                    .iter()
+                    .any(|m| match_pattern(m, url))
+            })
             .unwrap_or(false)
     }
 }
@@ -158,8 +169,10 @@ impl ExtensionRegistry {
 /// - `<all_urls>` matches every URL.
 pub fn match_pattern(pattern: &str, url: &str) -> bool {
     if pattern == "<all_urls>" {
-        return url.starts_with("http://") || url.starts_with("https://")
-            || url.starts_with("file://") || url.starts_with("ftp://");
+        return url.starts_with("http://")
+            || url.starts_with("https://")
+            || url.starts_with("file://")
+            || url.starts_with("ftp://");
     }
     // Parse pattern: scheme://host/path
     let (scheme, rest) = match pattern.find("://") {
@@ -173,16 +186,20 @@ pub fn match_pattern(pattern: &str, url: &str) -> bool {
     };
     // Parse URL the same way.
     let url_origin = Origin::parse(url);
-    if url_origin.opaque { return false; }
+    if url_origin.opaque {
+        return false;
+    }
     // Check scheme.
     let url_scheme = &url_origin.scheme;
-    if scheme != "*" && scheme != url_scheme { return false; }
+    if scheme != "*" && scheme != url_scheme {
+        return false;
+    }
     // Check host.
     if host == "*" {
         // matches any host
     } else if host.starts_with("*.") {
         let suffix = &host[1..];
-        if !url_origin.host.ends_with(suffix) && url_origin.host != &host[2..] {
+        if !url_origin.host.ends_with(suffix) && url_origin.host != host[2..] {
             return false;
         }
     } else if host != url_origin.host {
@@ -207,7 +224,9 @@ pub fn match_pattern(pattern: &str, url: &str) -> bool {
 
 fn glob_match(pattern: &str, s: &str) -> bool {
     // Simple glob matcher: * matches any sequence.
-    if pattern == "*" { return true; }
+    if pattern == "*" {
+        return true;
+    }
     if !pattern.contains('*') {
         return pattern == s;
     }
@@ -216,10 +235,14 @@ fn glob_match(pattern: &str, s: &str) -> bool {
         return pattern == s;
     }
     let mut cursor = 0;
-    if !s[cursor..].starts_with(parts[0]) { return false; }
+    if !s[cursor..].starts_with(parts[0]) {
+        return false;
+    }
     cursor += parts[0].len();
     for part in &parts[1..parts.len() - 1] {
-        if part.is_empty() { continue; }
+        if part.is_empty() {
+            continue;
+        }
         match s[cursor..].find(part) {
             Some(i) => cursor += i + part.len(),
             None => return false,
@@ -243,7 +266,9 @@ fn generate_extension_id(name: &str) -> String {
         let byte = (hash & 0xF) as u8;
         id.push((b'a' + byte % 16) as char);
         hash >>= 4;
-        if hash == 0 { hash = 0xcbf29ce484222325; }
+        if hash == 0 {
+            hash = 0xcbf29ce484222325;
+        }
     }
     id
 }
@@ -295,7 +320,10 @@ mod tests {
     #[test]
     fn install_extension() {
         let mut reg = ExtensionRegistry::new();
-        let id = reg.install(make_manifest("MyExt", &["*://*.example.com/*"]), PathBuf::from("/tmp/ext"));
+        let id = reg.install(
+            make_manifest("MyExt", &["*://*.example.com/*"]),
+            PathBuf::from("/tmp/ext"),
+        );
         assert!(!id.is_empty());
         assert_eq!(reg.extensions.len(), 1);
     }
@@ -319,8 +347,14 @@ mod tests {
     #[test]
     fn match_pattern_simple() {
         assert!(match_pattern("https://*/*", "https://example.com/page"));
-        assert!(match_pattern("*://*.example.com/*", "https://www.example.com/page"));
-        assert!(match_pattern("*://*.example.com/*", "http://sub.example.com/"));
+        assert!(match_pattern(
+            "*://*.example.com/*",
+            "https://www.example.com/page"
+        ));
+        assert!(match_pattern(
+            "*://*.example.com/*",
+            "http://sub.example.com/"
+        ));
         assert!(!match_pattern("*://*.example.com/*", "https://other.com/"));
     }
 
@@ -333,21 +367,39 @@ mod tests {
 
     #[test]
     fn match_pattern_specific() {
-        assert!(match_pattern("https://example.com/*", "https://example.com/page"));
-        assert!(!match_pattern("https://example.com/*", "https://other.com/page"));
+        assert!(match_pattern(
+            "https://example.com/*",
+            "https://example.com/page"
+        ));
+        assert!(!match_pattern(
+            "https://example.com/*",
+            "https://other.com/page"
+        ));
     }
 
     #[test]
     fn match_pattern_path_glob() {
-        assert!(match_pattern("https://example.com/articles/*", "https://example.com/articles/123"));
-        assert!(!match_pattern("https://example.com/articles/*", "https://example.com/page"));
+        assert!(match_pattern(
+            "https://example.com/articles/*",
+            "https://example.com/articles/123"
+        ));
+        assert!(!match_pattern(
+            "https://example.com/articles/*",
+            "https://example.com/page"
+        ));
     }
 
     #[test]
     fn content_scripts_for_url() {
         let mut reg = ExtensionRegistry::new();
-        reg.install(make_manifest("Ext1", &["*://*.example.com/*"]), PathBuf::from("/tmp/ext1"));
-        reg.install(make_manifest("Ext2", &["*://*.other.com/*"]), PathBuf::from("/tmp/ext2"));
+        reg.install(
+            make_manifest("Ext1", &["*://*.example.com/*"]),
+            PathBuf::from("/tmp/ext1"),
+        );
+        reg.install(
+            make_manifest("Ext2", &["*://*.other.com/*"]),
+            PathBuf::from("/tmp/ext2"),
+        );
 
         let scripts = reg.content_scripts_for_url("https://www.example.com/page");
         assert_eq!(scripts.len(), 1);
@@ -357,7 +409,10 @@ mod tests {
     #[test]
     fn disabled_extension_not_returned() {
         let mut reg = ExtensionRegistry::new();
-        let id = reg.install(make_manifest("Ext1", &["*://*.example.com/*"]), PathBuf::from("/tmp/ext1"));
+        let id = reg.install(
+            make_manifest("Ext1", &["*://*.example.com/*"]),
+            PathBuf::from("/tmp/ext1"),
+        );
         reg.set_enabled(&id, false);
         let scripts = reg.content_scripts_for_url("https://www.example.com/page");
         assert_eq!(scripts.len(), 0);
@@ -370,9 +425,17 @@ mod tests {
         let mut reg = ExtensionRegistry::new();
         reg.install(manifest, PathBuf::from("/tmp/ext1"));
         // Regular URL — should match.
-        assert_eq!(reg.content_scripts_for_url("https://www.example.com/page").len(), 1);
+        assert_eq!(
+            reg.content_scripts_for_url("https://www.example.com/page")
+                .len(),
+            1
+        );
         // Excluded URL — should not match.
-        assert_eq!(reg.content_scripts_for_url("https://admin.example.com/page").len(), 0);
+        assert_eq!(
+            reg.content_scripts_for_url("https://admin.example.com/page")
+                .len(),
+            0
+        );
     }
 
     #[test]

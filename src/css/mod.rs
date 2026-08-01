@@ -5,7 +5,7 @@
 pub mod pseudo;
 pub mod registry;
 
-use crate::dom::{Node, ElementData};
+use crate::dom::{ElementData, Node};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -59,13 +59,24 @@ pub struct Color {
 }
 
 impl Default for Color {
-    fn default() -> Self { Self::TRANSPARENT }
+    fn default() -> Self {
+        Self::TRANSPARENT
+    }
 }
 
 impl Color {
-    pub const fn rgb(r: u8, g: u8, b: u8) -> Self { Self { r, g, b, a: 255 } }
-    pub const fn rgba(r: u8, g: u8, b: u8, a: u8) -> Self { Self { r, g, b, a } }
-    pub const TRANSPARENT: Color = Color { r: 0, g: 0, b: 0, a: 0 };
+    pub const fn rgb(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b, a: 255 }
+    }
+    pub const fn rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self { r, g, b, a }
+    }
+    pub const TRANSPARENT: Color = Color {
+        r: 0,
+        g: 0,
+        b: 0,
+        a: 0,
+    };
     pub const BLACK: Color = Color::rgb(0, 0, 0);
     pub const WHITE: Color = Color::rgb(255, 255, 255);
 }
@@ -103,17 +114,30 @@ struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    fn new(src: &'a str) -> Self { Self { src: src.as_bytes(), pos: 0 } }
+    fn new(src: &'a str) -> Self {
+        Self {
+            src: src.as_bytes(),
+            pos: 0,
+        }
+    }
 
-    fn peek(&self) -> Option<u8> { self.src.get(self.pos).copied() }
+    fn peek(&self) -> Option<u8> {
+        self.src.get(self.pos).copied()
+    }
     fn next(&mut self) -> Option<u8> {
         let c = self.peek();
-        if c.is_some() { self.pos += 1; }
+        if c.is_some() {
+            self.pos += 1;
+        }
         c
     }
     fn skip_ws(&mut self) {
         while let Some(c) = self.peek() {
-            if c.is_ascii_whitespace() { self.pos += 1; } else { break; }
+            if c.is_ascii_whitespace() {
+                self.pos += 1;
+            } else {
+                break;
+            }
         }
     }
     fn skip_ws_and_comments(&mut self) {
@@ -121,10 +145,14 @@ impl<'a> Lexer<'a> {
             self.skip_ws();
             if self.src.get(self.pos..self.pos + 2) == Some(b"/*") {
                 self.pos += 2;
-                while self.pos + 1 < self.src.len() && self.src.get(self.pos..self.pos + 2) != Some(b"*/") {
+                while self.pos + 1 < self.src.len()
+                    && self.src.get(self.pos..self.pos + 2) != Some(b"*/")
+                {
                     self.pos += 1;
                 }
-                if self.pos + 1 < self.src.len() { self.pos += 2; }
+                if self.pos + 1 < self.src.len() {
+                    self.pos += 2;
+                }
             } else {
                 break;
             }
@@ -143,7 +171,9 @@ pub fn parse(src: &str) -> Stylesheet {
     let mut rules = Vec::new();
     loop {
         lex.skip_ws_and_comments();
-        if lex.peek().is_none() { break; }
+        if lex.peek().is_none() {
+            break;
+        }
         if lex.starts_with("@") {
             // At-rule. Skip until matching `;` or `{...}`.
             skip_at_rule(&mut lex);
@@ -162,7 +192,9 @@ pub fn parse(src: &str) -> Stylesheet {
 fn skip_at_rule(lex: &mut Lexer) {
     // Skip the @keyword.
     while let Some(c) = lex.peek() {
-        if c.is_ascii_whitespace() || c == b';' || c == b'{' { break; }
+        if c.is_ascii_whitespace() || c == b';' || c == b'{' {
+            break;
+        }
         lex.pos += 1;
     }
     lex.skip_ws();
@@ -170,8 +202,14 @@ fn skip_at_rule(lex: &mut Lexer) {
         // Skip block.
         let mut depth = 0;
         while let Some(c) = lex.next() {
-            if c == b'{' { depth += 1; }
-            else if c == b'}' { depth -= 1; if depth == 0 { break; } }
+            if c == b'{' {
+                depth += 1;
+            } else if c == b'}' {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
         }
     } else if lex.peek() == Some(b';') {
         lex.pos += 1;
@@ -182,15 +220,22 @@ fn parse_rule(lex: &mut Lexer) -> Option<Rule> {
     // Read selectors until '{'.
     let mut selector_src = String::new();
     while let Some(c) = lex.peek() {
-        if c == b'{' { break; }
+        if c == b'{' {
+            break;
+        }
         selector_src.push(c as char);
         lex.pos += 1;
     }
-    if lex.peek() != Some(b'{') { return None; }
+    if lex.peek() != Some(b'{') {
+        return None;
+    }
     lex.pos += 1; // skip '{'
     let selectors = parse_selectors(selector_src.trim());
     let declarations = parse_declarations(lex);
-    Some(Rule { selectors, declarations })
+    Some(Rule {
+        selectors,
+        declarations,
+    })
 }
 
 fn parse_selectors(src: &str) -> Vec<Selector> {
@@ -200,24 +245,38 @@ fn parse_selectors(src: &str) -> Vec<Selector> {
 }
 
 fn parse_one_selector(src: &str) -> Option<Selector> {
-    if src.is_empty() { return None; }
+    if src.is_empty() {
+        return None;
+    }
     // Tokenize by combinators: ' ', '>', '+', '~'
     let mut tokens: Vec<(String, Combinator)> = Vec::new();
     let mut current = String::new();
     let mut current_combinator = Combinator::Descendant;
     let mut last_was_ws = false;
-    let mut chars = src.chars().peekable();
-    while let Some(c) = chars.next() {
+    let chars = src.chars().peekable();
+    for c in chars {
         match c {
             ' ' | '\t' | '\n' => {
                 if !current.is_empty() {
-                    tokens.push((std::mem::take(&mut current), std::mem::replace(&mut current_combinator, Combinator::Descendant)));
+                    tokens.push((
+                        std::mem::take(&mut current),
+                        std::mem::replace(&mut current_combinator, Combinator::Descendant),
+                    ));
                     last_was_ws = true;
                 }
             }
-            '>' => { current_combinator = Combinator::Child; last_was_ws = false; }
-            '+' => { current_combinator = Combinator::AdjacentSibling; last_was_ws = false; }
-            '~' => { current_combinator = Combinator::GeneralSibling; last_was_ws = false; }
+            '>' => {
+                current_combinator = Combinator::Child;
+                last_was_ws = false;
+            }
+            '+' => {
+                current_combinator = Combinator::AdjacentSibling;
+                last_was_ws = false;
+            }
+            '~' => {
+                current_combinator = Combinator::GeneralSibling;
+                last_was_ws = false;
+            }
             _ => {
                 if last_was_ws && !tokens.is_empty() {
                     // Implicit descendant combinator.
@@ -231,7 +290,9 @@ fn parse_one_selector(src: &str) -> Option<Selector> {
     if !current.is_empty() {
         tokens.push((current, current_combinator));
     }
-    if tokens.is_empty() { return None; }
+    if tokens.is_empty() {
+        return None;
+    }
     // Build selector tree from right to left.
     let mut iter = tokens.into_iter().rev();
     let (last_str, _) = iter.next().unwrap();
@@ -257,13 +318,20 @@ fn parse_compound(src: &str) -> Vec<SimpleSelector> {
     let mut chars = src.chars().peekable();
     while chars.peek().is_some() {
         match chars.peek() {
-            Some('*') => { chars.next(); out.push(SimpleSelector::Universal); }
+            Some('*') => {
+                chars.next();
+                out.push(SimpleSelector::Universal);
+            }
             Some('#') => {
                 chars.next();
                 let mut name = String::new();
                 while let Some(&c) = chars.peek() {
-                    if c.is_ascii_alphanumeric() || c == '-' || c == '_' { name.push(c); chars.next(); }
-                    else { break; }
+                    if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                        name.push(c);
+                        chars.next();
+                    } else {
+                        break;
+                    }
                 }
                 out.push(SimpleSelector::Id(name));
             }
@@ -271,8 +339,12 @@ fn parse_compound(src: &str) -> Vec<SimpleSelector> {
                 chars.next();
                 let mut name = String::new();
                 while let Some(&c) = chars.peek() {
-                    if c.is_ascii_alphanumeric() || c == '-' || c == '_' { name.push(c); chars.next(); }
-                    else { break; }
+                    if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                        name.push(c);
+                        chars.next();
+                    } else {
+                        break;
+                    }
                 }
                 out.push(SimpleSelector::Class(name));
             }
@@ -280,9 +352,15 @@ fn parse_compound(src: &str) -> Vec<SimpleSelector> {
                 chars.next();
                 let mut name = String::new();
                 while let Some(&c) = chars.peek() {
-                    if c == '(' { break; }
-                    if c.is_ascii_alphanumeric() || c == '-' { name.push(c); chars.next(); }
-                    else { break; }
+                    if c == '(' {
+                        break;
+                    }
+                    if c.is_ascii_alphanumeric() || c == '-' {
+                        name.push(c);
+                        chars.next();
+                    } else {
+                        break;
+                    }
                 }
                 // Skip any args in parens.
                 if chars.peek() == Some(&'(') {
@@ -290,10 +368,15 @@ fn parse_compound(src: &str) -> Vec<SimpleSelector> {
                     let mut depth = 1;
                     while depth > 0 {
                         if let Some(&c) = chars.peek() {
-                            if c == '(' { depth += 1; }
-                            else if c == ')' { depth -= 1; }
+                            if c == '(' {
+                                depth += 1;
+                            } else if c == ')' {
+                                depth -= 1;
+                            }
                             chars.next();
-                        } else { break; }
+                        } else {
+                            break;
+                        }
                     }
                 }
                 out.push(SimpleSelector::PseudoClass(name));
@@ -302,26 +385,39 @@ fn parse_compound(src: &str) -> Vec<SimpleSelector> {
                 chars.next();
                 let mut name = String::new();
                 while let Some(&c) = chars.peek() {
-                    if c == ']' { break; }
-                    if c == '=' { break; }
-                    name.push(c); chars.next();
+                    if c == ']' {
+                        break;
+                    }
+                    if c == '=' {
+                        break;
+                    }
+                    name.push(c);
+                    chars.next();
                 }
                 // Skip to ']'.
                 while let Some(&c) = chars.peek() {
                     chars.next();
-                    if c == ']' { break; }
+                    if c == ']' {
+                        break;
+                    }
                 }
                 out.push(SimpleSelector::Attr(name.trim().to_string()));
             }
             Some(c) if c.is_ascii_alphabetic() || *c == '_' || *c == '-' => {
                 let mut name = String::new();
                 while let Some(&c) = chars.peek() {
-                    if c.is_ascii_alphanumeric() || c == '-' || c == '_' { name.push(c); chars.next(); }
-                    else { break; }
+                    if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                        name.push(c);
+                        chars.next();
+                    } else {
+                        break;
+                    }
                 }
                 out.push(SimpleSelector::Tag(name.to_lowercase()));
             }
-            Some(_) => { chars.next(); }
+            Some(_) => {
+                chars.next();
+            }
             None => break,
         }
     }
@@ -334,13 +430,18 @@ fn parse_declarations(lex: &mut Lexer) -> Vec<Declaration> {
         lex.skip_ws_and_comments();
         match lex.peek() {
             None => break,
-            Some(b'}') => { lex.pos += 1; break; }
+            Some(b'}') => {
+                lex.pos += 1;
+                break;
+            }
             _ => {}
         }
         // Property name.
         let mut prop = String::new();
         while let Some(c) = lex.peek() {
-            if c == b':' || c == b';' || c == b'}' || c.is_ascii_whitespace() { break; }
+            if c == b':' || c == b';' || c == b'}' || c.is_ascii_whitespace() {
+                break;
+            }
             prop.push(c as char);
             lex.pos += 1;
         }
@@ -348,10 +449,14 @@ fn parse_declarations(lex: &mut Lexer) -> Vec<Declaration> {
         if lex.peek() != Some(b':') {
             // Malformed — skip to ;.
             while let Some(c) = lex.peek() {
-                if c == b';' || c == b'}' { break; }
+                if c == b';' || c == b'}' {
+                    break;
+                }
                 lex.pos += 1;
             }
-            if lex.peek() == Some(b';') { lex.pos += 1; }
+            if lex.peek() == Some(b';') {
+                lex.pos += 1;
+            }
             continue;
         }
         lex.pos += 1; // skip ':'
@@ -359,11 +464,15 @@ fn parse_declarations(lex: &mut Lexer) -> Vec<Declaration> {
         // Value.
         let mut val_str = String::new();
         while let Some(c) = lex.peek() {
-            if c == b';' || c == b'}' { break; }
+            if c == b';' || c == b'}' {
+                break;
+            }
             val_str.push(c as char);
             lex.pos += 1;
         }
-        if lex.peek() == Some(b';') { lex.pos += 1; }
+        if lex.peek() == Some(b';') {
+            lex.pos += 1;
+        }
         let val_str = val_str.trim();
         let important = val_str.ends_with("!important");
         let val_str = val_str.trim_end_matches("!important").trim();
@@ -379,7 +488,9 @@ fn parse_declarations(lex: &mut Lexer) -> Vec<Declaration> {
 
 fn parse_value(s: &str) -> Value {
     let s = s.trim();
-    if s.is_empty() { return Value::None; }
+    if s.is_empty() {
+        return Value::None;
+    }
 
     // Function call: name(args) — e.g. linear-gradient(...), url(...), var(...), rgba(...)
     // Only if the ENTIRE string is a function call (not part of a multi-value).
@@ -392,7 +503,9 @@ fn parse_value(s: &str) -> Value {
     }
 
     // Color.
-    if let Some(c) = parse_color(s) { return Value::Color(c); }
+    if let Some(c) = parse_color(s) {
+        return Value::Color(c);
+    }
     // Multi-value (space-separated, respecting parens).
     let parts = split_values_respecting_parens(s);
     if parts.len() > 1 {
@@ -402,11 +515,17 @@ fn parse_value(s: &str) -> Value {
         }
     }
     // Length.
-    if let Some(v) = parse_length(s) { return v; }
+    if let Some(v) = parse_length(s) {
+        return v;
+    }
     // Percentage.
-    if let Some(p) = parse_percentage(s) { return p; }
+    if let Some(p) = parse_percentage(s) {
+        return p;
+    }
     // Number.
-    if let Ok(n) = s.parse::<f32>() { return Value::Number(n); }
+    if let Ok(n) = s.parse::<f32>() {
+        return Value::Number(n);
+    }
     // String.
     if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
         return Value::String(s[1..s.len() - 1].to_string());
@@ -455,24 +574,31 @@ fn parse_function(name: &str, args: &str) -> Value {
             let parts: Vec<&str> = args.splitn(2, ',').collect();
             let var_name = parts[0].trim().to_string();
             let fallback = parts.get(1).map(|s| s.trim().to_string());
-            Value::Keyword(format!("__var__:{}:{}", var_name, fallback.unwrap_or_default()))
+            Value::Keyword(format!(
+                "__var__:{}:{}",
+                var_name,
+                fallback.unwrap_or_default()
+            ))
         }
         "rgb" | "rgba" | "hsl" | "hsla" => {
             // Reconstruct and pass to parse_color.
             let reconstructed = format!("{name}({args})");
-            if let Some(c) = parse_color(&reconstructed) { return Value::Color(c); }
+            if let Some(c) = parse_color(&reconstructed) {
+                return Value::Color(c);
+            }
             Value::None
         }
         "linear-gradient" => {
             // Store as a keyword with raw args — the style module will parse it.
             Value::Keyword(format!("__linear-gradient__:{}", args))
         }
-        "radial-gradient" => {
-            Value::Keyword(format!("__radial-gradient__:{}", args))
-        }
+        "radial-gradient" => Value::Keyword(format!("__radial-gradient__:{}", args)),
         "calc" => {
             // We don't support calc() — just extract the first number.
-            let n: Vec<char> = args.chars().filter(|c| c.is_ascii_digit() || *c == '.').collect();
+            let n: Vec<char> = args
+                .chars()
+                .filter(|c| c.is_ascii_digit() || *c == '.')
+                .collect();
             if let Ok(n) = n.iter().collect::<String>().parse::<f32>() {
                 return Value::Length(n, Unit::Px);
             }
@@ -543,7 +669,9 @@ pub fn parse_color(s: &str) -> Option<Color> {
             let a = if parts.len() == 4 {
                 let a_f = parts[3].parse::<f32>().ok()?;
                 (a_f * 255.0).clamp(0.0, 255.0) as u8
-            } else { 255 };
+            } else {
+                255
+            };
             return Some(Color { r, g, b, a });
         }
     }
@@ -747,8 +875,12 @@ fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (u8, u8, u8) {
 fn parse_length(s: &str) -> Option<Value> {
     let s = s.trim().to_lowercase();
     for (suffix, unit) in [
-        ("px", Unit::Px), ("em", Unit::Em), ("rem", Unit::Rem),
-        ("pt", Unit::Pt), ("vw", Unit::Vw), ("vh", Unit::Vh),
+        ("px", Unit::Px),
+        ("em", Unit::Em),
+        ("rem", Unit::Rem),
+        ("pt", Unit::Pt),
+        ("vw", Unit::Vw),
+        ("vh", Unit::Vh),
     ] {
         if let Some(num_str) = s.strip_suffix(suffix) {
             if let Ok(n) = num_str.parse::<f32>() {
@@ -774,36 +906,67 @@ fn parse_percentage(s: &str) -> Option<Value> {
 /// Check if a selector matches an element. `parent_chain` is the chain of
 /// ancestors from root to the element's parent (in that order).
 pub fn matches(selector: &Selector, element: &ElementData, parent_chain: &[&ElementData]) -> bool {
-    if !matches_compound(&selector.compound, element) { return false; }
+    if !matches_compound(&selector.compound, element) {
+        return false;
+    }
     match &selector.ancestor {
         None => true,
         Some(ancestor) => {
             match selector.combinator {
                 Combinator::Descendant => {
                     // Try each ancestor.
-                    parent_chain.iter().rev().any(|p| matches_with_chain(ancestor, p, &parent_chain[..parent_chain.len().saturating_sub(1)]))
+                    parent_chain.iter().rev().any(|p| {
+                        matches_with_chain(
+                            ancestor,
+                            p,
+                            &parent_chain[..parent_chain.len().saturating_sub(1)],
+                        )
+                    })
                 }
-                Combinator::Child => {
-                    parent_chain.last().map(|p| matches_with_chain(ancestor, p, &parent_chain[..parent_chain.len().saturating_sub(1)])).unwrap_or(false)
-                }
+                Combinator::Child => parent_chain
+                    .last()
+                    .map(|p| {
+                        matches_with_chain(
+                            ancestor,
+                            p,
+                            &parent_chain[..parent_chain.len().saturating_sub(1)],
+                        )
+                    })
+                    .unwrap_or(false),
                 Combinator::AdjacentSibling | Combinator::GeneralSibling => {
                     // We don't track siblings in the parent_chain (would require
                     // passing the full children vec). Treat as descendant —
                     // close enough for the layout engine's needs.
-                    parent_chain.iter().rev().any(|p| matches_with_chain(ancestor, p, &parent_chain[..parent_chain.len().saturating_sub(1)]))
+                    parent_chain.iter().rev().any(|p| {
+                        matches_with_chain(
+                            ancestor,
+                            p,
+                            &parent_chain[..parent_chain.len().saturating_sub(1)],
+                        )
+                    })
                 }
             }
         }
     }
 }
 
-fn matches_with_chain(selector: &Selector, element: &ElementData, parent_chain: &[&ElementData]) -> bool {
-    if !matches_compound(&selector.compound, element) { return false; }
+fn matches_with_chain(
+    selector: &Selector,
+    element: &ElementData,
+    parent_chain: &[&ElementData],
+) -> bool {
+    if !matches_compound(&selector.compound, element) {
+        return false;
+    }
     match &selector.ancestor {
         None => true,
-        Some(ancestor) => {
-            parent_chain.iter().rev().any(|p| matches_with_chain(ancestor, p, &parent_chain[..parent_chain.len().saturating_sub(1)]))
-        }
+        Some(ancestor) => parent_chain.iter().rev().any(|p| {
+            matches_with_chain(
+                ancestor,
+                p,
+                &parent_chain[..parent_chain.len().saturating_sub(1)],
+            )
+        }),
     }
 }
 
@@ -811,10 +974,26 @@ fn matches_compound(compound: &[SimpleSelector], element: &ElementData) -> bool 
     for sel in compound {
         match sel {
             SimpleSelector::Universal => {}
-            SimpleSelector::Tag(t) => if element.tag != *t { return false; },
-            SimpleSelector::Class(c) => if !element.has_class(c) { return false; },
-            SimpleSelector::Id(id) => if element.id() != Some(id.as_str()) { return false; },
-            SimpleSelector::Attr(name) => if !element.attrs.contains_key(name) { return false; },
+            SimpleSelector::Tag(t) => {
+                if element.tag != *t {
+                    return false;
+                }
+            }
+            SimpleSelector::Class(c) => {
+                if !element.has_class(c) {
+                    return false;
+                }
+            }
+            SimpleSelector::Id(id) => {
+                if element.id() != Some(id.as_str()) {
+                    return false;
+                }
+            }
+            SimpleSelector::Attr(name) => {
+                if !element.attrs.contains_key(name) {
+                    return false;
+                }
+            }
             // Pseudo-classes are best-effort — :first-child etc. require sibling
             // info we don't track. Treat unknown as match.
             SimpleSelector::PseudoClass(_) => {}
@@ -824,7 +1003,10 @@ fn matches_compound(compound: &[SimpleSelector], element: &ElementData) -> bool 
 }
 
 /// Walk the DOM and produce a list of (node, matching_rules) pairs for elements.
-pub fn collect_matches<'a>(stylesheet: &'a Stylesheet, root: &'a Node) -> Vec<(&'a Node, Vec<&'a Rule>)> {
+pub fn collect_matches<'a>(
+    stylesheet: &'a Stylesheet,
+    root: &'a Node,
+) -> Vec<(&'a Node, Vec<&'a Rule>)> {
     let mut out = Vec::new();
     let mut chain: Vec<&ElementData> = Vec::new();
     walk_dom(root, &mut chain, stylesheet, &mut out);
@@ -892,13 +1074,19 @@ mod tests {
         let ss = parse(css);
         if let Value::Color(c) = &ss.rules[0].declarations[0].value {
             assert_eq!((c.r, c.g, c.b, c.a), (255, 0, 0, 255));
-        } else { panic!(); }
+        } else {
+            panic!();
+        }
         if let Value::Color(c) = &ss.rules[1].declarations[0].value {
             assert_eq!((c.r, c.g, c.b, c.a), (255, 0, 0, 255));
-        } else { panic!(); }
+        } else {
+            panic!();
+        }
         if let Value::Color(c) = &ss.rules[2].declarations[0].value {
             assert_eq!(c.a, 128);
-        } else { panic!(); }
+        } else {
+            panic!();
+        }
     }
 
     #[test]
@@ -908,7 +1096,9 @@ mod tests {
         if let Value::Color(c) = &ss.rules[0].declarations[0].value {
             assert_eq!((c.r, c.g, c.b), (10, 20, 30));
             assert!((c.a as f32 / 255.0 - 0.5).abs() < 0.01);
-        } else { panic!(); }
+        } else {
+            panic!();
+        }
     }
 
     #[test]

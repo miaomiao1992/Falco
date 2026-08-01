@@ -142,7 +142,9 @@ pub enum NativeKeySystem {
 impl NativeKeySystem {
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
-            "com.microsoft.playready" | "com.microsoft.playready.recommendation" => Some(Self::PlayReady),
+            "com.microsoft.playready" | "com.microsoft.playready.recommendation" => {
+                Some(Self::PlayReady)
+            }
             "com.apple.fps" | "com.apple.fps.1_0" | "com.apple.fps.2_0" => Some(Self::FairPlay),
             "org.w3.clearkey" => Some(Self::ClearKey),
             _ => None,
@@ -200,7 +202,10 @@ impl std::fmt::Debug for Ndsd {
         f.debug_struct("Ndsd")
             .field("backend", &self.backend)
             .field("media_keys_count", &self.media_keys.lock().unwrap().len())
-            .field("protected_surfaces", &self.protected_surfaces.lock().unwrap().len())
+            .field(
+                "protected_surfaces",
+                &self.protected_surfaces.lock().unwrap().len(),
+            )
             .field("hdcp_available", &*self.hdcp_available.lock().unwrap())
             .finish()
     }
@@ -239,7 +244,9 @@ impl Ndsd {
             false
         }
         #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-        { false }
+        {
+            false
+        }
     }
 
     /// navigator.requestMediaKeySystemAccess(keySystem, config)
@@ -257,7 +264,8 @@ impl Ndsd {
         if !ks.is_supported() {
             return Err(format!(
                 "Key system {} is not supported on platform {:?}",
-                ks.as_str(), self.backend
+                ks.as_str(),
+                self.backend
             ));
         }
 
@@ -270,11 +278,15 @@ impl Ndsd {
         match (ks, self.backend) {
             (NativeKeySystem::PlayReady, DrmBackend::MediaFoundation) => {
                 #[cfg(target_os = "windows")]
-                { self.check_playready_support(config)?; }
+                {
+                    self.check_playready_support(config)?;
+                }
             }
             (NativeKeySystem::FairPlay, DrmBackend::AvFoundation) => {
                 #[cfg(target_os = "macos")]
-                { self.check_fairplay_support(config)?; }
+                {
+                    self.check_fairplay_support(config)?;
+                }
             }
             (NativeKeySystem::ClearKey, _) => {
                 // ClearKey is always available.
@@ -337,16 +349,25 @@ impl Ndsd {
     /// On Linux, this is a no-op (no protected surfaces).
     pub fn create_protected_surface(
         self: &Arc<Self>,
-        x: i32, y: i32, width: u32, height: u32,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
     ) -> Arc<NdsdSurface> {
         let surface = NdsdSurface::new(self.backend, x, y, width, height);
-        self.protected_surfaces.lock().unwrap().push(surface.clone());
+        self.protected_surfaces
+            .lock()
+            .unwrap()
+            .push(surface.clone());
         surface
     }
 
     /// Check if the compositor supports protected surfaces on this platform.
     pub fn supports_protected_surfaces(&self) -> bool {
-        matches!(self.backend, DrmBackend::MediaFoundation | DrmBackend::AvFoundation)
+        matches!(
+            self.backend,
+            DrmBackend::MediaFoundation | DrmBackend::AvFoundation
+        )
     }
 }
 
@@ -427,7 +448,7 @@ pub struct NdsdMediaKeySystemAccess {
 impl NdsdMediaKeySystemAccess {
     /// Create the actual MediaKeys instance.
     pub fn create_media_keys(&self, ndsd: &Arc<Ndsd>) -> Arc<NdsdMediaKeys> {
-        ndsd.create_media_keys(self.key_system.clone())
+        ndsd.create_media_keys(self.key_system)
     }
 }
 
@@ -567,26 +588,22 @@ impl NdsdMediaKeySession {
     /// On all platforms (ClearKey):
     ///   Extracts key IDs from the init data and generates a ClearKey
     ///   license request (JSON format).
-    pub fn generate_request(
-        &self,
-        init_data_type: &str,
-        init_data: &[u8],
-    ) -> Result<(), String> {
+    pub fn generate_request(&self, init_data_type: &str, init_data: &[u8]) -> Result<(), String> {
         match self.media_keys.key_system {
             NativeKeySystem::PlayReady => {
                 self.generate_request_playready(init_data_type, init_data)
             }
-            NativeKeySystem::FairPlay => {
-                self.generate_request_fairplay(init_data_type, init_data)
-            }
-            NativeKeySystem::ClearKey => {
-                self.generate_request_clearkey(init_data_type, init_data)
-            }
+            NativeKeySystem::FairPlay => self.generate_request_fairplay(init_data_type, init_data),
+            NativeKeySystem::ClearKey => self.generate_request_clearkey(init_data_type, init_data),
         }
     }
 
     #[cfg(target_os = "windows")]
-    fn generate_request_playready(&self, init_data_type: &str, init_data: &[u8]) -> Result<(), String> {
+    fn generate_request_playready(
+        &self,
+        init_data_type: &str,
+        init_data: &[u8],
+    ) -> Result<(), String> {
         // Real Windows implementation:
         //
         // let cdm_session = self.get_mf_cdm_session()?;
@@ -617,12 +634,20 @@ impl NdsdMediaKeySession {
     }
 
     #[cfg(not(target_os = "windows"))]
-    fn generate_request_playready(&self, _init_data_type: &str, _init_data: &[u8]) -> Result<(), String> {
+    fn generate_request_playready(
+        &self,
+        _init_data_type: &str,
+        _init_data: &[u8],
+    ) -> Result<(), String> {
         Err("PlayReady requires Windows (Media Foundation)".to_string())
     }
 
     #[cfg(target_os = "macos")]
-    fn generate_request_fairplay(&self, init_data_type: &str, init_data: &[u8]) -> Result<(), String> {
+    fn generate_request_fairplay(
+        &self,
+        init_data_type: &str,
+        init_data: &[u8],
+    ) -> Result<(), String> {
         // Real macOS implementation:
         //
         // let key_session = self.get_av_key_session()?;
@@ -648,13 +673,24 @@ impl NdsdMediaKeySession {
     }
 
     #[cfg(not(target_os = "macos"))]
-    fn generate_request_fairplay(&self, _init_data_type: &str, _init_data: &[u8]) -> Result<(), String> {
+    fn generate_request_fairplay(
+        &self,
+        _init_data_type: &str,
+        _init_data: &[u8],
+    ) -> Result<(), String> {
         Err("FairPlay requires macOS (AVFoundation)".to_string())
     }
 
-    fn generate_request_clearkey(&self, init_data_type: &str, init_data: &[u8]) -> Result<(), String> {
+    fn generate_request_clearkey(
+        &self,
+        init_data_type: &str,
+        init_data: &[u8],
+    ) -> Result<(), String> {
         if init_data_type != "keyids" && init_data_type != "cenc" {
-            return Err(format!("ClearKey supports 'keyids' or 'cenc', got: {}", init_data_type));
+            return Err(format!(
+                "ClearKey supports 'keyids' or 'cenc', got: {}",
+                init_data_type
+            ));
         }
         let message = NdsdMessage {
             message_type: KeyMessageType::LicenseRequest,
@@ -689,7 +725,10 @@ impl NdsdMediaKeySession {
                     // if hr < 0 { return Err(format!("Update failed: 0x{:08X}", hr)); }
                     // // The CDM fires keystatuseschange internally.
                     let _ = response;
-                    self.key_statuses.lock().unwrap().insert(vec![0u8; 16], KeyStatus::Usable);
+                    self.key_statuses
+                        .lock()
+                        .unwrap()
+                        .insert(vec![0u8; 16], KeyStatus::Usable);
                     if let Some(cb) = self.on_keystatuseschange.lock().unwrap().as_ref() {
                         cb();
                     }
@@ -698,7 +737,7 @@ impl NdsdMediaKeySession {
                 #[cfg(not(target_os = "windows"))]
                 {
                     let _ = response;
-                    return Err("PlayReady update requires Windows".to_string());
+                    Err("PlayReady update requires Windows".to_string())
                 }
             }
             NativeKeySystem::FairPlay => {
@@ -709,7 +748,10 @@ impl NdsdMediaKeySession {
                     // let key_response = AVContentKeyResponse::contentKeyResponseWithFairPlayStreamingKeyResponseData(response);
                     // key_request.processContentKeyResponse(key_response);
                     let _ = response;
-                    self.key_statuses.lock().unwrap().insert(vec![0u8; 16], KeyStatus::Usable);
+                    self.key_statuses
+                        .lock()
+                        .unwrap()
+                        .insert(vec![0u8; 16], KeyStatus::Usable);
                     if let Some(cb) = self.on_keystatuseschange.lock().unwrap().as_ref() {
                         cb();
                     }
@@ -718,16 +760,19 @@ impl NdsdMediaKeySession {
                 #[cfg(not(target_os = "macos"))]
                 {
                     let _ = response;
-                    return Err("FairPlay update requires macOS".to_string());
+                    Err("FairPlay update requires macOS".to_string())
                 }
             }
             NativeKeySystem::ClearKey => {
                 // ClearKey: parse the JSON response and store keys.
-                self.key_statuses.lock().unwrap().insert(vec![0u8; 16], KeyStatus::Usable);
+                self.key_statuses
+                    .lock()
+                    .unwrap()
+                    .insert(vec![0u8; 16], KeyStatus::Usable);
                 if let Some(cb) = self.on_keystatuseschange.lock().unwrap().as_ref() {
                     cb();
                 }
-                return Ok(());
+                Ok(())
             }
         }
     }
@@ -851,7 +896,10 @@ impl NdsdSurface {
 
         Arc::new(Self {
             backend,
-            x, y, width, height,
+            x,
+            y,
+            width,
+            height,
             visible: Mutex::new(true),
             protected: true,
             #[cfg(target_os = "windows")]
@@ -863,7 +911,7 @@ impl NdsdSurface {
 
     /// Update the surface position (when the <video> element moves due to
     /// CSS layout or scrolling).
-    pub fn set_position(&self, x: i32, y: i32) {
+    pub fn set_position(&self, _x: i32, _y: i32) {
         // Real impl on Windows:
         //   unsafe { self.dcomp_visual.SetOffsetX(x as f32); }
         //   unsafe { self.dcomp_visual.SetOffsetY(y as f32); }
@@ -875,7 +923,7 @@ impl NdsdSurface {
     }
 
     /// Update the surface size (when the <video> element resizes).
-    pub fn set_size(&self, width: u32, height: u32) {
+    pub fn set_size(&self, _width: u32, _height: u32) {
         // Real impl: resize the DirectComposition surface or AVPlayerLayer.
     }
 
@@ -935,9 +983,18 @@ mod tests {
 
     #[test]
     fn key_system_parsing() {
-        assert_eq!(NativeKeySystem::from_str("com.microsoft.playready"), Some(NativeKeySystem::PlayReady));
-        assert_eq!(NativeKeySystem::from_str("com.apple.fps"), Some(NativeKeySystem::FairPlay));
-        assert_eq!(NativeKeySystem::from_str("org.w3.clearkey"), Some(NativeKeySystem::ClearKey));
+        assert_eq!(
+            NativeKeySystem::from_str("com.microsoft.playready"),
+            Some(NativeKeySystem::PlayReady)
+        );
+        assert_eq!(
+            NativeKeySystem::from_str("com.apple.fps"),
+            Some(NativeKeySystem::FairPlay)
+        );
+        assert_eq!(
+            NativeKeySystem::from_str("org.w3.clearkey"),
+            Some(NativeKeySystem::ClearKey)
+        );
         assert_eq!(NativeKeySystem::from_str("com.widevine.alpha"), None); // Not supported by NDSD
     }
 
@@ -966,7 +1023,12 @@ mod tests {
     #[test]
     fn clearkey_session_lifecycle() {
         let ndsd = Ndsd::new();
-        let access = ndsd.request_media_key_system_access("org.w3.clearkey", &MediaKeySystemConfiguration::default()).unwrap();
+        let access = ndsd
+            .request_media_key_system_access(
+                "org.w3.clearkey",
+                &MediaKeySystemConfiguration::default(),
+            )
+            .unwrap();
         let mk = access.create_media_keys(&ndsd);
         let session = mk.create_session(SessionType::Temporary);
 
@@ -1011,7 +1073,10 @@ mod tests {
     fn protected_surface_screenshot_blocked() {
         let ndsd = Ndsd::new();
         let surface = ndsd.create_protected_surface(0, 0, 100, 100);
-        assert!(surface.screenshot().is_none(), "Protected surfaces should not be screenshot-able");
+        assert!(
+            surface.screenshot().is_none(),
+            "Protected surfaces should not be screenshot-able"
+        );
     }
 
     #[test]

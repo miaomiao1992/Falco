@@ -6,10 +6,9 @@
 //! - Column widths are distributed evenly across available width
 //! - Cell padding and borders are respected
 
-use crate::layout::{LayoutBox, BoxContent, Rect, LayoutContext, InlineItem, Display, Length};
-use crate::style::ComputedStyle;
-use crate::paint::PaintCommand;
 use crate::css::Color;
+use crate::layout::{BoxContent, InlineItem, LayoutBox};
+use crate::paint::PaintCommand;
 
 /// Layout a table element. Detects `<table>` tags and delegates to
 /// `layout_table`. Returns true if the element was handled as a table.
@@ -19,10 +18,19 @@ pub fn is_table_element(box_node: &LayoutBox) -> bool {
 
 /// Check if a layout box is a table-related element.
 pub fn is_table_part(box_node: &LayoutBox) -> bool {
-    matches!(box_node.tag.as_deref(),
-        Some("table") | Some("thead") | Some("tbody") | Some("tfoot") |
-        Some("tr") | Some("td") | Some("th") | Some("caption") |
-        Some("colgroup") | Some("col"))
+    matches!(
+        box_node.tag.as_deref(),
+        Some("table")
+            | Some("thead")
+            | Some("tbody")
+            | Some("tfoot")
+            | Some("tr")
+            | Some("td")
+            | Some("th")
+            | Some("caption")
+            | Some("colgroup")
+            | Some("col")
+    )
 }
 
 /// Collect all `<td>` and `<th>` cells from a `<tr>`, recursing into
@@ -85,8 +93,12 @@ pub fn paint_table(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
     // Draw table background.
     if style.background_color.a > 0 {
         out.push(PaintCommand::RoundedRect {
-            x: b.x, y: b.y, w: b.width, h: b.height,
-            color: style.background_color, radius: style.border_radius,
+            x: b.x,
+            y: b.y,
+            w: b.width,
+            h: b.height,
+            color: style.background_color,
+            radius: style.border_radius,
         });
     }
 
@@ -94,26 +106,42 @@ pub fn paint_table(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
     let bw = crate::layout::border_widths_pub(&style.border);
     if bw.top > 0.0 {
         out.push(PaintCommand::RoundedRect {
-            x: b.x, y: b.y, w: b.width, h: bw.top,
-            color: style.border.top.color, radius: Default::default(),
+            x: b.x,
+            y: b.y,
+            w: b.width,
+            h: bw.top,
+            color: style.border.top.color,
+            radius: Default::default(),
         });
     }
     if bw.bottom > 0.0 {
         out.push(PaintCommand::RoundedRect {
-            x: b.x, y: b.y + b.height - bw.bottom, w: b.width, h: bw.bottom,
-            color: style.border.bottom.color, radius: Default::default(),
+            x: b.x,
+            y: b.y + b.height - bw.bottom,
+            w: b.width,
+            h: bw.bottom,
+            color: style.border.bottom.color,
+            radius: Default::default(),
         });
     }
     if bw.left > 0.0 {
         out.push(PaintCommand::RoundedRect {
-            x: b.x, y: b.y, w: bw.left, h: b.height,
-            color: style.border.left.color, radius: Default::default(),
+            x: b.x,
+            y: b.y,
+            w: bw.left,
+            h: b.height,
+            color: style.border.left.color,
+            radius: Default::default(),
         });
     }
     if bw.right > 0.0 {
         out.push(PaintCommand::RoundedRect {
-            x: b.x + b.width - bw.right, y: b.y, w: bw.right, h: b.height,
-            color: style.border.right.color, radius: Default::default(),
+            x: b.x + b.width - bw.right,
+            y: b.y,
+            w: bw.right,
+            h: b.height,
+            color: style.border.right.color,
+            radius: Default::default(),
         });
     }
 
@@ -136,34 +164,59 @@ pub fn paint_table_cell(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
     // Cell background.
     if style.background_color.a > 0 {
         out.push(PaintCommand::RoundedRect {
-            x: b.x, y: b.y, w: b.width, h: b.height,
-            color: style.background_color, radius: Default::default(),
+            x: b.x,
+            y: b.y,
+            w: b.width,
+            h: b.height,
+            color: style.background_color,
+            radius: Default::default(),
         });
     }
 
     // Cell borders (1px grey by default).
-    let border_color = if style.border.top.color != Color::TRANSPARENT && style.border.top.width > 0.0 {
-        style.border.top.color
+    let border_color =
+        if style.border.top.color != Color::TRANSPARENT && style.border.top.width > 0.0 {
+            style.border.top.color
+        } else {
+            Color::rgb(200, 200, 200)
+        };
+    let border_w = if style.border.top.width > 0.0 {
+        style.border.top.width
     } else {
-        Color::rgb(200, 200, 200)
+        1.0
     };
-    let border_w = if style.border.top.width > 0.0 { style.border.top.width } else { 1.0 };
 
     out.push(PaintCommand::RoundedRect {
-        x: b.x, y: b.y, w: b.width, h: border_w,
-        color: border_color, radius: Default::default(),
+        x: b.x,
+        y: b.y,
+        w: b.width,
+        h: border_w,
+        color: border_color,
+        radius: Default::default(),
     });
     out.push(PaintCommand::RoundedRect {
-        x: b.x, y: b.y + b.height - border_w, w: b.width, h: border_w,
-        color: border_color, radius: Default::default(),
+        x: b.x,
+        y: b.y + b.height - border_w,
+        w: b.width,
+        h: border_w,
+        color: border_color,
+        radius: Default::default(),
     });
     out.push(PaintCommand::RoundedRect {
-        x: b.x, y: b.y, w: border_w, h: b.height,
-        color: border_color, radius: Default::default(),
+        x: b.x,
+        y: b.y,
+        w: border_w,
+        h: b.height,
+        color: border_color,
+        radius: Default::default(),
     });
     out.push(PaintCommand::RoundedRect {
-        x: b.x + b.width - border_w, y: b.y, w: border_w, h: b.height,
-        color: border_color, radius: Default::default(),
+        x: b.x + b.width - border_w,
+        y: b.y,
+        w: border_w,
+        h: b.height,
+        color: border_color,
+        radius: Default::default(),
     });
 
     // Cell content — recurse.
@@ -180,16 +233,24 @@ pub fn paint_table_cell(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
                 }
             }
         }
-        BoxContent::Text { text, color, font_size, font_weight, font_style, font_family } => {
-            if !text.is_empty() {
-                out.push(PaintCommand::Text {
-                    x: b.x, y: b.y, text: text.clone(),
-                    color: *color, font_size: *font_size,
-                    font_weight: *font_weight,
-                    italic: *font_style == crate::style::FontStyle::Italic,
-                    family: font_family.clone(),
-                });
-            }
+        BoxContent::Text {
+            text,
+            color,
+            font_size,
+            font_weight,
+            font_style,
+            font_family,
+        } if !text.is_empty() => {
+            out.push(PaintCommand::Text {
+                x: b.x,
+                y: b.y,
+                text: text.clone(),
+                color: *color,
+                font_size: *font_size,
+                font_weight: *font_weight,
+                italic: *font_style == crate::style::FontStyle::Italic,
+                family: font_family.clone(),
+            });
         }
         _ => {}
     }

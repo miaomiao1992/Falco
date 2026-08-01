@@ -9,15 +9,21 @@
 //! * Escaping of text content and attribute values
 //! * Pre/textarea (preserves whitespace)
 
-use crate::dom2::{NodeRef, NodeKind, Node};
+use crate::dom2::{NodeKind, NodeRef};
 
 const VOID_ELEMENTS: &[&str] = &[
-    "area", "base", "br", "col", "embed", "hr", "img", "input",
-    "link", "meta", "param", "source", "track", "wbr",
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source",
+    "track", "wbr",
 ];
 
 const RAW_TEXT_ELEMENTS: &[&str] = &[
-    "script", "style", "xmp", "iframe", "noembed", "noframes", "plaintext",
+    "script",
+    "style",
+    "xmp",
+    "iframe",
+    "noembed",
+    "noframes",
+    "plaintext",
 ];
 
 /// Serialize a DOM node and its descendants into HTML.
@@ -32,7 +38,11 @@ pub fn serialize_inner(node: &NodeRef, out: &mut String) {
     let mut cursor = node.borrow().first_child.clone();
     while let Some(child) = cursor {
         serialize_node(&child, out);
-        cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+        cursor = child
+            .borrow()
+            .next_sibling
+            .clone()
+            .and_then(|w| w.upgrade());
     }
 }
 
@@ -43,7 +53,11 @@ fn serialize_node(node: &NodeRef, out: &mut String) {
             let mut cursor = node.borrow().first_child.clone();
             while let Some(child) = cursor {
                 serialize_node(&child, out);
-                cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+                cursor = child
+                    .borrow()
+                    .next_sibling
+                    .clone()
+                    .and_then(|w| w.upgrade());
             }
         }
         NodeKind::DocumentType { name, .. } => {
@@ -85,7 +99,11 @@ fn serialize_node(node: &NodeRef, out: &mut String) {
                 } else {
                     serialize_node(&child, out);
                 }
-                cursor = child.borrow().next_sibling.clone().and_then(|w| w.upgrade());
+                cursor = child
+                    .borrow()
+                    .next_sibling
+                    .clone()
+                    .and_then(|w| w.upgrade());
             }
             // End tag.
             out.push_str("</");
@@ -124,7 +142,7 @@ fn serialize_node(node: &NodeRef, out: &mut String) {
 
 fn serialize_raw(node: &NodeRef, out: &mut String) {
     if let NodeKind::Text(s) = &node.borrow().kind {
-        out.push_str(&s);
+        out.push_str(s);
     } else {
         serialize_node(node, out);
     }
@@ -156,7 +174,7 @@ fn escape_attr_value(s: &str, out: &mut String) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom2::{Document, append_child, set_attribute};
+    use crate::dom2::{append_child, set_attribute, Document};
 
     #[test]
     fn serializes_simple_element() {

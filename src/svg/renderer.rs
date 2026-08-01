@@ -4,9 +4,9 @@
 //! text, and groups with transforms. Uses the same alpha-blending
 //! Canvas as the HTML renderer.
 
-use crate::svg::parser::*;
-use crate::paint::Canvas;
 use crate::css::Color;
+use crate::paint::Canvas;
+use crate::svg::parser::*;
 
 /// Render an SVG document onto a canvas at the given position and size.
 pub fn render_svg(canvas: &mut Canvas, doc: &SvgDocument, x: f32, y: f32, w: f32, h: f32) {
@@ -24,10 +24,13 @@ pub fn render_svg(canvas: &mut Canvas, doc: &SvgDocument, x: f32, y: f32, w: f32
 fn render_element(
     canvas: &mut Canvas,
     elem: &SvgElement,
-    ox: f32, oy: f32,
+    ox: f32,
+    oy: f32,
     scale: f32,
-    scale_x: f32, scale_y: f32,
-    vb_x: f32, vb_y: f32,
+    scale_x: f32,
+    scale_y: f32,
+    vb_x: f32,
+    vb_y: f32,
 ) {
     match elem {
         SvgElement::Rect(r) => {
@@ -38,12 +41,19 @@ fn render_element(
             // Fill.
             if let Some(fill) = r.style.fill {
                 let c = apply_opacity(fill, r.style.fill_opacity * r.style.opacity);
-                canvas.fill_rounded_rect(rx, ry, rw, rh, c, crate::style::BorderRadius {
-                    top_left: r.rx * scale_x,
-                    top_right: r.rx * scale_x,
-                    bottom_left: r.ry * scale_y,
-                    bottom_right: r.ry * scale_y,
-                });
+                canvas.fill_rounded_rect(
+                    rx,
+                    ry,
+                    rw,
+                    rh,
+                    c,
+                    crate::style::BorderRadius {
+                        top_left: r.rx * scale_x,
+                        top_right: r.rx * scale_x,
+                        bottom_left: r.ry * scale_y,
+                        bottom_right: r.ry * scale_y,
+                    },
+                );
             }
             // Stroke.
             if let Some(stroke) = r.style.stroke {
@@ -77,7 +87,15 @@ fn render_element(
             // Stroke (simplified — just outline).
             if let Some(stroke) = e.style.stroke {
                 let col = apply_opacity(stroke, e.style.stroke_opacity * e.style.opacity);
-                stroke_ellipse(canvas, cx, cy, e.rx * scale_x, e.ry * scale_y, e.style.stroke_width * scale, col);
+                stroke_ellipse(
+                    canvas,
+                    cx,
+                    cy,
+                    e.rx * scale_x,
+                    e.ry * scale_y,
+                    e.style.stroke_width * scale,
+                    col,
+                );
             }
         }
         SvgElement::Line(l) => {
@@ -91,18 +109,30 @@ fn render_element(
             }
         }
         SvgElement::Polyline(p) => {
-            let pts: Vec<(f32, f32)> = p.points.iter()
+            let pts: Vec<(f32, f32)> = p
+                .points
+                .iter()
                 .map(|&(px, py)| (ox + (px - vb_x) * scale_x, oy + (py - vb_y) * scale_y))
                 .collect();
             if let Some(stroke) = p.style.stroke {
                 let col = apply_opacity(stroke, p.style.stroke_opacity * p.style.opacity);
                 for i in 0..pts.len().saturating_sub(1) {
-                    draw_line(canvas, pts[i].0, pts[i].1, pts[i + 1].0, pts[i + 1].1, p.style.stroke_width * scale, col);
+                    draw_line(
+                        canvas,
+                        pts[i].0,
+                        pts[i].1,
+                        pts[i + 1].0,
+                        pts[i + 1].1,
+                        p.style.stroke_width * scale,
+                        col,
+                    );
                 }
             }
         }
         SvgElement::Polygon(p) => {
-            let pts: Vec<(f32, f32)> = p.points.iter()
+            let pts: Vec<(f32, f32)> = p
+                .points
+                .iter()
                 .map(|&(px, py)| (ox + (px - vb_x) * scale_x, oy + (py - vb_y) * scale_y))
                 .collect();
             // Fill polygon.
@@ -132,7 +162,18 @@ fn render_element(
             // Stroke — draw line segments.
             if let Some(stroke) = path.style.stroke {
                 let col = apply_opacity(stroke, path.style.stroke_opacity * path.style.opacity);
-                stroke_path(canvas, &path.commands, ox, oy, scale_x, scale_y, vb_x, vb_y, path.style.stroke_width * scale, col);
+                stroke_path(
+                    canvas,
+                    &path.commands,
+                    ox,
+                    oy,
+                    scale_x,
+                    scale_y,
+                    vb_x,
+                    vb_y,
+                    path.style.stroke_width * scale,
+                    col,
+                );
             }
         }
         SvgElement::Text(t) => {
@@ -141,7 +182,7 @@ fn render_element(
             let color = t.style.fill.unwrap_or(Color::BLACK);
             let col = apply_opacity(color, t.style.opacity);
             // Use canvas glyph drawing — simplified: just draw each character.
-            let mut cx = tx as i32;
+            let cx = tx as i32;
             let baseline = ty as i32 + (t.font_size * scale * 0.8) as i32;
             // We can't access FontRasterizer here without a circular dep,
             // so we draw text as filled rects (placeholder for now).
@@ -152,14 +193,27 @@ fn render_element(
             let (tx, ty) = g.transform.map(|t| t.translate).unwrap_or((0.0, 0.0));
             let (sx, sy) = g.transform.map(|t| t.scale).unwrap_or((1.0, 1.0));
             for child in &g.children {
-                render_element(canvas, child, ox + tx, oy + ty, scale * sx.min(sy), scale_x * sx, scale_y * sy, vb_x, vb_y);
+                render_element(
+                    canvas,
+                    child,
+                    ox + tx,
+                    oy + ty,
+                    scale * sx.min(sy),
+                    scale_x * sx,
+                    scale_y * sy,
+                    vb_x,
+                    vb_y,
+                );
             }
         }
     }
 }
 
 fn apply_opacity(color: Color, opacity: f32) -> Color {
-    Color { a: ((color.a as f32 * opacity).clamp(0.0, 255.0)) as u8, ..color }
+    Color {
+        a: ((color.a as f32 * opacity).clamp(0.0, 255.0)) as u8,
+        ..color
+    }
 }
 
 fn fill_circle(canvas: &mut Canvas, cx: f32, cy: f32, r: f32, color: Color) {
@@ -219,7 +273,15 @@ fn fill_ellipse(canvas: &mut Canvas, cx: f32, cy: f32, rx: f32, ry: f32, color: 
     }
 }
 
-fn stroke_ellipse(canvas: &mut Canvas, cx: f32, cy: f32, rx: f32, ry: f32, width: f32, color: Color) {
+fn stroke_ellipse(
+    canvas: &mut Canvas,
+    cx: f32,
+    cy: f32,
+    rx: f32,
+    ry: f32,
+    width: f32,
+    color: Color,
+) {
     // Simplified — draw the fill at slightly different radii.
     let _ = width;
     let x0 = (cx - rx).max(0.0).floor() as i32;
@@ -248,7 +310,11 @@ fn draw_line(canvas: &mut Canvas, x1: f32, y1: f32, x2: f32, y2: f32, width: f32
     let steps = (dx.abs().max(dy.abs())).ceil() as i32;
     let half = width / 2.0;
     for i in 0..=steps {
-        let t = if steps > 0 { i as f32 / steps as f32 } else { 0.0 };
+        let t = if steps > 0 {
+            i as f32 / steps as f32
+        } else {
+            0.0
+        };
         let x = x1 + dx * t;
         let y = y1 + dy * t;
         // Draw a small filled rect at each point.
@@ -277,10 +343,22 @@ fn draw_rect_stroke(canvas: &mut Canvas, x: f32, y: f32, w: f32, h: f32, width: 
 }
 
 fn fill_polygon(canvas: &mut Canvas, pts: &[(f32, f32)], color: Color) {
-    if pts.len() < 3 { return; }
+    if pts.len() < 3 {
+        return;
+    }
     // Scanline fill.
-    let min_y = pts.iter().map(|p| p.1).fold(f32::MAX, f32::min).max(0.0).floor() as i32;
-    let max_y = pts.iter().map(|p| p.1).fold(f32::MIN, f32::min).min(canvas.height as f32).ceil() as i32;
+    let min_y = pts
+        .iter()
+        .map(|p| p.1)
+        .fold(f32::MAX, f32::min)
+        .max(0.0)
+        .floor() as i32;
+    let max_y = pts
+        .iter()
+        .map(|p| p.1)
+        .fold(f32::MIN, f32::min)
+        .min(canvas.height as f32)
+        .ceil() as i32;
     for y in min_y..max_y {
         let mut intersections = Vec::new();
         let yc = y as f32 + 0.5;
@@ -310,29 +388,35 @@ fn fill_polygon(canvas: &mut Canvas, pts: &[(f32, f32)], color: Color) {
 fn stroke_path(
     canvas: &mut Canvas,
     commands: &[PathCommand],
-    ox: f32, oy: f32,
-    scale_x: f32, scale_y: f32,
-    vb_x: f32, vb_y: f32,
-    width: f32, color: Color,
+    ox: f32,
+    oy: f32,
+    scale_x: f32,
+    scale_y: f32,
+    vb_x: f32,
+    vb_y: f32,
+    width: f32,
+    color: Color,
 ) {
     let mut cur_x = 0.0f32;
     let mut cur_y = 0.0f32;
     let mut start_x = 0.0f32;
     let mut start_y = 0.0f32;
-    let to_screen = |x: f32, y: f32| -> (f32, f32) {
-        (ox + (x - vb_x) * scale_x, oy + (y - vb_y) * scale_y)
-    };
+    let to_screen =
+        |x: f32, y: f32| -> (f32, f32) { (ox + (x - vb_x) * scale_x, oy + (y - vb_y) * scale_y) };
     for cmd in commands {
         match cmd {
             PathCommand::MoveTo(x, y) => {
-                cur_x = *x; cur_y = *y;
-                start_x = *x; start_y = *y;
+                cur_x = *x;
+                cur_y = *y;
+                start_x = *x;
+                start_y = *y;
             }
             PathCommand::LineTo(x, y) => {
                 let (sx, sy) = to_screen(cur_x, cur_y);
                 let (ex, ey) = to_screen(*x, *y);
                 draw_line(canvas, sx, sy, ex, ey, width, color);
-                cur_x = *x; cur_y = *y;
+                cur_x = *x;
+                cur_y = *y;
             }
             PathCommand::HorizontalLineTo(x) => {
                 let (sx, sy) = to_screen(cur_x, cur_y);
@@ -350,7 +434,8 @@ fn stroke_path(
                 let (sx, sy) = to_screen(cur_x, cur_y);
                 let (ex, ey) = to_screen(start_x, start_y);
                 draw_line(canvas, sx, sy, ex, ey, width, color);
-                cur_x = start_x; cur_y = start_y;
+                cur_x = start_x;
+                cur_y = start_y;
             }
             // Bezier curves — approximate with line segments.
             PathCommand::CubicBezier(x1, y1, x2, y2, x3, y3) => {
@@ -368,9 +453,11 @@ fn stroke_path(
                     let (sx, sy) = to_screen(px, py);
                     let (ex, ey) = to_screen(nx, ny);
                     draw_line(canvas, sx, sy, ex, ey, width, color);
-                    px = nx; py = ny;
+                    px = nx;
+                    py = ny;
                 }
-                cur_x = *x3; cur_y = *y3;
+                cur_x = *x3;
+                cur_y = *y3;
             }
             PathCommand::QuadraticBezier(x1, y1, x2, y2) => {
                 let steps = 20;
@@ -383,9 +470,11 @@ fn stroke_path(
                     let (sx, sy) = to_screen(px, py);
                     let (ex, ey) = to_screen(nx, ny);
                     draw_line(canvas, sx, sy, ex, ey, width, color);
-                    px = nx; py = ny;
+                    px = nx;
+                    py = ny;
                 }
-                cur_x = *x2; cur_y = *y2;
+                cur_x = *x2;
+                cur_y = *y2;
             }
             _ => {}
         }
@@ -394,14 +483,16 @@ fn stroke_path(
 
 fn path_to_points(
     commands: &[PathCommand],
-    ox: f32, oy: f32,
-    scale_x: f32, scale_y: f32,
-    vb_x: f32, vb_y: f32,
+    ox: f32,
+    oy: f32,
+    scale_x: f32,
+    scale_y: f32,
+    vb_x: f32,
+    vb_y: f32,
 ) -> Vec<(f32, f32)> {
     let mut pts = Vec::new();
-    let to_screen = |x: f32, y: f32| -> (f32, f32) {
-        (ox + (x - vb_x) * scale_x, oy + (y - vb_y) * scale_y)
-    };
+    let to_screen =
+        |x: f32, y: f32| -> (f32, f32) { (ox + (x - vb_x) * scale_x, oy + (y - vb_y) * scale_y) };
     for cmd in commands {
         match cmd {
             PathCommand::MoveTo(x, y) => {
@@ -418,15 +509,22 @@ fn path_to_points(
 }
 
 fn blend_pixel(dst: &mut [u8], src: Color) {
-    if src.a == 0 { return; }
+    if src.a == 0 {
+        return;
+    }
     if src.a == 255 {
-        dst[0] = src.r; dst[1] = src.g; dst[2] = src.b; dst[3] = 255;
+        dst[0] = src.r;
+        dst[1] = src.g;
+        dst[2] = src.b;
+        dst[3] = 255;
         return;
     }
     let sa = src.a as f32 / 255.0;
     let da = dst[3] as f32 / 255.0;
     let out_a = sa + da * (1.0 - sa);
-    if out_a == 0.0 { return; }
+    if out_a == 0.0 {
+        return;
+    }
     dst[0] = ((src.r as f32 * sa + dst[0] as f32 * da * (1.0 - sa)) / out_a) as u8;
     dst[1] = ((src.g as f32 * sa + dst[1] as f32 * da * (1.0 - sa)) / out_a) as u8;
     dst[2] = ((src.b as f32 * sa + dst[2] as f32 * da * (1.0 - sa)) / out_a) as u8;

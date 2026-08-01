@@ -7,11 +7,11 @@
 //! document. Connected to the DOM through `Document::create_element()` —
 //! when a custom element is created, the registry's upgrade hook fires.
 
-use std::collections::HashMap;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::dom2::{NodeRef, NodeKind};
+use crate::dom2::{NodeKind, NodeRef};
 
 /// A registered custom element definition.
 #[derive(Clone)]
@@ -139,7 +139,9 @@ impl CustomElementRegistry {
     pub fn upgrade(&mut self, element: &NodeRef) {
         let name = if let NodeKind::Element(e) = &element.borrow().kind {
             e.tag.clone()
-        } else { return; };
+        } else {
+            return;
+        };
         if let Some(def) = self.definitions.get(&name) {
             // Mark as upgraded.
             if let NodeKind::Element(ref mut e) = &mut element.borrow_mut().kind {
@@ -194,22 +196,37 @@ fn validate_name(name: &str) -> Result<(), DefineError> {
     }
     // Must contain a hyphen.
     if !name.contains('-') {
-        return Err(DefineError::InvalidName(format!("{}: must contain a hyphen", name)));
+        return Err(DefineError::InvalidName(format!(
+            "{}: must contain a hyphen",
+            name
+        )));
     }
     // Must start with ASCII lowercase.
     if !name.chars().next().unwrap().is_ascii_lowercase() {
-        return Err(DefineError::InvalidName(format!("{}: must start with lowercase ASCII", name)));
+        return Err(DefineError::InvalidName(format!(
+            "{}: must start with lowercase ASCII",
+            name
+        )));
     }
     // All chars must be ASCII lowercase alphanumeric or hyphen.
     for c in name.chars() {
         if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') {
-            return Err(DefineError::InvalidName(format!("{}: invalid character '{}'", name, c)));
+            return Err(DefineError::InvalidName(format!(
+                "{}: invalid character '{}'",
+                name, c
+            )));
         }
     }
     // Reserved names.
     let reserved = [
-        "annotation-xml", "color-profile", "font-face", "font-face-src",
-        "font-face-uri", "font-face-format", "font-face-name", "missing-glyph",
+        "annotation-xml",
+        "color-profile",
+        "font-face",
+        "font-face-src",
+        "font-face-uri",
+        "font-face-format",
+        "font-face-name",
+        "missing-glyph",
     ];
     if reserved.contains(&name) {
         return Err(DefineError::InvalidName(format!("{}: reserved name", name)));
@@ -223,13 +240,17 @@ pub type RegistryHandle = Rc<RefCell<CustomElementRegistry>>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom2::{Document, append_child};
+    use crate::dom2::{append_child, Document};
 
     #[test]
     fn defines_simple_custom_element() {
         let mut reg = CustomElementRegistry::new();
-        let result = reg.define("my-element", None, vec![],
-            CustomElementCallbacks::default());
+        let result = reg.define(
+            "my-element",
+            None,
+            vec![],
+            CustomElementCallbacks::default(),
+        );
         assert!(result.is_ok());
         assert!(reg.is_defined("my-element"));
     }
@@ -238,20 +259,52 @@ mod tests {
     fn rejects_invalid_names() {
         let mut reg = CustomElementRegistry::new();
         // No hyphen.
-        assert_eq!(reg.define("myelement", None, vec![], CustomElementCallbacks::default()),
-            Err(DefineError::InvalidName("myelement: must contain a hyphen".into())));
+        assert_eq!(
+            reg.define("myelement", None, vec![], CustomElementCallbacks::default()),
+            Err(DefineError::InvalidName(
+                "myelement: must contain a hyphen".into()
+            ))
+        );
         // Starts with uppercase.
-        assert!(reg.define("My-Element", None, vec![], CustomElementCallbacks::default()).is_err());
+        assert!(reg
+            .define(
+                "My-Element",
+                None,
+                vec![],
+                CustomElementCallbacks::default()
+            )
+            .is_err());
         // Reserved.
-        assert!(reg.define("annotation-xml", None, vec![], CustomElementCallbacks::default()).is_err());
+        assert!(reg
+            .define(
+                "annotation-xml",
+                None,
+                vec![],
+                CustomElementCallbacks::default()
+            )
+            .is_err());
     }
 
     #[test]
     fn rejects_duplicate_definition() {
         let mut reg = CustomElementRegistry::new();
-        reg.define("my-element", None, vec![], CustomElementCallbacks::default()).unwrap();
-        let result = reg.define("my-element", None, vec![], CustomElementCallbacks::default());
-        assert_eq!(result, Err(DefineError::AlreadyDefined("my-element".into())));
+        reg.define(
+            "my-element",
+            None,
+            vec![],
+            CustomElementCallbacks::default(),
+        )
+        .unwrap();
+        let result = reg.define(
+            "my-element",
+            None,
+            vec![],
+            CustomElementCallbacks::default(),
+        );
+        assert_eq!(
+            result,
+            Err(DefineError::AlreadyDefined("my-element".into()))
+        );
     }
 
     #[test]
@@ -264,13 +317,24 @@ mod tests {
         let mut reg = CustomElementRegistry::new();
         // Try to upgrade before definition — should add to pending.
         reg.upgrade(&el);
-        assert_eq!(el.borrow().kind_as_element().map(|e| e.custom.clone()).unwrap_or_default(),
-            crate::dom2::CustomElementState::Undefined);
+        assert_eq!(
+            el.borrow()
+                .kind_as_element()
+                .map(|e| e.custom.clone())
+                .unwrap_or_default(),
+            crate::dom2::CustomElementState::Undefined
+        );
 
         // Now define — pending should be upgraded.
-        reg.define("my-widget", None, vec![], CustomElementCallbacks::default()).unwrap();
-        assert_eq!(el.borrow().kind_as_element().map(|e| e.custom.clone()).unwrap_or_default(),
-            crate::dom2::CustomElementState::Custom);
+        reg.define("my-widget", None, vec![], CustomElementCallbacks::default())
+            .unwrap();
+        assert_eq!(
+            el.borrow()
+                .kind_as_element()
+                .map(|e| e.custom.clone())
+                .unwrap_or_default(),
+            crate::dom2::CustomElementState::Custom
+        );
     }
 
     #[test]
@@ -280,7 +344,13 @@ mod tests {
         crate::dom2::set_attribute(&button, "is", "my-button");
 
         let mut reg = CustomElementRegistry::new();
-        reg.define("my-button", Some("button"), vec![], CustomElementCallbacks::default()).unwrap();
+        reg.define(
+            "my-button",
+            Some("button"),
+            vec![],
+            CustomElementCallbacks::default(),
+        )
+        .unwrap();
 
         let def = reg.definition_for(&button);
         assert!(def.is_some());

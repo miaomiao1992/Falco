@@ -8,8 +8,8 @@
 //! synchronously on mutation and delivered at the next microtask checkpoint
 //! by `Document::deliver_mutations()`.
 
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use super::NodeRef;
 
@@ -160,7 +160,11 @@ impl MutationObserver {
     /// Observe a target node with the given options.
     pub fn observe(&mut self, target: NodeRef, options: MutationObserverInit) {
         // If we already observe this target, replace the options.
-        if let Some(slot) = self.observations.iter_mut().find(|(t, _)| t.borrow().id == target.borrow().id) {
+        if let Some(slot) = self
+            .observations
+            .iter_mut()
+            .find(|(t, _)| t.borrow().id == target.borrow().id)
+        {
             slot.1 = options;
         } else {
             self.observations.push((target, options));
@@ -169,7 +173,8 @@ impl MutationObserver {
 
     /// Stop observing a target.
     pub fn disconnect_target(&mut self, target: &NodeRef) {
-        self.observations.retain(|(t, _)| t.borrow().id != target.borrow().id);
+        self.observations
+            .retain(|(t, _)| t.borrow().id != target.borrow().id);
     }
 
     /// Check if a record matches any of our observations.
@@ -183,10 +188,13 @@ impl MutationObserver {
                     MutationKind::CharacterData => options.character_data,
                 };
                 if kind_ok {
-                    if record.attribute_name.is_some() && !options.attribute_filter.is_empty() {
-                        if !options.attribute_filter.contains(record.attribute_name.as_ref().unwrap()) {
-                            continue;
-                        }
+                    if record.attribute_name.is_some()
+                        && !options.attribute_filter.is_empty()
+                        && !options
+                            .attribute_filter
+                            .contains(record.attribute_name.as_ref().unwrap())
+                    {
+                        continue;
                     }
                     return true;
                 }
@@ -203,10 +211,14 @@ impl MutationObserver {
                                 MutationKind::Attributes => options.attributes,
                                 MutationKind::CharacterData => options.character_data,
                             };
-                            if kind_ok { return true; }
+                            if kind_ok {
+                                return true;
+                            }
                         }
                         cursor = parent.borrow().parent.clone();
-                    } else { break; }
+                    } else {
+                        break;
+                    }
                 }
             }
         }
@@ -220,7 +232,9 @@ impl MutationObserver {
 }
 
 impl Default for MutationObserver {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Convenience alias.
@@ -229,7 +243,7 @@ pub type ObserverSlot = Rc<RefCell<MutationObserver>>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dom2::{Document, append_child};
+    use crate::dom2::{append_child, Document};
 
     #[test]
     fn observer_receives_child_list() {
@@ -239,10 +253,13 @@ mod tests {
         append_child(&root, parent.clone());
 
         let obs = Rc::new(RefCell::new(MutationObserver::new()));
-        obs.borrow_mut().observe(parent.clone(), MutationObserverInit {
-            child_list: true,
-            ..Default::default()
-        });
+        obs.borrow_mut().observe(
+            parent.clone(),
+            MutationObserverInit {
+                child_list: true,
+                ..Default::default()
+            },
+        );
         let idx = Document::add_observer(&doc, obs.clone());
 
         let child = Document::create_element(&doc, "p");
@@ -250,7 +267,10 @@ mod tests {
 
         Document::deliver_mutations(&doc);
 
-        assert!(!obs.borrow().records.is_empty(), "observer should have records");
+        assert!(
+            !obs.borrow().records.is_empty(),
+            "observer should have records"
+        );
         let rec = obs.borrow().records[0].clone();
         assert_eq!(rec.kind, MutationKind::ChildList);
         assert_eq!(rec.added_nodes.len(), 1);
@@ -266,10 +286,13 @@ mod tests {
         append_child(&root, parent.clone());
 
         let obs = Rc::new(RefCell::new(MutationObserver::new()));
-        obs.borrow_mut().observe(parent.clone(), MutationObserverInit {
-            attributes: true,
-            ..Default::default()
-        });
+        obs.borrow_mut().observe(
+            parent.clone(),
+            MutationObserverInit {
+                attributes: true,
+                ..Default::default()
+            },
+        );
         Document::add_observer(&doc, obs.clone());
 
         crate::dom2::set_attribute(&parent, "id", "foo");
@@ -291,11 +314,14 @@ mod tests {
         append_child(&outer, middle.clone());
 
         let obs = Rc::new(RefCell::new(MutationObserver::new()));
-        obs.borrow_mut().observe(outer.clone(), MutationObserverInit {
-            child_list: true,
-            subtree: true,
-            ..Default::default()
-        });
+        obs.borrow_mut().observe(
+            outer.clone(),
+            MutationObserverInit {
+                child_list: true,
+                subtree: true,
+                ..Default::default()
+            },
+        );
         Document::add_observer(&doc, obs.clone());
 
         // Add a child to `middle` — should still be observed via subtree.

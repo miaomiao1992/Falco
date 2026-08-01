@@ -11,12 +11,12 @@
 //! - Index-based local variables (Vec<Value>) per frame — no HashMap lookups
 //! - Pre-compiled function bodies (bytecode is compiled once, executed many times)
 
-use crate::tjs::value::Value;
-use crate::tjs::value::{ObjectValue, FunctionValue, BuiltinFn};
 use crate::tjs::parser::{Expr, Stmt};
-use std::rc::Rc;
+use crate::tjs::value::Value;
+use crate::tjs::value::{FunctionValue, ObjectValue};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Bytecode instruction — compact and fast to dispatch.
 #[derive(Debug, Clone)]
@@ -30,12 +30,26 @@ pub enum Bytecode {
     StoreLocal(u32),
     LoadGlobal(u32),
     StoreGlobal(u32),
-    Add, Sub, Mul, Div, Mod, Neg, Not,
-    Eq, Neq, StrictEq, StrictNeq, Lt, Gt, Le, Ge,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    Neg,
+    Not,
+    Eq,
+    Neq,
+    StrictEq,
+    StrictNeq,
+    Lt,
+    Gt,
+    Le,
+    Ge,
     Jump(usize),
     JumpIfFalse(usize),
     JumpIfTrue(usize),
-    Pop, Dup,
+    Pop,
+    Dup,
     Call(u8),
     Return,
     NewObject(u32),
@@ -44,8 +58,13 @@ pub enum Bytecode {
     SetProperty(Rc<str>),
     GetIndex,
     SetIndex,
-    Inc, Dec,
-    AssignAdd, AssignSub, AssignMul, AssignDiv, AssignMod,
+    Inc,
+    Dec,
+    AssignAdd,
+    AssignSub,
+    AssignMul,
+    AssignDiv,
+    AssignMod,
     TypeOf,
     Nop,
     DefineFunc(Rc<CompiledFunction>),
@@ -70,6 +89,12 @@ pub struct Compiler {
     func_counter: usize,
 }
 
+impl Default for Compiler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Compiler {
     pub fn new() -> Self {
         Self {
@@ -84,7 +109,9 @@ impl Compiler {
     /// the correct index matching the VM's globals vector.
     pub fn register_global_name(&mut self, name: &str) {
         for n in &self.global_names {
-            if n.as_ref() == name { return; }
+            if n.as_ref() == name {
+                return;
+            }
         }
         self.global_names.push(Rc::from(name));
     }
@@ -95,7 +122,11 @@ impl Compiler {
     }
 
     fn local_index(&self, name: &str) -> Option<u32> {
-        self.locals.iter().rev().position(|n| n.as_ref() == name).map(|i| i as u32)
+        self.locals
+            .iter()
+            .rev()
+            .position(|n| n.as_ref() == name)
+            .map(|i| i as u32)
     }
 
     fn declare_local(&mut self, name: Rc<str>) -> u32 {
@@ -106,7 +137,9 @@ impl Compiler {
 
     fn global_index(&mut self, name: &str) -> u32 {
         for (i, n) in self.global_names.iter().enumerate() {
-            if n.as_ref() == name { return i as u32; }
+            if n.as_ref() == name {
+                return i as u32;
+            }
         }
         self.global_names.push(Rc::from(name));
         (self.global_names.len() - 1) as u32
@@ -164,13 +197,22 @@ impl Compiler {
                 if let Some(e) = els {
                     let jmp_end = code.len();
                     code.push(Bytecode::Jump(0)); // placeholder
-                    { let t = code.len(); code[jmp_false] = Bytecode::JumpIfFalse(t); };
+                    {
+                        let t = code.len();
+                        code[jmp_false] = Bytecode::JumpIfFalse(t);
+                    };
                     for s in e {
                         self.compile_stmt(s, code);
                     }
-                    { let t = code.len(); code[jmp_end] = Bytecode::Jump(t); };
+                    {
+                        let t = code.len();
+                        code[jmp_end] = Bytecode::Jump(t);
+                    };
                 } else {
-                    { let t = code.len(); code[jmp_false] = Bytecode::JumpIfFalse(t); };
+                    {
+                        let t = code.len();
+                        code[jmp_false] = Bytecode::JumpIfFalse(t);
+                    };
                 }
             }
             Stmt::For(init, test, update, body) => {
@@ -190,7 +232,12 @@ impl Compiler {
                         code.push(Bytecode::Pop);
                     }
                     code.push(Bytecode::Jump(loop_start));
-                    { let t = code.len(); if let Bytecode::JumpIfFalse(ref mut target) = code[jmp_exit] { *target = t; } }
+                    {
+                        let t = code.len();
+                        if let Bytecode::JumpIfFalse(ref mut target) = code[jmp_exit] {
+                            *target = t;
+                        }
+                    }
                 } else {
                     for s in body {
                         self.compile_stmt(s, code);
@@ -211,7 +258,12 @@ impl Compiler {
                     self.compile_stmt(s, code);
                 }
                 code.push(Bytecode::Jump(loop_start));
-                { let t = code.len(); if let Bytecode::JumpIfFalse(ref mut target) = code[jmp_exit] { *target = t; } }
+                {
+                    let t = code.len();
+                    if let Bytecode::JumpIfFalse(ref mut target) = code[jmp_exit] {
+                        *target = t;
+                    }
+                }
             }
             Stmt::DoWhile(body, cond) => {
                 let loop_start = code.len();
@@ -248,7 +300,8 @@ impl Compiler {
                 // Simplified — just compile the try body.
                 // Full try/catch in bytecode requires exception tables.
             }
-            Stmt::Class(_) | Stmt::AsyncFunction(_, _, _)
+            Stmt::Class(_)
+            | Stmt::AsyncFunction(_, _, _)
             | Stmt::GeneratorFunction(_, _, _)
             | Stmt::AsyncGeneratorFunction(_, _, _)
             | Stmt::ForInOf(_, _, _, _) => {
@@ -285,7 +338,12 @@ impl Compiler {
                         let jmp = code.len() - 1;
                         code.push(Bytecode::Pop);
                         self.compile_expr(right, code);
-                        { let len = code.len(); if let Bytecode::JumpIfFalse(ref mut t) = code[jmp] { *t = len; } }
+                        {
+                            let len = code.len();
+                            if let Bytecode::JumpIfFalse(ref mut t) = code[jmp] {
+                                *t = len;
+                            }
+                        }
                         return;
                     }
                     "||" => {
@@ -295,7 +353,12 @@ impl Compiler {
                         let jmp = code.len() - 1;
                         code.push(Bytecode::Pop);
                         self.compile_expr(right, code);
-                        { let len = code.len(); if let Bytecode::JumpIfTrue(ref mut t) = code[jmp] { *t = len; } }
+                        {
+                            let len = code.len();
+                            if let Bytecode::JumpIfTrue(ref mut t) = code[jmp] {
+                                *t = len;
+                            }
+                        }
                         return;
                     }
                     _ => {}
@@ -359,40 +422,38 @@ impl Compiler {
                     }
                 }
             }
-            Expr::Assign(target, op, value) => {
-                match target.as_ref() {
-                    Expr::Identifier(name) => {
-                        if op != "=" {
-                            if let Some(idx) = self.local_index(name) {
-                                code.push(Bytecode::LoadLocal(idx));
-                            } else {
-                                let idx = self.global_index(name);
-                                code.push(Bytecode::LoadGlobal(idx));
-                            }
-                            self.compile_expr(value, code);
-                            code.push(match op.as_str() {
-                                "+=" => Bytecode::Add,
-                                "-=" => Bytecode::Sub,
-                                "*=" => Bytecode::Mul,
-                                "/=" => Bytecode::Div,
-                                "%=" => Bytecode::Mod,
-                                _ => Bytecode::Nop,
-                            });
-                        } else {
-                            self.compile_expr(value, code);
-                        }
+            Expr::Assign(target, op, value) => match target.as_ref() {
+                Expr::Identifier(name) => {
+                    if op != "=" {
                         if let Some(idx) = self.local_index(name) {
-                            code.push(Bytecode::StoreLocal(idx));
+                            code.push(Bytecode::LoadLocal(idx));
                         } else {
                             let idx = self.global_index(name);
-                            code.push(Bytecode::StoreGlobal(idx));
+                            code.push(Bytecode::LoadGlobal(idx));
                         }
-                    }
-                    _ => {
+                        self.compile_expr(value, code);
+                        code.push(match op.as_str() {
+                            "+=" => Bytecode::Add,
+                            "-=" => Bytecode::Sub,
+                            "*=" => Bytecode::Mul,
+                            "/=" => Bytecode::Div,
+                            "%=" => Bytecode::Mod,
+                            _ => Bytecode::Nop,
+                        });
+                    } else {
                         self.compile_expr(value, code);
                     }
+                    if let Some(idx) = self.local_index(name) {
+                        code.push(Bytecode::StoreLocal(idx));
+                    } else {
+                        let idx = self.global_index(name);
+                        code.push(Bytecode::StoreGlobal(idx));
+                    }
                 }
-            }
+                _ => {
+                    self.compile_expr(value, code);
+                }
+            },
             Expr::Call(callee, args) => {
                 for a in args {
                     self.compile_expr(a, code);
@@ -423,7 +484,7 @@ impl Compiler {
                 code.push(Bytecode::DefineFunc(Rc::new(func)));
             }
             Expr::Object(properties) => {
-                for (key, val) in properties.iter().rev() {
+                for (_key, val) in properties.iter().rev() {
                     self.compile_expr(val, code);
                 }
                 code.push(Bytecode::NewObject(properties.len() as u32));
@@ -441,16 +502,35 @@ impl Compiler {
                 self.compile_expr(cons, code);
                 code.push(Bytecode::Jump(0));
                 let jmp_end = code.len() - 1;
-                { let len = code.len(); if let Bytecode::JumpIfFalse(ref mut t) = code[jmp_f] { *t = len; } }
+                {
+                    let len = code.len();
+                    if let Bytecode::JumpIfFalse(ref mut t) = code[jmp_f] {
+                        *t = len;
+                    }
+                }
                 self.compile_expr(alt, code);
-                { let len = code.len(); if let Bytecode::Jump(ref mut t) = code[jmp_end] { *t = len; } }
+                {
+                    let len = code.len();
+                    if let Bytecode::Jump(ref mut t) = code[jmp_end] {
+                        *t = len;
+                    }
+                }
             }
-            Expr::New(_, _) | Expr::Sequence(_) | Expr::Template(_)
-            | Expr::BigInt(_) | Expr::OptionalMember(_, _, _)
-            | Expr::OptionalCall(_, _) | Expr::Spread(_)
-            | Expr::PrivateIdentifier(_) | Expr::Super | Expr::NewTarget
-            | Expr::Yield(_) | Expr::Await(_) | Expr::Class(_)
-            | Expr::GeneratorFunction(_, _) | Expr::AsyncFunction(_, _)
+            Expr::New(_, _)
+            | Expr::Sequence(_)
+            | Expr::Template(_)
+            | Expr::BigInt(_)
+            | Expr::OptionalMember(_, _, _)
+            | Expr::OptionalCall(_, _)
+            | Expr::Spread(_)
+            | Expr::PrivateIdentifier(_)
+            | Expr::Super
+            | Expr::NewTarget
+            | Expr::Yield(_)
+            | Expr::Await(_)
+            | Expr::Class(_)
+            | Expr::GeneratorFunction(_, _)
+            | Expr::AsyncFunction(_, _)
             | Expr::AsyncGeneratorFunction(_, _) => {
                 // VM doesn't yet support these ES2020+ features — fall back to undefined.
                 // The tree-walking interpreter handles them when the VM falls back.
@@ -459,7 +539,12 @@ impl Compiler {
         }
     }
 
-    fn compile_function(&mut self, name: &str, params: &[String], body: &[Stmt]) -> CompiledFunction {
+    fn compile_function(
+        &mut self,
+        name: &str,
+        params: &[String],
+        body: &[Stmt],
+    ) -> CompiledFunction {
         // Save current locals.
         let saved_locals = self.locals.clone();
         let saved_scopes = self.scopes.clone();
@@ -516,6 +601,12 @@ pub struct Vm {
     loop_counters: HashMap<usize, u64>,
 }
 
+impl Default for Vm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Vm {
     pub fn new() -> Self {
         let mut vm = Self {
@@ -537,20 +628,35 @@ impl Vm {
 
     /// Detect if a loop is a simple counting pattern: `for (i = 0; i < N; i++) sum += i`
     /// Returns Some(N) if it matches, None otherwise.
-    fn detect_simple_loop(&self, code: &[Bytecode], loop_start: usize, _loop_end: usize) -> Option<u64> {
+    fn detect_simple_loop(
+        &self,
+        code: &[Bytecode],
+        loop_start: usize,
+        _loop_end: usize,
+    ) -> Option<u64> {
         // Look at the bytecode at loop_start to find the loop condition.
         // Pattern: LoadLocal(counter), PushNumber(N), Lt, JumpIfFalse(exit)
         let mut ip = loop_start;
-        if ip >= code.len() { return None; }
+        if ip >= code.len() {
+            return None;
+        }
 
         // Skip to the first non-Nop instruction.
-        while ip < code.len() && matches!(code[ip], Bytecode::Nop) { ip += 1; }
-        if ip >= code.len() { return None; }
+        while ip < code.len() && matches!(code[ip], Bytecode::Nop) {
+            ip += 1;
+        }
+        if ip >= code.len() {
+            return None;
+        }
 
         // Expect: LoadLocal(counter)
-        if !matches!(code[ip], Bytecode::LoadLocal(_)) { return None; }
+        if !matches!(code[ip], Bytecode::LoadLocal(_)) {
+            return None;
+        }
         ip += 1;
-        if ip >= code.len() { return None; }
+        if ip >= code.len() {
+            return None;
+        }
 
         // Expect: PushNumber(N)
         let n = match &code[ip] {
@@ -558,10 +664,14 @@ impl Vm {
             _ => return None,
         };
         ip += 1;
-        if ip >= code.len() { return None; }
+        if ip >= code.len() {
+            return None;
+        }
 
         // Expect: Lt (less than comparison)
-        if !matches!(code[ip], Bytecode::Lt) { return None; }
+        if !matches!(code[ip], Bytecode::Lt) {
+            return None;
+        }
 
         // This is a simple counting loop! Return N.
         Some(n)
@@ -569,7 +679,9 @@ impl Vm {
 
     #[inline(always)]
     fn push(&mut self, v: Value) {
-        unsafe { *self.stack.get_unchecked_mut(self.sp) = v; }
+        unsafe {
+            *self.stack.get_unchecked_mut(self.sp) = v;
+        }
         self.sp += 1;
     }
 
@@ -638,7 +750,9 @@ impl Vm {
                 }
                 Bytecode::StoreLocal(i) => {
                     let v = self.pop();
-                    unsafe { *locals.get_unchecked_mut(*i as usize) = v.clone(); }
+                    unsafe {
+                        *locals.get_unchecked_mut(*i as usize) = v.clone();
+                    }
                     self.push(v);
                 }
                 Bytecode::LoadGlobal(i) => {
@@ -647,34 +761,52 @@ impl Vm {
                 }
                 Bytecode::StoreGlobal(i) => {
                     let v = self.pop();
-                    unsafe { *self.globals.get_unchecked_mut(*i as usize) = v.clone(); }
+                    unsafe {
+                        *self.globals.get_unchecked_mut(*i as usize) = v.clone();
+                    }
                     self.push(v);
                 }
                 Bytecode::Add => {
                     let (l, r) = self.pop2();
-                    if let (Value::Number(a), Value::Number(b)) = (&l, &r) { self.push(Value::Number(a + b)); }
-                    else if matches!(l, Value::String(_)) || matches!(r, Value::String(_)) { self.push(Value::String(format!("{}{}", l.to_string(), r.to_string()))); }
-                    else { self.push(Value::Number(l.to_number() + r.to_number())); }
+                    if let (Value::Number(a), Value::Number(b)) = (&l, &r) {
+                        self.push(Value::Number(a + b));
+                    } else if matches!(l, Value::String(_)) || matches!(r, Value::String(_)) {
+                        self.push(Value::String(format!("{}{}", l.to_string(), r.to_string())));
+                    } else {
+                        self.push(Value::Number(l.to_number() + r.to_number()));
+                    }
                 }
                 Bytecode::Sub => {
                     let (l, r) = self.pop2();
-                    if let (Value::Number(a), Value::Number(b)) = (&l, &r) { self.push(Value::Number(a - b)); }
-                    else { self.push(Value::Number(l.to_number() - r.to_number())); }
+                    if let (Value::Number(a), Value::Number(b)) = (&l, &r) {
+                        self.push(Value::Number(a - b));
+                    } else {
+                        self.push(Value::Number(l.to_number() - r.to_number()));
+                    }
                 }
                 Bytecode::Mul => {
                     let (l, r) = self.pop2();
-                    if let (Value::Number(a), Value::Number(b)) = (&l, &r) { self.push(Value::Number(a * b)); }
-                    else { self.push(Value::Number(l.to_number() * r.to_number())); }
+                    if let (Value::Number(a), Value::Number(b)) = (&l, &r) {
+                        self.push(Value::Number(a * b));
+                    } else {
+                        self.push(Value::Number(l.to_number() * r.to_number()));
+                    }
                 }
                 Bytecode::Div => {
                     let (l, r) = self.pop2();
-                    if let (Value::Number(a), Value::Number(b)) = (&l, &r) { self.push(Value::Number(a / b)); }
-                    else { self.push(Value::Number(l.to_number() / r.to_number())); }
+                    if let (Value::Number(a), Value::Number(b)) = (&l, &r) {
+                        self.push(Value::Number(a / b));
+                    } else {
+                        self.push(Value::Number(l.to_number() / r.to_number()));
+                    }
                 }
                 Bytecode::Mod => {
                     let (l, r) = self.pop2();
-                    if let (Value::Number(a), Value::Number(b)) = (&l, &r) { self.push(Value::Number(a % b)); }
-                    else { self.push(Value::Number(l.to_number() % r.to_number())); }
+                    if let (Value::Number(a), Value::Number(b)) = (&l, &r) {
+                        self.push(Value::Number(a % b));
+                    } else {
+                        self.push(Value::Number(l.to_number() % r.to_number()));
+                    }
                 }
                 Bytecode::Neg => {
                     let v = self.pop();
@@ -745,13 +877,19 @@ impl Vm {
                 }
                 Bytecode::JumpIfFalse(target) => {
                     let v = self.pop();
-                    if !v.is_truthy() { frame.ip = *target; }
+                    if !v.is_truthy() {
+                        frame.ip = *target;
+                    }
                 }
                 Bytecode::JumpIfTrue(target) => {
                     let v = self.pop();
-                    if v.is_truthy() { frame.ip = *target; }
+                    if v.is_truthy() {
+                        frame.ip = *target;
+                    }
                 }
-                Bytecode::Pop => { self.pop(); }
+                Bytecode::Pop => {
+                    self.pop();
+                }
                 Bytecode::Dup => {
                     let v = self.peek().clone();
                     self.push(v);
@@ -807,15 +945,27 @@ impl Vm {
                                 self.push(result);
                             } else {
                                 // Fall back to tree-walker for functions without VM code.
-                                let mut scope = crate::tjs::interpreter::Scope::new(Some(f.closure.clone()));
+                                let mut scope =
+                                    crate::tjs::interpreter::Scope::new(Some(f.closure.clone()));
                                 for (i, param) in f.params.iter().enumerate() {
-                                    scope.vars.borrow_mut().push((param.clone(), args.get(i).cloned().unwrap_or(Value::Undefined)));
+                                    scope.vars.borrow_mut().push((
+                                        param.clone(),
+                                        args.get(i).cloned().unwrap_or(Value::Undefined),
+                                    ));
                                 }
                                 let mut last = Value::Undefined;
                                 for stmt in &f.body {
-                                    match crate::tjs::interpreter::eval_stmt_pub(stmt, &mut scope)? {
-                                        crate::tjs::interpreter::Flow::Return(v) => { last = v; break; }
-                                        crate::tjs::interpreter::Flow::Normal(v) => { if let Some(val) = v { last = val; } }
+                                    match crate::tjs::interpreter::eval_stmt_pub(stmt, &mut scope)?
+                                    {
+                                        crate::tjs::interpreter::Flow::Return(v) => {
+                                            last = v;
+                                            break;
+                                        }
+                                        crate::tjs::interpreter::Flow::Normal(v) => {
+                                            if let Some(val) = v {
+                                                last = val;
+                                            }
+                                        }
                                         _ => {}
                                     }
                                 }

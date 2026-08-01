@@ -25,9 +25,9 @@
 //! // Both run concurrently without head-of-line blocking.
 //! ```
 
-use std::sync::Arc;
 use crate::web_runtime::event_loop::EventLoop;
 use crate::web_runtime::promise::{AsyncPromise, PromiseValue};
+use std::sync::Arc;
 
 /// An HTTP/2 connection. Wraps an `h2::client::SendRequest`.
 ///
@@ -106,8 +106,8 @@ impl H2Connection {
         let url = format!("https://{}{}", self.host, path);
         let method = method.to_string();
         let headers = headers.to_vec();
-        let host = self.host.clone();
-        let path = path.to_string();
+        let _host = self.host.clone();
+        let _path = path.to_string();
 
         std::thread::spawn(move || {
             #[cfg(feature = "real-http2")]
@@ -164,16 +164,17 @@ impl H2Connection {
 
 #[cfg(feature = "real-http2")]
 fn connect_h2_real(host: &str) -> Result<(), String> {
-    use tokio::runtime::Runtime;
-    use tokio::net::TcpStream;
-    use rustls::{ClientConfig, RootCertStore, ClientConnection};
     use rustls::pki_types::ServerName;
+    use rustls::{ClientConfig, ClientConnection, RootCertStore};
+    use tokio::net::TcpStream;
+    use tokio::runtime::Runtime;
 
     let rt = Runtime::new().map_err(|e| format!("tokio: {}", e))?;
     rt.block_on(async {
         // 1. TCP connect.
         let addr = format!("{}:443", host);
-        let tcp = TcpStream::connect(&addr).await
+        let tcp = TcpStream::connect(&addr)
+            .await
             .map_err(|e| format!("tcp connect: {}", e))?;
 
         // 2. TLS handshake with ALPN h2.
@@ -182,14 +183,15 @@ fn connect_h2_real(host: &str) -> Result<(), String> {
         let config = ClientConfig::builder()
             .with_root_certificates(root_store)
             .with_no_client_auth();
-        let server_name = ServerName::try_from(host.to_string())
-            .map_err(|e| format!("server name: {:?}", e))?;
+        let server_name =
+            ServerName::try_from(host.to_string()).map_err(|e| format!("server name: {:?}", e))?;
         let conn = ClientConnection::new(Arc::new(config), server_name)
             .map_err(|e| format!("tls: {}", e))?;
         let tls = tokio_rustls::client::TlsStream::new(tcp, conn);
 
         // 3. h2 handshake.
-        let (mut sender, connection) = h2::client::handshake(tls).await
+        let (mut sender, connection) = h2::client::handshake(tls)
+            .await
             .map_err(|e| format!("h2 handshake: {}", e))?;
 
         // Spawn the connection driver.
@@ -200,7 +202,8 @@ fn connect_h2_real(host: &str) -> Result<(), String> {
         // We don't send a request here — just verify the connection works.
         // The actual request is sent via request_h2_real().
         Ok::<(), String>(())
-    }).map_err(|e| format!("runtime: {}", e))?;
+    })
+    .map_err(|e| format!("runtime: {}", e))?;
     Ok(())
 }
 
@@ -212,36 +215,40 @@ fn request_h2_real(
     headers: &[(String, String)],
     body: Option<&str>,
 ) -> Result<(u16, String), String> {
-    use tokio::runtime::Runtime;
-    use tokio::net::TcpStream;
-    use rustls::{ClientConfig, RootCertStore, ClientConnection};
-    use rustls::pki_types::ServerName;
     use http::Request;
+    use rustls::pki_types::ServerName;
+    use rustls::{ClientConfig, ClientConnection, RootCertStore};
+    use tokio::net::TcpStream;
+    use tokio::runtime::Runtime;
 
     let rt = Runtime::new().map_err(|e| format!("tokio: {}", e))?;
     rt.block_on(async {
         // TCP + TLS + h2 handshake.
         let addr = format!("{}:443", host);
-        let tcp = TcpStream::connect(&addr).await
+        let tcp = TcpStream::connect(&addr)
+            .await
             .map_err(|e| format!("tcp: {}", e))?;
         let mut root_store = RootCertStore::empty();
         root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
         let config = ClientConfig::builder()
             .with_root_certificates(root_store)
             .with_no_client_auth();
-        let server_name = ServerName::try_from(host.to_string())
-            .map_err(|e| format!("server name: {:?}", e))?;
+        let server_name =
+            ServerName::try_from(host.to_string()).map_err(|e| format!("server name: {:?}", e))?;
         let conn = ClientConnection::new(Arc::new(config), server_name)
             .map_err(|e| format!("tls: {}", e))?;
         let tls = tokio_rustls::client::TlsStream::new(tcp, conn);
 
-        let (mut sender, connection) = h2::client::handshake(tls).await
+        let (mut sender, connection) = h2::client::handshake(tls)
+            .await
             .map_err(|e| format!("h2 handshake: {}", e))?;
-        tokio::spawn(async move { let _ = connection.await; });
+        tokio::spawn(async move {
+            let _ = connection.await;
+        });
 
         // Build the request.
-        let method = http::Method::from_bytes(method.as_bytes())
-            .map_err(|e| format!("method: {:?}", e))?;
+        let method =
+            http::Method::from_bytes(method.as_bytes()).map_err(|e| format!("method: {:?}", e))?;
         let mut builder = Request::builder()
             .method(method)
             .uri(path)
@@ -253,16 +260,18 @@ fn request_h2_real(
             builder = builder.header(k, v);
         }
         let request = if let Some(b) = body {
-            builder.body(b.to_string().into()).map_err(|e| format!("body: {:?}", e))?
+            builder
+                .body(b.to_string().into())
+                .map_err(|e| format!("body: {:?}", e))?
         } else {
             builder.body(()).map_err(|e| format!("no body: {:?}", e))?
         };
 
         // Send the request.
-        let (response, _stream) = sender.send_request(request, true)
+        let (response, _stream) = sender
+            .send_request(request, true)
             .map_err(|e| format!("send: {}", e))?;
-        let resp = response.await
-            .map_err(|e| format!("response: {}", e))?;
+        let resp = response.await.map_err(|e| format!("response: {}", e))?;
 
         let status = resp.status().as_u16();
         let mut body = String::new();
@@ -282,7 +291,8 @@ fn request_h2_real(
             }
         }
         Ok((status, body))
-    }).map_err(|e| format!("runtime: {}", e))
+    })
+    .map_err(|e| format!("runtime: {}", e))
 }
 
 /// HTTP/2 server push.
@@ -316,12 +326,15 @@ mod tests {
 
         let result = Arc::new(std::sync::Mutex::new(String::new()));
         let r = result.clone();
-        promise.then(move |v| {
-            if let PromiseValue::Resolved(ref val) = v {
-                *r.lock().unwrap() = val.clone();
-            }
-            v
-        }, el.clone());
+        promise.then(
+            move |v| {
+                if let PromiseValue::Resolved(ref val) = v {
+                    *r.lock().unwrap() = val.clone();
+                }
+                v
+            },
+            el.clone(),
+        );
         el.run();
         let result = result.lock().unwrap();
         assert!(result.starts_with("connected"), "got: {}", *result);
@@ -336,12 +349,15 @@ mod tests {
 
         let result = Arc::new(std::sync::Mutex::new(String::new()));
         let r = result.clone();
-        promise.then(move |v| {
-            if let PromiseValue::Resolved(ref val) = v {
-                *r.lock().unwrap() = val.clone();
-            }
-            v
-        }, el.clone());
+        promise.then(
+            move |v| {
+                if let PromiseValue::Resolved(ref val) = v {
+                    *r.lock().unwrap() = val.clone();
+                }
+                v
+            },
+            el.clone(),
+        );
         el.run();
         let result = result.lock().unwrap();
         assert!(result.starts_with("200|"), "expected 200, got: {}", *result);

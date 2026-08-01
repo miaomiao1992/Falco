@@ -44,12 +44,46 @@ impl fmt::Display for Token {
 }
 
 const KEYWORDS: &[&str] = &[
-    "var", "let", "const", "function", "return", "if", "else", "for",
-    "while", "do", "break", "continue", "true", "false", "null",
-    "undefined", "new", "this", "typeof", "instanceof", "in", "of",
-    "try", "catch", "finally", "throw", "switch", "case", "default",
-    "class", "extends", "super", "import", "export", "async", "await",
-    "yield", "delete", "void", "with",
+    "var",
+    "let",
+    "const",
+    "function",
+    "return",
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "break",
+    "continue",
+    "true",
+    "false",
+    "null",
+    "undefined",
+    "new",
+    "this",
+    "typeof",
+    "instanceof",
+    "in",
+    "of",
+    "try",
+    "catch",
+    "finally",
+    "throw",
+    "switch",
+    "case",
+    "default",
+    "class",
+    "extends",
+    "super",
+    "import",
+    "export",
+    "async",
+    "await",
+    "yield",
+    "delete",
+    "void",
+    "with",
 ];
 
 /// Check if a `/` should be treated as the start of a RegExp literal.
@@ -70,10 +104,22 @@ fn is_regex_context(tokens: &[Token]) -> bool {
             // After keywords like `return`, `typeof`, `new`, `in`, `of`,
             // `delete`, `void`, `instanceof`, `else`, `do`, `yield`, `await`,
             // `/` is a regex.
-            matches!(k.as_str(),
-                "return" | "typeof" | "new" | "in" | "of" | "delete" |
-                "void" | "instanceof" | "else" | "do" | "yield" | "await" |
-                "case" | "throw"
+            matches!(
+                k.as_str(),
+                "return"
+                    | "typeof"
+                    | "new"
+                    | "in"
+                    | "of"
+                    | "delete"
+                    | "void"
+                    | "instanceof"
+                    | "else"
+                    | "do"
+                    | "yield"
+                    | "await"
+                    | "case"
+                    | "throw"
             )
         }
         Token::Punct(c) => {
@@ -81,9 +127,14 @@ fn is_regex_context(tokens: &[Token]) -> bool {
             // `/` is a regex.
             matches!(c, '(' | ',' | ':' | '[' | '!' | '{' | ';')
         }
-        Token::Number(_) | Token::String(_) | Token::BigInt(_)
-        | Token::Boolean(_) | Token::Null | Token::Undefined
-        | Token::Identifier(_) | Token::PrivateIdentifier(_) => {
+        Token::Number(_)
+        | Token::String(_)
+        | Token::BigInt(_)
+        | Token::Boolean(_)
+        | Token::Null
+        | Token::Undefined
+        | Token::Identifier(_)
+        | Token::PrivateIdentifier(_) => {
             // After values and identifiers, `/` is division.
             false
         }
@@ -109,37 +160,50 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, String> {
         if c == '/' && i + 1 < chars.len() {
             if chars[i + 1] == '/' {
                 // Line comment — skip to end of line.
-                while i < chars.len() && chars[i] != '\n' { i += 1; }
+                while i < chars.len() && chars[i] != '\n' {
+                    i += 1;
+                }
                 continue;
             }
             if chars[i + 1] == '*' {
                 // Block comment — skip to */.
                 i += 2;
-                while i + 1 < chars.len() && !(chars[i] == '*' && chars[i + 1] == '/') { i += 1; }
+                while i + 1 < chars.len() && !(chars[i] == '*' && chars[i + 1] == '/') {
+                    i += 1;
+                }
                 i += 2;
                 continue;
             }
         }
 
         // Numbers: 123, 12.34, 0xFF, 1e10
-        if c.is_ascii_digit() || (c == '.' && i + 1 < chars.len() && chars[i + 1].is_ascii_digit()) {
+        if c.is_ascii_digit() || (c == '.' && i + 1 < chars.len() && chars[i + 1].is_ascii_digit())
+        {
             let start = i;
             // Hex: 0xFF
             if c == '0' && i + 1 < chars.len() && (chars[i + 1] == 'x' || chars[i + 1] == 'X') {
                 i += 2;
-                while i < chars.len() && chars[i].is_ascii_hexdigit() { i += 1; }
+                while i < chars.len() && chars[i].is_ascii_hexdigit() {
+                    i += 1;
+                }
                 let hex_str: String = chars[start + 2..i].iter().collect();
                 let n = u64::from_str_radix(&hex_str, 16).map_err(|e| e.to_string())?;
                 tokens.push(Token::Number(n as f64));
                 continue;
             }
             // Regular number.
-            while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '.') { i += 1; }
+            while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '.') {
+                i += 1;
+            }
             // Exponent: e+10, e-5
             if i < chars.len() && (chars[i] == 'e' || chars[i] == 'E') {
                 i += 1;
-                if i < chars.len() && (chars[i] == '+' || chars[i] == '-') { i += 1; }
-                while i < chars.len() && chars[i].is_ascii_digit() { i += 1; }
+                if i < chars.len() && (chars[i] == '+' || chars[i] == '-') {
+                    i += 1;
+                }
+                while i < chars.len() && chars[i].is_ascii_digit() {
+                    i += 1;
+                }
             }
             // BigInt suffix: 123n
             if i < chars.len() && chars[i] == 'n' {
@@ -209,7 +273,9 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, String> {
             i += 1; // skip opening backtick
             let mut s = String::new();
             loop {
-                if i >= chars.len() { break; }
+                if i >= chars.len() {
+                    break;
+                }
                 if chars[i] == '`' {
                     i += 1; // skip closing backtick
                     tokens.push(Token::String(s));
@@ -236,17 +302,25 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, String> {
                     // Emit a special marker: Punct('`') means "template expression start"
                     tokens.push(Token::Punct('`'));
                     i += 2; // skip ${}
-                    // Find matching }
+                            // Find matching }
                     let mut depth = 1;
-                    let mut expr_start = i;
+                    let expr_start = i;
                     while i < chars.len() && depth > 0 {
-                        if chars[i] == '{' { depth += 1; }
-                        if chars[i] == '}' { depth -= 1; }
-                        if depth > 0 { i += 1; }
+                        if chars[i] == '{' {
+                            depth += 1;
+                        }
+                        if chars[i] == '}' {
+                            depth -= 1;
+                        }
+                        if depth > 0 {
+                            i += 1;
+                        }
                     }
                     let expr_str: String = chars[expr_start..i].iter().collect();
-                    if i < chars.len() { i += 1; } // skip }
-                    // Tokenize the expression.
+                    if i < chars.len() {
+                        i += 1;
+                    } // skip }
+                      // Tokenize the expression.
                     let expr_tokens = tokenize(&expr_str)?;
                     // Skip the Eof token.
                     for t in expr_tokens {
@@ -267,7 +341,9 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, String> {
         // Identifiers and keywords.
         if c.is_alphabetic() || c == '_' || c == '$' {
             let start = i;
-            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '$') {
+            while i < chars.len()
+                && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '$')
+            {
                 i += 1;
             }
             let word: String = chars[start..i].iter().collect();
@@ -287,11 +363,15 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, String> {
 
         // Private field identifiers: #x, #method, #_private
         // Per spec, # must be followed by an identifier start char.
-        if c == '#' && i + 1 < chars.len()
-            && (chars[i + 1].is_alphabetic() || chars[i + 1] == '_' || chars[i + 1] == '$') {
+        if c == '#'
+            && i + 1 < chars.len()
+            && (chars[i + 1].is_alphabetic() || chars[i + 1] == '_' || chars[i + 1] == '$')
+        {
             i += 1; // skip '#'
             let start = i;
-            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '$') {
+            while i < chars.len()
+                && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '$')
+            {
                 i += 1;
             }
             let word: String = chars[start..i].iter().collect();
@@ -302,10 +382,9 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, String> {
         // Multi-character operators.
         let remaining: String = chars[i..].iter().collect();
         let multi_ops = [
-            "===", "!==", "==", "!=", "<=", ">=", "&&", "||", "++", "--",
-            "+=", "-=", "*=", "/=", "%=", "**=", "**", "<<", ">>", ">>>",
-            "<<=", ">>=", ">>>=", "&=", "|=", "^=", "??", "?.", "=>",
-            "...",
+            "===", "!==", "==", "!=", "<=", ">=", "&&", "||", "++", "--", "+=", "-=", "*=", "/=",
+            "%=", "**=", "**", "<<", ">>", ">>>", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "??",
+            "?.", "=>", "...",
         ];
         let mut found = false;
         for op in &multi_ops {
@@ -316,7 +395,9 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, String> {
                 break;
             }
         }
-        if found { continue; }
+        if found {
+            continue;
+        }
 
         // RegExp literal detection: `/pattern/flags`
         // A `/` is a regex if the previous token suggests we're at the start
@@ -331,14 +412,22 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, String> {
                     i += 2; // skip escaped char
                     continue;
                 }
-                if ch == '[' { in_class = true; }
-                if ch == ']' { in_class = false; }
-                if ch == '/' && !in_class { break; }
+                if ch == '[' {
+                    in_class = true;
+                }
+                if ch == ']' {
+                    in_class = false;
+                }
+                if ch == '/' && !in_class {
+                    break;
+                }
                 i += 1;
             }
             let pattern: String = chars[start..i].iter().collect();
-            if i < chars.len() { i += 1; } // skip closing /
-            // Read flags (g, i, m, s, u, y).
+            if i < chars.len() {
+                i += 1;
+            } // skip closing /
+              // Read flags (g, i, m, s, u, y).
             let mut flags = String::new();
             while i < chars.len() && "gimsuy".contains(chars[i]) {
                 flags.push(chars[i]);

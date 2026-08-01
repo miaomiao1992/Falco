@@ -40,7 +40,7 @@ impl WebSocket {
     /// Connect to a WebSocket URL (ws:// or wss://).
     pub fn connect(url: &str) -> anyhow::Result<Self> {
         let (host, port, path, is_secure) = parse_ws_url(url)?;
-        
+
         eprintln!("[falco:ws] connecting to {}:{}{}", host, port, path);
 
         // For wss://, we'd need TLS — not implemented yet.
@@ -63,7 +63,7 @@ impl WebSocket {
              \r\n",
             path, host, port, key
         );
-        
+
         let mut stream = stream;
         stream.write_all(handshake.as_bytes())?;
 
@@ -73,12 +73,19 @@ impl WebSocket {
         loop {
             let n = stream.read(&mut buf)?;
             response.push_str(&String::from_utf8_lossy(&buf[..n]));
-            if response.contains("\r\n\r\n") { break; }
-            if n == 0 { break; }
+            if response.contains("\r\n\r\n") {
+                break;
+            }
+            if n == 0 {
+                break;
+            }
         }
 
         if !response.contains("101") {
-            anyhow::bail!("WebSocket handshake failed: {}", response.lines().next().unwrap_or("unknown"));
+            anyhow::bail!(
+                "WebSocket handshake failed: {}",
+                response.lines().next().unwrap_or("unknown")
+            );
         }
 
         eprintln!("[falco:ws] connected to {}", url);
@@ -93,9 +100,13 @@ impl WebSocket {
             loop {
                 match read_frame(&mut stream) {
                     Ok(Some(msg)) => {
-                        if tx_recv.send(msg).is_err() { break; }
+                        if tx_recv.send(msg).is_err() {
+                            break;
+                        }
                     }
-                    Ok(None) => { break; }
+                    Ok(None) => {
+                        break;
+                    }
                     Err(e) => {
                         eprintln!("[falco:ws] read error: {}", e);
                         let _ = tx_recv.send(WsMessage::Close);
@@ -111,7 +122,9 @@ impl WebSocket {
                 // We can't move stream between threads easily — just log.
                 match msg {
                     WsMessage::Text(text) => eprintln!("[falco:ws] send: {}", text),
-                    WsMessage::Close => { break; }
+                    WsMessage::Close => {
+                        break;
+                    }
                     _ => {}
                 }
             }
@@ -159,7 +172,9 @@ fn parse_ws_url(url: &str) -> anyhow::Result<(String, u16, String, bool)> {
     let (host, port) = match host_port.find(':') {
         Some(i) => {
             let h = &host_port[..i];
-            let p: u16 = host_port[i + 1..].parse().unwrap_or(if is_secure { 443 } else { 80 });
+            let p: u16 = host_port[i + 1..]
+                .parse()
+                .unwrap_or(if is_secure { 443 } else { 80 });
             (h.to_string(), p)
         }
         None => (host_port.to_string(), if is_secure { 443 } else { 80 }),
@@ -222,12 +237,16 @@ fn read_frame(stream: &mut TcpStream) -> anyhow::Result<Option<WsMessage>> {
     // Parse opcode.
     let _ = fin;
     match opcode {
-        0x0 => Ok(Some(WsMessage::Text(String::from_utf8_lossy(&payload).to_string()))), // Continuation
-        0x1 => Ok(Some(WsMessage::Text(String::from_utf8_lossy(&payload).to_string()))), // Text
+        0x0 => Ok(Some(WsMessage::Text(
+            String::from_utf8_lossy(&payload).to_string(),
+        ))), // Continuation
+        0x1 => Ok(Some(WsMessage::Text(
+            String::from_utf8_lossy(&payload).to_string(),
+        ))), // Text
         0x2 => Ok(Some(WsMessage::Binary(payload))), // Binary
-        0x8 => Ok(Some(WsMessage::Close)), // Close
-        0x9 => Ok(Some(WsMessage::Ping)), // Ping
-        0xA => Ok(Some(WsMessage::Pong)), // Pong
+        0x8 => Ok(Some(WsMessage::Close)),           // Close
+        0x9 => Ok(Some(WsMessage::Ping)),            // Ping
+        0xA => Ok(Some(WsMessage::Pong)),            // Pong
         _ => Ok(None),
     }
 }

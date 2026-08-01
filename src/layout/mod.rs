@@ -2,14 +2,14 @@
 //!
 //! Computes positions and dimensions for every visible element.
 
-pub mod table;
 pub mod absolute;
-pub mod grid;
 pub mod float;
+pub mod grid;
+pub mod table;
 
 use crate::dom::Node;
-use crate::style::{StyleTree, ComputedStyle, Display, Length, EdgeSizes, BorderEdges, TextAlign};
 use crate::paint::PaintCommand;
+use crate::style::{BorderEdges, ComputedStyle, Display, EdgeSizes, Length, StyleTree};
 use std::collections::HashMap;
 
 /// A laid-out box. Modeled after the CSS box tree but kept simple.
@@ -70,7 +70,14 @@ pub enum BoxContent {
     /// An inline container — children flow horizontally and wrap.
     Inline(Vec<InlineItem>),
     /// A leaf — just text.
-    Text { text: String, color: crate::css::Color, font_size: f32, font_weight: u16, font_style: crate::style::FontStyle, font_family: String },
+    Text {
+        text: String,
+        color: crate::css::Color,
+        font_size: f32,
+        font_weight: u16,
+        font_style: crate::style::FontStyle,
+        font_family: String,
+    },
     /// An empty placeholder (e.g. `<br>`).
     Empty,
 }
@@ -89,7 +96,14 @@ pub struct Rect {
 }
 
 impl Rect {
-    pub fn new(x: f32, y: f32, w: f32, h: f32) -> Self { Self { x, y, width: w, height: h } }
+    pub fn new(x: f32, y: f32, w: f32, h: f32) -> Self {
+        Self {
+            x,
+            y,
+            width: w,
+            height: h,
+        }
+    }
 }
 
 /// Build the layout tree from the style tree, then compute positions
@@ -126,77 +140,85 @@ fn build_box(style_node: &StyleTree) -> LayoutBox {
                 }
                 BoxContent::Inline(items)
             } else if style.display == Display::Flex || style.display == Display::InlineFlex {
-                let children: Vec<LayoutBox> = style_node.children.iter()
+                let children: Vec<LayoutBox> = style_node
+                    .children
+                    .iter()
                     .filter(|c| c.style.display != Display::None)
-                    .filter(|c| {
-                        match c.node {
-                            Node::Text(t) => !t.text.trim().is_empty(),
-                            _ => true,
-                        }
+                    .filter(|c| match c.node {
+                        Node::Text(t) => !t.text.trim().is_empty(),
+                        _ => true,
                     })
                     .map(build_box)
                     .collect();
                 BoxContent::Flex(children)
-            } else if style.display == Display::Grid || style.display == Display::InlineGrid
-                   || style.property_store.contains_key("grid-template-columns")
-                   || style.property_store.contains_key("grid-template-rows") {
+            } else if style.display == Display::Grid
+                || style.display == Display::InlineGrid
+                || style.property_store.contains_key("grid-template-columns")
+                || style.property_store.contains_key("grid-template-rows")
+            {
                 // Grid container — detected by grid-template-* properties.
-                let children: Vec<LayoutBox> = style_node.children.iter()
+                let children: Vec<LayoutBox> = style_node
+                    .children
+                    .iter()
                     .filter(|c| c.style.display != Display::None)
-                    .filter(|c| {
-                        match c.node {
-                            Node::Text(t) => !t.text.trim().is_empty(),
-                            _ => true,
-                        }
+                    .filter(|c| match c.node {
+                        Node::Text(t) => !t.text.trim().is_empty(),
+                        _ => true,
                     })
                     .map(build_box)
                     .collect();
                 BoxContent::Grid(children)
             } else if style.display == Display::Table
-                   || style.display == Display::TableRow
-                   || style.display == Display::TableCell
-                   || style.display == Display::TableRowGroup
-                   || style.display == Display::TableHeaderGroup
-                   || style.display == Display::TableFooterGroup {
+                || style.display == Display::TableRow
+                || style.display == Display::TableCell
+                || style.display == Display::TableRowGroup
+                || style.display == Display::TableHeaderGroup
+                || style.display == Display::TableFooterGroup
+            {
                 // Table layout.
-                let children: Vec<LayoutBox> = style_node.children.iter()
+                let children: Vec<LayoutBox> = style_node
+                    .children
+                    .iter()
                     .filter(|c| c.style.display != Display::None)
-                    .filter(|c| {
-                        match c.node {
-                            Node::Text(t) => !t.text.trim().is_empty(),
-                            _ => true,
-                        }
+                    .filter(|c| match c.node {
+                        Node::Text(t) => !t.text.trim().is_empty(),
+                        _ => true,
                     })
                     .map(build_box)
                     .collect();
                 BoxContent::Table(children)
             } else {
-                let children: Vec<LayoutBox> = style_node.children.iter()
+                let children: Vec<LayoutBox> = style_node
+                    .children
+                    .iter()
                     .filter(|c| c.style.display != Display::None)
-                    .filter(|c| {
-                        match c.node {
-                            Node::Text(t) => !t.text.trim().is_empty(),
-                            _ => true,
-                        }
+                    .filter(|c| match c.node {
+                        Node::Text(t) => !t.text.trim().is_empty(),
+                        _ => true,
                     })
                     .map(build_box)
                     .collect();
                 BoxContent::Block(children)
             }
         }
-        Node::Text(t) => {
-            BoxContent::Text {
-                text: t.text.clone(),
-                color: style.color,
-                font_size: style.font_size,
-                font_weight: style.font_weight,
-                font_style: style.font_style,
-                font_family: style.font_family.clone(),
-            }
-        }
+        Node::Text(t) => BoxContent::Text {
+            text: t.text.clone(),
+            color: style.color,
+            font_size: style.font_size,
+            font_weight: style.font_weight,
+            font_style: style.font_style,
+            font_family: style.font_family.clone(),
+        },
         _ => BoxContent::Empty,
     };
-    LayoutBox { style, bounds: Rect::default(), content, tag, attrs, element_id: None }
+    LayoutBox {
+        style,
+        bounds: Rect::default(),
+        content,
+        tag,
+        attrs,
+        element_id: None,
+    }
 }
 
 fn collect_inline_items(style_node: &StyleTree, items: &mut Vec<InlineItem>) {
@@ -221,7 +243,9 @@ fn collect_inline_items(style_node: &StyleTree, items: &mut Vec<InlineItem>) {
             }
         }
         Node::Element(_) => {
-            if style_node.style.display == Display::None { return; }
+            if style_node.style.display == Display::None {
+                return;
+            }
             // For inline elements, recurse into children. For block elements
             // inside inline context (rare), we still recurse — the layout
             // engine will treat them as opaque text-width items.
@@ -247,7 +271,7 @@ pub fn layout_block_pub(box_node: &mut LayoutBox, ctx: &mut LayoutContext) {
 }
 
 fn layout_block(box_node: &mut LayoutBox, ctx: &mut LayoutContext) {
-    let mut ctx = LayoutContext {
+    let ctx = LayoutContext {
         viewport_width: ctx.viewport_width,
         x: ctx.x,
         y: ctx.y,
@@ -280,12 +304,23 @@ fn layout_block(box_node: &mut LayoutBox, ctx: &mut LayoutContext) {
         }
         Some(Length::Em(em)) => em * box_node.style.font_size,
         Some(Length::Vw(v)) => v * ctx.viewport_width / 100.0,
-        Some(Length::Vh(_)) | Some(Length::Auto) | None => {
-            (ctx.available_width - margin.left - margin.right - border.left - border.right - padding.left - padding.right).max(0.0)
-        }
+        Some(Length::Vh(_)) | Some(Length::Auto) | None => (ctx.available_width
+            - margin.left
+            - margin.right
+            - border.left
+            - border.right
+            - padding.left
+            - padding.right)
+            .max(0.0),
     };
 
-    let outer_width = inner_width + padding.left + padding.right + border.left + border.right + margin.left + margin.right;
+    let outer_width = inner_width
+        + padding.left
+        + padding.right
+        + border.left
+        + border.right
+        + margin.left
+        + margin.right;
 
     box_node.bounds.x = ctx.x + margin.left;
     box_node.bounds.y = ctx.y + margin.top;
@@ -322,13 +357,21 @@ fn layout_block(box_node: &mut LayoutBox, ctx: &mut LayoutContext) {
             let container_font_size = box_node.style.font_size;
             layout_flex_impl(
                 children,
-                child_x, child_y, child_width,
+                child_x,
+                child_y,
+                child_width,
                 ctx.viewport_width,
-                flex_direction, justify_content, align_items, gap,
-                container_height, container_padding_top, container_padding_bottom,
+                flex_direction,
+                justify_content,
+                align_items,
+                gap,
+                container_height,
+                container_padding_top,
+                container_padding_bottom,
                 container_font_size,
             );
-            let max_bottom = children.iter()
+            let max_bottom = children
+                .iter()
                 .map(|c| c.bounds.y + c.bounds.height)
                 .fold(child_y, f32::max);
             child_y = max_bottom;
@@ -338,11 +381,15 @@ fn layout_block(box_node: &mut LayoutBox, ctx: &mut LayoutContext) {
             let viewport_w = ctx.viewport_width;
             grid::layout_grid(
                 children,
-                child_x, child_y, child_width,
-                viewport_w, container_font_size,
+                child_x,
+                child_y,
+                child_width,
+                viewport_w,
+                container_font_size,
                 &box_node.style,
             );
-            let max_bottom = children.iter()
+            let max_bottom = children
+                .iter()
                 .map(|c| c.bounds.y + c.bounds.height)
                 .fold(child_y, f32::max);
             child_y = max_bottom;
@@ -368,7 +415,8 @@ fn layout_block(box_node: &mut LayoutBox, ctx: &mut LayoutContext) {
                             cell.bounds.height = 20.0;
                             let mut cell_ctx = LayoutContext {
                                 viewport_width: ctx.viewport_width,
-                                x: cell.bounds.x, y: cell.bounds.y,
+                                x: cell.bounds.x,
+                                y: cell.bounds.y,
                                 available_width: cell.bounds.width,
                                 containing_font_size: 16.0,
                             };
@@ -396,7 +444,10 @@ fn layout_block(box_node: &mut LayoutBox, ctx: &mut LayoutContext) {
 
             for item in items.iter_mut() {
                 if let InlineItem::Text(child_box) = item {
-                    if let BoxContent::Text { text, font_size, .. } = &child_box.content {
+                    if let BoxContent::Text {
+                        text, font_size, ..
+                    } = &child_box.content
+                    {
                         let font_size = *font_size;
                         let text = text.clone();
                         let words: Vec<&str> = text.split(' ').collect();
@@ -405,7 +456,9 @@ fn layout_block(box_node: &mut LayoutBox, ctx: &mut LayoutContext) {
                         for (i, word) in words.iter().enumerate() {
                             let word_width = measure_text(word, font_size);
                             if i > 0 {
-                                if current_x + space_width + word_width > child_x + wrap_width && current_x > child_x {
+                                if current_x + space_width + word_width > child_x + wrap_width
+                                    && current_x > child_x
+                                {
                                     y += line_max_ascent;
                                     current_x = child_x;
                                     line_max_ascent = line_height;
@@ -428,7 +481,9 @@ fn layout_block(box_node: &mut LayoutBox, ctx: &mut LayoutContext) {
             }
             child_y = y + line_max_ascent;
         }
-        BoxContent::Text { text, font_size, .. } => {
+        BoxContent::Text {
+            text, font_size, ..
+        } => {
             let line_height = box_node.style.line_height * *font_size;
             let words: Vec<&str> = text.split(' ').collect();
             let space_width = measure_char(' ', *font_size) * 0.3;
@@ -461,7 +516,8 @@ fn layout_block(box_node: &mut LayoutBox, ctx: &mut LayoutContext) {
             (child_y - (box_node.bounds.y + border.top + padding.top)).max(0.0)
         }
     };
-    box_node.bounds.height = content_height + padding.top + padding.bottom + border.top + border.bottom;
+    box_node.bounds.height =
+        content_height + padding.top + padding.bottom + border.top + border.bottom;
 
     let _ = outer_width;
     let _ = ctx;
@@ -474,10 +530,26 @@ pub fn border_widths_pub(b: &BorderEdges) -> EdgeSizes {
 
 fn border_widths(b: &BorderEdges) -> EdgeSizes {
     EdgeSizes {
-        left: if b.left.style != crate::style::BorderStyle::None { b.left.width } else { 0.0 },
-        right: if b.right.style != crate::style::BorderStyle::None { b.right.width } else { 0.0 },
-        top: if b.top.style != crate::style::BorderStyle::None { b.top.width } else { 0.0 },
-        bottom: if b.bottom.style != crate::style::BorderStyle::None { b.bottom.width } else { 0.0 },
+        left: if b.left.style != crate::style::BorderStyle::None {
+            b.left.width
+        } else {
+            0.0
+        },
+        right: if b.right.style != crate::style::BorderStyle::None {
+            b.right.width
+        } else {
+            0.0
+        },
+        top: if b.top.style != crate::style::BorderStyle::None {
+            b.top.width
+        } else {
+            0.0
+        },
+        bottom: if b.bottom.style != crate::style::BorderStyle::None {
+            b.bottom.width
+        } else {
+            0.0
+        },
     }
 }
 
@@ -520,10 +592,15 @@ fn layout_flex_impl(
     container_padding_bottom: f32,
     container_font_size: f32,
 ) {
-    use crate::style::{FlexDirection, JustifyContent, AlignItems};
-    let is_row = matches!(flex_direction, FlexDirection::Row | FlexDirection::RowReverse);
+    use crate::style::{AlignItems, FlexDirection, JustifyContent};
+    let is_row = matches!(
+        flex_direction,
+        FlexDirection::Row | FlexDirection::RowReverse
+    );
     let n = children.len();
-    if n == 0 { return; }
+    if n == 0 {
+        return;
+    }
 
     let mut bases = vec![0.0f32; n];
     let grows: Vec<f32> = children.iter().map(|c| c.style.flex_grow).collect();
@@ -537,51 +614,87 @@ fn layout_flex_impl(
                     Some(Length::Px(w)) => w,
                     Some(Length::Percent(p)) => available_width * p / 100.0,
                     _ => estimate_content_size(child, true),
-                }
+                },
             };
         } else {
             bases[i] = match &child.style.flex_basis {
                 Some(Length::Px(v)) => *v,
-                _ => match child.style.height { Some(Length::Px(h)) => h, _ => 0.0 },
+                _ => match child.style.height {
+                    Some(Length::Px(h)) => h,
+                    _ => 0.0,
+                },
             };
         }
     }
 
     let total_gap = gap * (n as f32 - 1.0).max(0.0);
     let total_base: f32 = bases.iter().sum();
-    let free_space = if is_row { available_width - total_base - total_gap } else { 0.0 };
+    let free_space = if is_row {
+        available_width - total_base - total_gap
+    } else {
+        0.0
+    };
     let total_grow: f32 = grows.iter().sum();
     let mut final_sizes = bases.clone();
     if is_row && free_space > 0.0 && total_grow > 0.0 {
-        for i in 0..n { final_sizes[i] += free_space * (grows[i] / total_grow); }
+        for i in 0..n {
+            final_sizes[i] += free_space * (grows[i] / total_grow);
+        }
     }
 
     let mut positions = vec![0.0f32; n];
     let mut current = 0.0f32;
     match justify_content {
         JustifyContent::FlexStart => {
-            for i in 0..n { positions[i] = current; current += final_sizes[i] + gap; }
+            for i in 0..n {
+                positions[i] = current;
+                current += final_sizes[i] + gap;
+            }
         }
         JustifyContent::FlexEnd => {
             let total: f32 = final_sizes.iter().sum::<f32>() + total_gap;
             current = if is_row { available_width - total } else { 0.0 };
-            for i in 0..n { positions[i] = current; current += final_sizes[i] + gap; }
+            for i in 0..n {
+                positions[i] = current;
+                current += final_sizes[i] + gap;
+            }
         }
         JustifyContent::Center => {
             let total: f32 = final_sizes.iter().sum::<f32>() + total_gap;
-            current = if is_row { (available_width - total) / 2.0 } else { 0.0 };
-            for i in 0..n { positions[i] = current; current += final_sizes[i] + gap; }
+            current = if is_row {
+                (available_width - total) / 2.0
+            } else {
+                0.0
+            };
+            for i in 0..n {
+                positions[i] = current;
+                current += final_sizes[i] + gap;
+            }
         }
         JustifyContent::SpaceBetween => {
             let total: f32 = final_sizes.iter().sum::<f32>();
-            let extra = if n > 1 && is_row { (available_width - total) / (n as f32 - 1.0) } else { gap };
-            for i in 0..n { positions[i] = current; current += final_sizes[i] + extra; }
+            let extra = if n > 1 && is_row {
+                (available_width - total) / (n as f32 - 1.0)
+            } else {
+                gap
+            };
+            for i in 0..n {
+                positions[i] = current;
+                current += final_sizes[i] + extra;
+            }
         }
         JustifyContent::SpaceAround | JustifyContent::SpaceEvenly => {
             let total: f32 = final_sizes.iter().sum::<f32>();
-            let space = if is_row { (available_width - total) / n as f32 } else { 0.0 };
+            let space = if is_row {
+                (available_width - total) / n as f32
+            } else {
+                0.0
+            };
             current = space / 2.0;
-            for i in 0..n { positions[i] = current; current += final_sizes[i] + space; }
+            for i in 0..n {
+                positions[i] = current;
+                current += final_sizes[i] + space;
+            }
         }
     }
 
@@ -592,8 +705,14 @@ fn layout_flex_impl(
 
     for (i, child) in children.iter_mut().enumerate() {
         let mut child_ctx = LayoutContext {
-            viewport_width, x: origin_x, y: origin_y,
-            available_width: if is_row { final_sizes[i] } else { available_width },
+            viewport_width,
+            x: origin_x,
+            y: origin_y,
+            available_width: if is_row {
+                final_sizes[i]
+            } else {
+                available_width
+            },
             containing_font_size: container_font_size,
         };
         if is_row {
@@ -607,21 +726,33 @@ fn layout_flex_impl(
                         child.bounds.height = container_inner_height;
                     }
                 }
-                AlignItems::Center => { child.bounds.y = origin_y + (cross_size - child.bounds.height) / 2.0; }
-                AlignItems::FlexEnd => { child.bounds.y = origin_y + cross_size - child.bounds.height; }
+                AlignItems::Center => {
+                    child.bounds.y = origin_y + (cross_size - child.bounds.height) / 2.0;
+                }
+                AlignItems::FlexEnd => {
+                    child.bounds.y = origin_y + cross_size - child.bounds.height;
+                }
             }
             child.bounds.x = origin_x + positions[i];
         } else {
             child_ctx.available_width = available_width;
             layout_block(child, &mut child_ctx);
-            if final_sizes[i] > 0.0 { child.bounds.height = final_sizes[i]; }
+            if final_sizes[i] > 0.0 {
+                child.bounds.height = final_sizes[i];
+            }
             child.bounds.y = origin_y + positions[i];
             match align_items {
-                AlignItems::Center => { child.bounds.x = origin_x + (available_width - child.bounds.width) / 2.0; }
-                AlignItems::FlexEnd => { child.bounds.x = origin_x + available_width - child.bounds.width; }
+                AlignItems::Center => {
+                    child.bounds.x = origin_x + (available_width - child.bounds.width) / 2.0;
+                }
+                AlignItems::FlexEnd => {
+                    child.bounds.x = origin_x + available_width - child.bounds.width;
+                }
                 _ => {
                     child.bounds.x = origin_x;
-                    if align_items == AlignItems::Stretch { child.bounds.width = available_width; }
+                    if align_items == AlignItems::Stretch {
+                        child.bounds.width = available_width;
+                    }
                 }
             }
         }
@@ -631,21 +762,32 @@ fn layout_flex_impl(
 /// Estimate the content size of a box (for auto-sized flex items).
 fn estimate_content_size(box_node: &LayoutBox, is_main_axis_horizontal: bool) -> f32 {
     match &box_node.content {
-        BoxContent::Text { text, font_size, .. } => {
-            if is_main_axis_horizontal { measure_text(text, *font_size) } else { *font_size * box_node.style.line_height }
+        BoxContent::Text {
+            text, font_size, ..
+        } => {
+            if is_main_axis_horizontal {
+                measure_text(text, *font_size)
+            } else {
+                *font_size * box_node.style.line_height
+            }
         }
         BoxContent::Inline(items) => {
             if is_main_axis_horizontal {
                 let mut total = 0.0;
                 for item in items {
                     if let InlineItem::Text(child) = item {
-                        if let BoxContent::Text { text, font_size, .. } = &child.content {
+                        if let BoxContent::Text {
+                            text, font_size, ..
+                        } = &child.content
+                        {
                             total += measure_text(text, *font_size);
                         }
                     }
                 }
                 total
-            } else { box_node.style.font_size * box_node.style.line_height }
+            } else {
+                box_node.style.font_size * box_node.style.line_height
+            }
         }
         _ => 0.0,
     }
@@ -668,11 +810,15 @@ fn paint_box(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
     let style = &box_node.style;
 
     // Skip invisible elements.
-    if style.opacity <= 0.0 { return; }
+    if style.opacity <= 0.0 {
+        return;
+    }
 
     // Special rendering for form controls.
-    let is_form_control = matches!(box_node.tag.as_deref(),
-        Some("input") | Some("button") | Some("textarea") | Some("select"));
+    let is_form_control = matches!(
+        box_node.tag.as_deref(),
+        Some("input") | Some("button") | Some("textarea") | Some("select")
+    );
 
     if is_form_control {
         paint_form_control(box_node, out);
@@ -695,7 +841,8 @@ fn paint_box(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
     // Special rendering for <video> elements — draw player UI with poster.
     if box_node.tag.as_deref() == Some("video") {
         let base_url = crate::image::get_base_url();
-        let player_cmds = crate::media::render_video_player(&box_node.bounds, &box_node.attrs, &base_url);
+        let player_cmds =
+            crate::media::render_video_player(&box_node.bounds, &box_node.attrs, &base_url);
         out.extend(player_cmds);
         return;
     }
@@ -723,10 +870,17 @@ fn paint_box(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
 
     // 2. Background (color or gradient).
     if style.background_color.a > 0 || style.background_image.is_some() {
-        if let Some(crate::style::BackgroundImage::LinearGradient { angle, stops }) = &style.background_image {
+        if let Some(crate::style::BackgroundImage::LinearGradient { angle, stops }) =
+            &style.background_image
+        {
             out.push(PaintCommand::Gradient {
-                x: b.x, y: b.y, w: b.width, h: b.height,
-                angle: *angle, stops: stops.clone(), opacity: style.opacity,
+                x: b.x,
+                y: b.y,
+                w: b.width,
+                h: b.height,
+                angle: *angle,
+                stops: stops.clone(),
+                opacity: style.opacity,
             });
         } else if style.background_color.a > 0 {
             let mut color = style.background_color;
@@ -734,8 +888,12 @@ fn paint_box(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
                 color.a = ((color.a as f32) * style.opacity) as u8;
             }
             out.push(PaintCommand::RoundedRect {
-                x: b.x, y: b.y, w: b.width, h: b.height,
-                color, radius: style.border_radius,
+                x: b.x,
+                y: b.y,
+                w: b.width,
+                h: b.height,
+                color,
+                radius: style.border_radius,
             });
         }
     }
@@ -744,32 +902,51 @@ fn paint_box(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
     let bw = border_widths(&style.border);
     if bw.top > 0.0 {
         out.push(PaintCommand::RoundedRect {
-            x: b.x, y: b.y, w: b.width, h: bw.top,
-            color: style.border.top.color, radius: Default::default(),
+            x: b.x,
+            y: b.y,
+            w: b.width,
+            h: bw.top,
+            color: style.border.top.color,
+            radius: Default::default(),
         });
     }
     if bw.bottom > 0.0 {
         out.push(PaintCommand::RoundedRect {
-            x: b.x, y: b.y + b.height - bw.bottom, w: b.width, h: bw.bottom,
-            color: style.border.bottom.color, radius: Default::default(),
+            x: b.x,
+            y: b.y + b.height - bw.bottom,
+            w: b.width,
+            h: bw.bottom,
+            color: style.border.bottom.color,
+            radius: Default::default(),
         });
     }
     if bw.left > 0.0 {
         out.push(PaintCommand::RoundedRect {
-            x: b.x, y: b.y, w: bw.left, h: b.height,
-            color: style.border.left.color, radius: Default::default(),
+            x: b.x,
+            y: b.y,
+            w: bw.left,
+            h: b.height,
+            color: style.border.left.color,
+            radius: Default::default(),
         });
     }
     if bw.right > 0.0 {
         out.push(PaintCommand::RoundedRect {
-            x: b.x + b.width - bw.right, y: b.y, w: bw.right, h: b.height,
-            color: style.border.right.color, radius: Default::default(),
+            x: b.x + b.width - bw.right,
+            y: b.y,
+            w: bw.right,
+            h: b.height,
+            color: style.border.right.color,
+            radius: Default::default(),
         });
     }
 
     // 4. Content.
     match &box_node.content {
-        BoxContent::Block(children) | BoxContent::Flex(children) | BoxContent::Grid(children) | BoxContent::Table(children) => {
+        BoxContent::Block(children)
+        | BoxContent::Flex(children)
+        | BoxContent::Grid(children)
+        | BoxContent::Table(children) => {
             for c in children {
                 paint_box(c, out);
             }
@@ -781,15 +958,25 @@ fn paint_box(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
                 }
             }
         }
-        BoxContent::Text { text, color, font_size, font_weight, font_style, font_family } => {
+        BoxContent::Text {
+            text,
+            color,
+            font_size,
+            font_weight,
+            font_style,
+            font_family,
+        } => {
             if !text.is_empty() {
                 let mut text_color = *color;
                 if style.opacity < 1.0 {
                     text_color.a = ((text_color.a as f32) * style.opacity) as u8;
                 }
                 out.push(PaintCommand::Text {
-                    x: b.x, y: b.y, text: text.clone(),
-                    color: text_color, font_size: *font_size,
+                    x: b.x,
+                    y: b.y,
+                    text: text.clone(),
+                    color: text_color,
+                    font_size: *font_size,
                     font_weight: *font_weight,
                     italic: *font_style == crate::style::FontStyle::Italic,
                     family: font_family.clone(),
@@ -804,13 +991,19 @@ fn paint_box(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
 fn paint_form_control(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
     let b = box_node.bounds;
     let tag = box_node.tag.as_deref().unwrap_or("");
-    let input_type = box_node.attrs.get("type").map(|s| s.as_str()).unwrap_or("text");
+    let input_type = box_node
+        .attrs
+        .get("type")
+        .map(|s| s.as_str())
+        .unwrap_or("text");
 
     // Use the box's own style (border, background) but provide defaults if unset.
     let style = &box_node.style;
     let bg_color = if style.background_color.a > 0 {
         style.background_color
-    } else if tag == "button" || (tag == "input" && (input_type == "submit" || input_type == "button")) {
+    } else if tag == "button"
+        || (tag == "input" && (input_type == "submit" || input_type == "button"))
+    {
         // Default button background: light grey.
         crate::css::Color::rgb(240, 240, 240)
     } else {
@@ -818,44 +1011,75 @@ fn paint_form_control(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
         crate::css::Color::rgb(255, 255, 255)
     };
 
-    let border_color = if style.border.top.color != crate::css::Color::TRANSPARENT && style.border.top.width > 0.0 {
+    let border_color = if style.border.top.color != crate::css::Color::TRANSPARENT
+        && style.border.top.width > 0.0
+    {
         style.border.top.color
     } else {
         crate::css::Color::rgb(170, 170, 170)
     };
-    let border_w = if style.border.top.width > 0.0 { style.border.top.width } else { 1.0 };
+    let border_w = if style.border.top.width > 0.0 {
+        style.border.top.width
+    } else {
+        1.0
+    };
 
     // 1. Background.
     out.push(PaintCommand::RoundedRect {
-        x: b.x, y: b.y, w: b.width, h: b.height,
-        color: bg_color, radius: style.border_radius,
+        x: b.x,
+        y: b.y,
+        w: b.width,
+        h: b.height,
+        color: bg_color,
+        radius: style.border_radius,
     });
 
     // 2. Border (1px on all sides if not already styled).
     out.push(PaintCommand::RoundedRect {
-        x: b.x, y: b.y, w: b.width, h: border_w,
-        color: border_color, radius: Default::default(),
+        x: b.x,
+        y: b.y,
+        w: b.width,
+        h: border_w,
+        color: border_color,
+        radius: Default::default(),
     });
     out.push(PaintCommand::RoundedRect {
-        x: b.x, y: b.y + b.height - border_w, w: b.width, h: border_w,
-        color: border_color, radius: Default::default(),
+        x: b.x,
+        y: b.y + b.height - border_w,
+        w: b.width,
+        h: border_w,
+        color: border_color,
+        radius: Default::default(),
     });
     out.push(PaintCommand::RoundedRect {
-        x: b.x, y: b.y, w: border_w, h: b.height,
-        color: border_color, radius: Default::default(),
+        x: b.x,
+        y: b.y,
+        w: border_w,
+        h: b.height,
+        color: border_color,
+        radius: Default::default(),
     });
     out.push(PaintCommand::RoundedRect {
-        x: b.x + b.width - border_w, y: b.y, w: border_w, h: b.height,
-        color: border_color, radius: Default::default(),
+        x: b.x + b.width - border_w,
+        y: b.y,
+        w: border_w,
+        h: b.height,
+        color: border_color,
+        radius: Default::default(),
     });
 
     // 3. Content — for input/button, show the value attribute as text.
     if tag == "input" {
         if input_type == "submit" || input_type == "button" {
             // Button text from value attribute (default "Submit").
-            let value = box_node.attrs.get("value").map(|s| s.as_str()).unwrap_or("Submit");
+            let value = box_node
+                .attrs
+                .get("value")
+                .map(|s| s.as_str())
+                .unwrap_or("Submit");
             out.push(PaintCommand::Text {
-                x: b.x + 12.0, y: b.y + (b.height - style.font_size) / 2.0,
+                x: b.x + 12.0,
+                y: b.y + (b.height - style.font_size) / 2.0,
                 text: value.to_string(),
                 color: style.color,
                 font_size: style.font_size,
@@ -863,9 +1087,17 @@ fn paint_form_control(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
                 italic: false,
                 family: style.font_family.clone(),
             });
-        } else if input_type == "text" || input_type == "password" || input_type == "email" || input_type == "search" {
+        } else if input_type == "text"
+            || input_type == "password"
+            || input_type == "email"
+            || input_type == "search"
+        {
             // Show the value attribute (this will be replaced by user input in interactive mode).
-            let value = box_node.attrs.get("value").map(|s| s.as_str()).unwrap_or("");
+            let value = box_node
+                .attrs
+                .get("value")
+                .map(|s| s.as_str())
+                .unwrap_or("");
             let display_value = if input_type == "password" {
                 "*".repeat(value.chars().count())
             } else {
@@ -873,7 +1105,8 @@ fn paint_form_control(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
             };
             if !display_value.is_empty() {
                 out.push(PaintCommand::Text {
-                    x: b.x + 8.0, y: b.y + (b.height - style.font_size) / 2.0,
+                    x: b.x + 8.0,
+                    y: b.y + (b.height - style.font_size) / 2.0,
                     text: display_value,
                     color: style.color,
                     font_size: style.font_size,
@@ -886,7 +1119,8 @@ fn paint_form_control(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
             if value.is_empty() {
                 if let Some(placeholder) = box_node.attrs.get("placeholder") {
                     out.push(PaintCommand::Text {
-                        x: b.x + 8.0, y: b.y + (b.height - style.font_size) / 2.0,
+                        x: b.x + 8.0,
+                        y: b.y + (b.height - style.font_size) / 2.0,
                         text: placeholder.clone(),
                         color: crate::css::Color::rgb(150, 150, 150),
                         font_size: style.font_size,
@@ -902,29 +1136,51 @@ fn paint_form_control(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
             let cx = b.x + (b.width - size) / 2.0;
             let cy = b.y + (b.height - size) / 2.0;
             out.push(PaintCommand::RoundedRect {
-                x: cx, y: cy, w: size, h: size,
+                x: cx,
+                y: cy,
+                w: size,
+                h: size,
                 color: crate::css::Color::rgb(255, 255, 255),
                 radius: Default::default(),
             });
             out.push(PaintCommand::RoundedRect {
-                x: cx, y: cy, w: size, h: 1.0,
-                color: crate::css::Color::rgb(100, 100, 100), radius: Default::default(),
+                x: cx,
+                y: cy,
+                w: size,
+                h: 1.0,
+                color: crate::css::Color::rgb(100, 100, 100),
+                radius: Default::default(),
             });
             out.push(PaintCommand::RoundedRect {
-                x: cx, y: cy + size - 1.0, w: size, h: 1.0,
-                color: crate::css::Color::rgb(100, 100, 100), radius: Default::default(),
+                x: cx,
+                y: cy + size - 1.0,
+                w: size,
+                h: 1.0,
+                color: crate::css::Color::rgb(100, 100, 100),
+                radius: Default::default(),
             });
             out.push(PaintCommand::RoundedRect {
-                x: cx, y: cy, w: 1.0, h: size,
-                color: crate::css::Color::rgb(100, 100, 100), radius: Default::default(),
+                x: cx,
+                y: cy,
+                w: 1.0,
+                h: size,
+                color: crate::css::Color::rgb(100, 100, 100),
+                radius: Default::default(),
             });
             out.push(PaintCommand::RoundedRect {
-                x: cx + size - 1.0, y: cy, w: 1.0, h: size,
-                color: crate::css::Color::rgb(100, 100, 100), radius: Default::default(),
+                x: cx + size - 1.0,
+                y: cy,
+                w: 1.0,
+                h: size,
+                color: crate::css::Color::rgb(100, 100, 100),
+                radius: Default::default(),
             });
             if box_node.attrs.contains_key("checked") {
                 out.push(PaintCommand::RoundedRect {
-                    x: cx + 3.0, y: cy + 3.0, w: size - 6.0, h: size - 6.0,
+                    x: cx + 3.0,
+                    y: cy + 3.0,
+                    w: size - 6.0,
+                    h: size - 6.0,
                     color: crate::css::Color::rgb(50, 120, 220),
                     radius: Default::default(),
                 });
@@ -936,7 +1192,8 @@ fn paint_form_control(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
         collect_text(box_node, &mut text);
         if !text.is_empty() {
             out.push(PaintCommand::Text {
-                x: b.x + 12.0, y: b.y + (b.height - style.font_size) / 2.0,
+                x: b.x + 12.0,
+                y: b.y + (b.height - style.font_size) / 2.0,
                 text,
                 color: style.color,
                 font_size: style.font_size,
@@ -946,10 +1203,15 @@ fn paint_form_control(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
             });
         }
     } else if tag == "textarea" {
-        let value = box_node.attrs.get("value").map(|s| s.as_str()).unwrap_or("");
+        let value = box_node
+            .attrs
+            .get("value")
+            .map(|s| s.as_str())
+            .unwrap_or("");
         if !value.is_empty() {
             out.push(PaintCommand::Text {
-                x: b.x + 8.0, y: b.y + 8.0,
+                x: b.x + 8.0,
+                y: b.y + 8.0,
                 text: value.to_string(),
                 color: style.color,
                 font_size: style.font_size,
@@ -966,7 +1228,9 @@ fn collect_text(box_node: &LayoutBox, out: &mut String) {
     match &box_node.content {
         BoxContent::Text { text, .. } => out.push_str(text),
         BoxContent::Block(children) | BoxContent::Flex(children) => {
-            for c in children { collect_text(c, out); }
+            for c in children {
+                collect_text(c, out);
+            }
         }
         BoxContent::Inline(items) => {
             for item in items {
@@ -989,19 +1253,27 @@ fn paint_image(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
     let src = box_node.attrs.get("src").map(|s| s.as_str()).unwrap_or("");
 
     // Determine display dimensions.
-    let display_w = match box_node.attrs.get("width").and_then(|w| w.parse::<f32>().ok()) {
+    let display_w = match box_node
+        .attrs
+        .get("width")
+        .and_then(|w| w.parse::<f32>().ok())
+    {
         Some(w) => w,
         None => match style.width {
             Some(Length::Px(w)) => w,
             _ => b.width.max(1.0),
-        }
+        },
     };
-    let display_h = match box_node.attrs.get("height").and_then(|h| h.parse::<f32>().ok()) {
+    let display_h = match box_node
+        .attrs
+        .get("height")
+        .and_then(|h| h.parse::<f32>().ok())
+    {
         Some(h) => h,
         None => match style.height {
             Some(Length::Px(h)) => h,
             _ => b.height.max(1.0),
-        }
+        },
     };
 
     if src.is_empty() {
@@ -1014,7 +1286,7 @@ fn paint_image(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
     let is_svg = src.ends_with(".svg")
         || src.starts_with("data:image/svg+xml")
         || src.starts_with("data:image/svg");
-    
+
     if is_svg {
         // Load SVG XML and render it.
         let svg_xml = if src.starts_with("data:image/svg+xml;base64,") {
@@ -1027,7 +1299,9 @@ fn paint_image(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
             }
         } else if src.starts_with("data:image/svg+xml,") {
             // URL-encoded SVG.
-            src.strip_prefix("data:image/svg+xml,").unwrap_or("").to_string()
+            src.strip_prefix("data:image/svg+xml,")
+                .unwrap_or("")
+                .to_string()
         } else {
             // Fetch from URL or read file.
             let base_url = crate::image::get_base_url();
@@ -1038,17 +1312,28 @@ fn paint_image(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
                 std::fs::read_to_string(&resolved).unwrap_or_default()
             }
         };
-        
+
         if !svg_xml.is_empty() {
             if let Some(doc) = crate::svg::parse_svg(&svg_xml) {
                 let canvas_w = display_w.max(1.0) as u32;
                 let canvas_h = display_h.max(1.0) as u32;
                 let mut svg_canvas = crate::paint::Canvas::new(canvas_w, canvas_h);
-                crate::svg::renderer::render_svg(&mut svg_canvas, &doc, 0.0, 0.0, display_w, display_h);
+                crate::svg::renderer::render_svg(
+                    &mut svg_canvas,
+                    &doc,
+                    0.0,
+                    0.0,
+                    display_w,
+                    display_h,
+                );
                 out.push(PaintCommand::Image {
-                    x: b.x, y: b.y, w: display_w, h: display_h,
+                    x: b.x,
+                    y: b.y,
+                    w: display_w,
+                    h: display_h,
                     image: crate::image::Image {
-                        width: canvas_w, height: canvas_h,
+                        width: canvas_w,
+                        height: canvas_h,
                         pixels: svg_canvas.pixels,
                     },
                 });
@@ -1065,8 +1350,10 @@ fn paint_image(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
     match crate::image::load_image(src, &base_url) {
         Some(img) => {
             out.push(PaintCommand::Image {
-                x: b.x, y: b.y,
-                w: display_w, h: display_h,
+                x: b.x,
+                y: b.y,
+                w: display_w,
+                h: display_h,
                 image: img,
             });
         }
@@ -1085,34 +1372,54 @@ fn draw_alt_text(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
 
     // Draw a light grey background box.
     out.push(PaintCommand::RoundedRect {
-        x: b.x, y: b.y, w: b.width, h: b.height,
+        x: b.x,
+        y: b.y,
+        w: b.width,
+        h: b.height,
         color: crate::css::Color::rgb(238, 238, 238),
         radius: Default::default(),
     });
 
     // Draw a 1px border.
     out.push(PaintCommand::RoundedRect {
-        x: b.x, y: b.y, w: b.width, h: 1.0,
-        color: crate::css::Color::rgb(200, 200, 200), radius: Default::default(),
+        x: b.x,
+        y: b.y,
+        w: b.width,
+        h: 1.0,
+        color: crate::css::Color::rgb(200, 200, 200),
+        radius: Default::default(),
     });
     out.push(PaintCommand::RoundedRect {
-        x: b.x, y: b.y + b.height - 1.0, w: b.width, h: 1.0,
-        color: crate::css::Color::rgb(200, 200, 200), radius: Default::default(),
+        x: b.x,
+        y: b.y + b.height - 1.0,
+        w: b.width,
+        h: 1.0,
+        color: crate::css::Color::rgb(200, 200, 200),
+        radius: Default::default(),
     });
     out.push(PaintCommand::RoundedRect {
-        x: b.x, y: b.y, w: 1.0, h: b.height,
-        color: crate::css::Color::rgb(200, 200, 200), radius: Default::default(),
+        x: b.x,
+        y: b.y,
+        w: 1.0,
+        h: b.height,
+        color: crate::css::Color::rgb(200, 200, 200),
+        radius: Default::default(),
     });
     out.push(PaintCommand::RoundedRect {
-        x: b.x + b.width - 1.0, y: b.y, w: 1.0, h: b.height,
-        color: crate::css::Color::rgb(200, 200, 200), radius: Default::default(),
+        x: b.x + b.width - 1.0,
+        y: b.y,
+        w: 1.0,
+        h: b.height,
+        color: crate::css::Color::rgb(200, 200, 200),
+        radius: Default::default(),
     });
 
     // Draw alt text if present.
     if let Some(alt) = box_node.attrs.get("alt") {
         if !alt.is_empty() {
             out.push(PaintCommand::Text {
-                x: b.x + 4.0, y: b.y + 4.0,
+                x: b.x + 4.0,
+                y: b.y + 4.0,
                 text: alt.clone(),
                 color: crate::css::Color::rgb(150, 150, 150),
                 font_size: 12.0,
@@ -1129,7 +1436,10 @@ fn paint_inline_svg(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
     let b = box_node.bounds;
     // Reconstruct the SVG XML from the layout box's children.
     // This is a simplified approach — we serialize the box tree back to SVG.
-    let mut svg_xml = format!("<svg width=\"{}\" height=\"{}\">", b.width as u32, b.height as u32);
+    let mut svg_xml = format!(
+        "<svg width=\"{}\" height=\"{}\">",
+        b.width as u32, b.height as u32
+    );
     serialize_svg_children(box_node, &mut svg_xml);
     svg_xml.push_str("</svg>");
 
@@ -1141,7 +1451,10 @@ fn paint_inline_svg(box_node: &LayoutBox, out: &mut Vec<PaintCommand>) {
         crate::svg::renderer::render_svg(&mut svg_canvas, &doc, 0.0, 0.0, b.width, b.height);
         // Convert canvas to Image and emit.
         out.push(PaintCommand::Image {
-            x: b.x, y: b.y, w: b.width, h: b.height,
+            x: b.x,
+            y: b.y,
+            w: b.width,
+            h: b.height,
             image: crate::image::Image {
                 width: canvas_w,
                 height: canvas_h,
@@ -1160,7 +1473,12 @@ fn serialize_svg_children(box_node: &LayoutBox, out: &mut String) {
                     match tag.as_str() {
                         "rect" => {
                             let fill = if c.style.background_color.a > 0 {
-                                format!("#{:02x}{:02x}{:02x}", c.style.background_color.r, c.style.background_color.g, c.style.background_color.b)
+                                format!(
+                                    "#{:02x}{:02x}{:02x}",
+                                    c.style.background_color.r,
+                                    c.style.background_color.g,
+                                    c.style.background_color.b
+                                )
                             } else {
                                 "none".to_string()
                             };
@@ -1174,12 +1492,19 @@ fn serialize_svg_children(box_node: &LayoutBox, out: &mut String) {
                             let cy = c.bounds.y + c.bounds.height / 2.0;
                             let r = c.bounds.width.min(c.bounds.height) / 2.0;
                             let fill = if c.style.background_color.a > 0 {
-                                format!("#{:02x}{:02x}{:02x}", c.style.background_color.r, c.style.background_color.g, c.style.background_color.b)
+                                format!(
+                                    "#{:02x}{:02x}{:02x}",
+                                    c.style.background_color.r,
+                                    c.style.background_color.g,
+                                    c.style.background_color.b
+                                )
                             } else {
                                 "none".to_string()
                             };
-                            out.push_str(&format!("<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{}\"/>",
-                                cx, cy, r, fill));
+                            out.push_str(&format!(
+                                "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{}\"/>",
+                                cx, cy, r, fill
+                            ));
                         }
                         _ => serialize_svg_children(c, out),
                     }

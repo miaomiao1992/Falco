@@ -93,9 +93,13 @@ impl WebGLContext {
             // has_backend is true only if we have a real glow::Context.
             has_backend: {
                 #[cfg(feature = "real-webgl")]
-                { gl.is_some() }
+                {
+                    gl.is_some()
+                }
                 #[cfg(not(feature = "real-webgl"))]
-                { false }
+                {
+                    false
+                }
             },
             width,
             height,
@@ -146,7 +150,8 @@ impl WebGLContext {
     }
 
     fn next_id(&self) -> u32 {
-        self.next_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        self.next_id
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
     /// createBuffer() — allocate a VBO.
@@ -156,24 +161,29 @@ impl WebGLContext {
         #[cfg(feature = "real-webgl")]
         {
             if let Some(gl) = &self.gl {
-                let gl_buf = unsafe { gl.create_buffer() }
-                    .unwrap_or(glow::Buffer::default());
-                self.buffers.lock().unwrap().insert(id, Buffer {
-                    data: Vec::new(),
-                    target: BufferTarget::Array,
-                    usage: BufferUsage::StaticDraw,
-                    #[cfg(feature = "real-webgl")]
-                    gl_buffer: Some(gl_buf),
-                });
+                let gl_buf = unsafe { gl.create_buffer() }.unwrap_or(glow::Buffer::default());
+                self.buffers.lock().unwrap().insert(
+                    id,
+                    Buffer {
+                        data: Vec::new(),
+                        target: BufferTarget::Array,
+                        usage: BufferUsage::StaticDraw,
+                        #[cfg(feature = "real-webgl")]
+                        gl_buffer: Some(gl_buf),
+                    },
+                );
                 return id;
             }
         }
 
-        self.buffers.lock().unwrap().insert(id, Buffer {
-            data: Vec::new(),
-            target: BufferTarget::Array,
-            usage: BufferUsage::StaticDraw,
-        });
+        self.buffers.lock().unwrap().insert(
+            id,
+            Buffer {
+                data: Vec::new(),
+                target: BufferTarget::Array,
+                usage: BufferUsage::StaticDraw,
+            },
+        );
         id
     }
 
@@ -184,7 +194,9 @@ impl WebGLContext {
             if let Some(gl) = &self.gl {
                 if let Some(buf) = self.buffers.lock().unwrap().get(&id) {
                     if let Some(gl_buf) = buf.gl_buffer {
-                        unsafe { gl.delete_buffer(gl_buf); }
+                        unsafe {
+                            gl.delete_buffer(gl_buf);
+                        }
                     }
                 }
             }
@@ -202,7 +214,9 @@ impl WebGLContext {
                 let gl_target = map_buffer_target(target);
                 if let Some(buf) = self.buffers.lock().unwrap().get(&buffer) {
                     if let Some(gl_buf) = buf.gl_buffer {
-                        unsafe { gl.bind_buffer(gl_target, Some(gl_buf)); }
+                        unsafe {
+                            gl.bind_buffer(gl_target, Some(gl_buf));
+                        }
                     }
                 }
             }
@@ -225,7 +239,9 @@ impl WebGLContext {
             if let Some(gl) = &self.gl {
                 let gl_target = map_buffer_target(target);
                 let gl_usage = map_buffer_usage_gl(usage);
-                unsafe { gl.buffer_data_u8_slice(gl_target, data, gl_usage); }
+                unsafe {
+                    gl.buffer_data_u8_slice(gl_target, data, gl_usage);
+                }
             }
         }
     }
@@ -238,26 +254,32 @@ impl WebGLContext {
         {
             if let Some(gl) = &self.gl {
                 let gl_type = map_shader_type(shader_type);
-                let gl_shader = unsafe { gl.create_shader(gl_type) }
-                    .unwrap_or(glow::Shader::default());
-                self.shaders.lock().unwrap().insert(id, Shader {
-                    shader_type,
-                    source: String::new(),
-                    compiled: false,
-                    info_log: String::new(),
-                    #[cfg(feature = "real-webgl")]
-                    gl_shader: Some(gl_shader),
-                });
+                let gl_shader =
+                    unsafe { gl.create_shader(gl_type) }.unwrap_or(glow::Shader::default());
+                self.shaders.lock().unwrap().insert(
+                    id,
+                    Shader {
+                        shader_type,
+                        source: String::new(),
+                        compiled: false,
+                        info_log: String::new(),
+                        #[cfg(feature = "real-webgl")]
+                        gl_shader: Some(gl_shader),
+                    },
+                );
                 return id;
             }
         }
 
-        self.shaders.lock().unwrap().insert(id, Shader {
-            shader_type,
-            source: String::new(),
-            compiled: false,
-            info_log: String::new(),
-        });
+        self.shaders.lock().unwrap().insert(
+            id,
+            Shader {
+                shader_type,
+                source: String::new(),
+                compiled: false,
+                info_log: String::new(),
+            },
+        );
         id
     }
 
@@ -272,7 +294,9 @@ impl WebGLContext {
             if let Some(gl) = &self.gl {
                 if let Some(s) = self.shaders.lock().unwrap().get(&shader) {
                     if let Some(gl_shader) = s.gl_shader {
-                        unsafe { gl.shader_source(gl_shader, source); }
+                        unsafe {
+                            gl.shader_source(gl_shader, source);
+                        }
                     }
                 }
             }
@@ -286,7 +310,9 @@ impl WebGLContext {
             if let Some(gl) = &self.gl {
                 if let Some(s) = self.shaders.lock().unwrap().get(&shader) {
                     if let Some(gl_shader) = s.gl_shader {
-                        unsafe { gl.compile_shader(gl_shader); }
+                        unsafe {
+                            gl.compile_shader(gl_shader);
+                        }
                         let compiled = unsafe { gl.get_shader_compile_status(gl_shader) };
                         let info_log = unsafe { gl.get_shader_info_log(gl_shader) };
                         if let Some(s) = self.shaders.lock().unwrap().get_mut(&shader) {
@@ -313,14 +339,20 @@ impl WebGLContext {
 
     /// getShaderParameter(shader, pname).
     pub fn get_shader_parameter(&self, shader: u32, _pname: u32) -> bool {
-        self.shaders.lock().unwrap().get(&shader)
+        self.shaders
+            .lock()
+            .unwrap()
+            .get(&shader)
             .map(|s| s.compiled)
             .unwrap_or(false)
     }
 
     /// getShaderInfoLog(shader).
     pub fn get_shader_info_log(&self, shader: u32) -> String {
-        self.shaders.lock().unwrap().get(&shader)
+        self.shaders
+            .lock()
+            .unwrap()
+            .get(&shader)
             .map(|s| s.info_log.clone())
             .unwrap_or_default()
     }
@@ -332,55 +364,77 @@ impl WebGLContext {
         #[cfg(feature = "real-webgl")]
         {
             if let Some(gl) = &self.gl {
-                let gl_program = unsafe { gl.create_program() }
-                    .unwrap_or(glow::Program::default());
-                self.programs.lock().unwrap().insert(id, Program {
-                    vertex_shader: None,
-                    fragment_shader: None,
-                    linked: false,
-                    info_log: String::new(),
-                    uniforms: HashMap::new(),
-                    attributes: HashMap::new(),
-                    #[cfg(feature = "real-webgl")]
-                    gl_program: Some(gl_program),
-                });
+                let gl_program = unsafe { gl.create_program() }.unwrap_or(glow::Program::default());
+                self.programs.lock().unwrap().insert(
+                    id,
+                    Program {
+                        vertex_shader: None,
+                        fragment_shader: None,
+                        linked: false,
+                        info_log: String::new(),
+                        uniforms: HashMap::new(),
+                        attributes: HashMap::new(),
+                        #[cfg(feature = "real-webgl")]
+                        gl_program: Some(gl_program),
+                    },
+                );
                 return id;
             }
         }
 
-        self.programs.lock().unwrap().insert(id, Program {
-            vertex_shader: None,
-            fragment_shader: None,
-            linked: false,
-            info_log: String::new(),
-            uniforms: HashMap::new(),
-            attributes: HashMap::new(),
-        });
+        self.programs.lock().unwrap().insert(
+            id,
+            Program {
+                vertex_shader: None,
+                fragment_shader: None,
+                linked: false,
+                info_log: String::new(),
+                uniforms: HashMap::new(),
+                attributes: HashMap::new(),
+            },
+        );
         id
     }
 
     /// attachShader(program, shader).
     pub fn attach_shader(&self, program: u32, shader: u32) {
-        let shader_type = self.shaders.lock().unwrap().get(&shader)
+        let shader_type = self
+            .shaders
+            .lock()
+            .unwrap()
+            .get(&shader)
             .map(|s| s.shader_type);
 
         #[cfg(feature = "real-webgl")]
         {
             if let Some(gl) = &self.gl {
-                let gl_program = self.programs.lock().unwrap().get(&program)
+                let gl_program = self
+                    .programs
+                    .lock()
+                    .unwrap()
+                    .get(&program)
                     .and_then(|p| p.gl_program);
-                let gl_shader = self.shaders.lock().unwrap().get(&shader)
+                let gl_shader = self
+                    .shaders
+                    .lock()
+                    .unwrap()
+                    .get(&shader)
                     .and_then(|s| s.gl_shader);
                 if let (Some(gl_prog), Some(gl_sh)) = (gl_program, gl_shader) {
-                    unsafe { gl.attach_shader(gl_prog, gl_sh); }
+                    unsafe {
+                        gl.attach_shader(gl_prog, gl_sh);
+                    }
                 }
             }
         }
 
         if let Some(st) = shader_type {
             if let Some(p) = self.programs.lock().unwrap().get_mut(&program) {
-                if st == 0x8B31 { p.vertex_shader = Some(shader); }
-                else if st == 0x8B30 { p.fragment_shader = Some(shader); }
+                if st == 0x8B31 {
+                    p.vertex_shader = Some(shader);
+                } else if st == 0x8B30 {
+                    p.fragment_shader = Some(shader);
+                }
             }
         }
     }
@@ -390,10 +444,16 @@ impl WebGLContext {
         #[cfg(feature = "real-webgl")]
         {
             if let Some(gl) = &self.gl {
-                let gl_program = self.programs.lock().unwrap().get(&program)
+                let gl_program = self
+                    .programs
+                    .lock()
+                    .unwrap()
+                    .get(&program)
                     .and_then(|p| p.gl_program);
                 if let Some(gl_prog) = gl_program {
-                    unsafe { gl.link_program(gl_prog); }
+                    unsafe {
+                        gl.link_program(gl_prog);
+                    }
                     let linked = unsafe { gl.get_program_link_status(gl_prog) };
                     let info_log = unsafe { gl.get_program_info_log(gl_prog) };
                     if let Some(p) = self.programs.lock().unwrap().get_mut(&program) {
@@ -423,23 +483,37 @@ impl WebGLContext {
         #[cfg(feature = "real-webgl")]
         {
             if let Some(gl) = &self.gl {
-                let gl_program = self.programs.lock().unwrap().get(&program)
+                let gl_program = self
+                    .programs
+                    .lock()
+                    .unwrap()
+                    .get(&program)
                     .and_then(|p| p.gl_program);
-                unsafe { gl.use_program(gl_program); }
+                unsafe {
+                    gl.use_program(gl_program);
+                }
             }
         }
     }
 
     /// clear(mask).
-    pub fn clear(&self, mask: u32) {
+    pub fn clear(&self, _mask: u32) {
         #[cfg(feature = "real-webgl")]
         {
             if let Some(gl) = &self.gl {
                 let mut gl_mask = 0;
-                if mask & 0x4000 != 0 { gl_mask |= glow::COLOR_BUFFER_BIT; }
-                if mask & 0x100 != 0 { gl_mask |= glow::DEPTH_BUFFER_BIT; }
-                if mask & 0x400 != 0 { gl_mask |= glow::STENCIL_BUFFER_BIT; }
-                unsafe { gl.clear(gl_mask); }
+                if mask & 0x4000 != 0 {
+                    gl_mask |= glow::COLOR_BUFFER_BIT;
+                }
+                if mask & 0x100 != 0 {
+                    gl_mask |= glow::DEPTH_BUFFER_BIT;
+                }
+                if mask & 0x400 != 0 {
+                    gl_mask |= glow::STENCIL_BUFFER_BIT;
+                }
+                unsafe {
+                    gl.clear(gl_mask);
+                }
             }
         }
     }
@@ -451,7 +525,9 @@ impl WebGLContext {
         #[cfg(feature = "real-webgl")]
         {
             if let Some(gl) = &self.gl {
-                unsafe { gl.clear_color(r, g, b, a); }
+                unsafe {
+                    gl.clear_color(r, g, b, a);
+                }
             }
         }
     }
@@ -463,30 +539,36 @@ impl WebGLContext {
         #[cfg(feature = "real-webgl")]
         {
             if let Some(gl) = &self.gl {
-                unsafe { gl.viewport(x, y, w, h); }
+                unsafe {
+                    gl.viewport(x, y, w, h);
+                }
             }
         }
     }
 
     /// drawArrays(mode, first, count).
-    pub fn draw_arrays(&self, mode: u32, first: i32, count: i32) {
+    pub fn draw_arrays(&self, _mode: u32, _first: i32, _count: i32) {
         #[cfg(feature = "real-webgl")]
         {
             if let Some(gl) = &self.gl {
                 let gl_mode = map_draw_mode(mode);
-                unsafe { gl.draw_arrays(gl_mode, first, count); }
+                unsafe {
+                    gl.draw_arrays(gl_mode, first, count);
+                }
             }
         }
     }
 
     /// drawElements(mode, count, type, offset).
-    pub fn draw_elements(&self, mode: u32, count: i32, type_: u32, offset: i64) {
+    pub fn draw_elements(&self, _mode: u32, _count: i32, _type_: u32, _offset: i64) {
         #[cfg(feature = "real-webgl")]
         {
             if let Some(gl) = &self.gl {
                 let gl_mode = map_draw_mode(mode);
                 let gl_type = map_data_type(type_);
-                unsafe { gl.draw_elements(gl_mode, count, gl_type, offset as i32); }
+                unsafe {
+                    gl.draw_elements(gl_mode, count, gl_type, offset as i32);
+                }
             }
         }
     }
@@ -604,7 +686,7 @@ fn create_gl_context() -> Result<glow::Context, String> {
 #[cfg(feature = "real-webgl")]
 fn map_buffer_target(target: u32) -> u32 {
     match target {
-        0x8892 => glow::ARRAY_BUFFER,        // ARRAY_BUFFER
+        0x8892 => glow::ARRAY_BUFFER,         // ARRAY_BUFFER
         0x8893 => glow::ELEMENT_ARRAY_BUFFER, // ELEMENT_ARRAY_BUFFER
         _ => glow::ARRAY_BUFFER,
     }
@@ -671,9 +753,8 @@ fn validate_glsl(source: &str, shader_type: u32) -> bool {
         return source.contains("void main") && source.contains("gl_Position");
     }
     if shader_type == 0x8B30 {
-        return source.contains("void main") && (
-            source.contains("gl_FragColor") || source.contains("out ")
-        );
+        return source.contains("void main")
+            && (source.contains("gl_FragColor") || source.contains("out "));
     }
     false
 }
@@ -695,7 +776,11 @@ mod tests {
         let id = gl.create_buffer();
         assert!(id > 0);
         gl.bind_buffer(gl.get_constant("ARRAY_BUFFER"), id);
-        gl.buffer_data(gl.get_constant("ARRAY_BUFFER"), &[0, 1, 2, 3], gl.get_constant("STATIC_DRAW"));
+        gl.buffer_data(
+            gl.get_constant("ARRAY_BUFFER"),
+            &[0, 1, 2, 3],
+            gl.get_constant("STATIC_DRAW"),
+        );
         gl.delete_buffer(id);
         assert_eq!(gl.buffers.lock().unwrap().len(), 0);
     }
@@ -704,7 +789,10 @@ mod tests {
     fn shader_compilation_valid() {
         let gl = WebGLContext::new(800, 600, false);
         let vs = gl.create_shader(gl.get_constant("VERTEX_SHADER"));
-        gl.shader_source(vs, "attribute vec2 pos; void main() { gl_Position = vec4(pos, 0, 1); }");
+        gl.shader_source(
+            vs,
+            "attribute vec2 pos; void main() { gl_Position = vec4(pos, 0, 1); }",
+        );
         gl.compile_shader(vs);
         // Without a real GL context, we use the fallback validator.
         assert!(gl.get_shader_parameter(vs, gl.get_constant("COMPILE_STATUS")));
@@ -723,7 +811,10 @@ mod tests {
     fn program_linking() {
         let gl = WebGLContext::new(800, 600, false);
         let vs = gl.create_shader(gl.get_constant("VERTEX_SHADER"));
-        gl.shader_source(vs, "attribute vec2 pos; void main() { gl_Position = vec4(pos, 0, 1); }");
+        gl.shader_source(
+            vs,
+            "attribute vec2 pos; void main() { gl_Position = vec4(pos, 0, 1); }",
+        );
         gl.compile_shader(vs);
 
         let fs = gl.create_shader(gl.get_constant("FRAGMENT_SHADER"));

@@ -47,26 +47,38 @@ pub enum SvgElement {
 
 #[derive(Debug, Clone)]
 pub struct SvgRect {
-    pub x: f32, pub y: f32, pub width: f32, pub height: f32,
-    pub rx: f32, pub ry: f32,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub rx: f32,
+    pub ry: f32,
     pub style: SvgStyle,
 }
 
 #[derive(Debug, Clone)]
 pub struct SvgCircle {
-    pub cx: f32, pub cy: f32, pub r: f32,
+    pub cx: f32,
+    pub cy: f32,
+    pub r: f32,
     pub style: SvgStyle,
 }
 
 #[derive(Debug, Clone)]
 pub struct SvgEllipse {
-    pub cx: f32, pub cy: f32, pub rx: f32, pub ry: f32,
+    pub cx: f32,
+    pub cy: f32,
+    pub rx: f32,
+    pub ry: f32,
     pub style: SvgStyle,
 }
 
 #[derive(Debug, Clone)]
 pub struct SvgLine {
-    pub x1: f32, pub y1: f32, pub x2: f32, pub y2: f32,
+    pub x1: f32,
+    pub y1: f32,
+    pub x2: f32,
+    pub y2: f32,
     pub style: SvgStyle,
 }
 
@@ -104,7 +116,8 @@ pub enum PathCommand {
 
 #[derive(Debug, Clone)]
 pub struct SvgText {
-    pub x: f32, pub y: f32,
+    pub x: f32,
+    pub y: f32,
     pub text: String,
     pub font_size: f32,
     pub font_weight: u16,
@@ -127,7 +140,11 @@ pub struct SvgTransform {
 
 impl Default for SvgTransform {
     fn default() -> Self {
-        Self { translate: (0.0, 0.0), scale: (1.0, 1.0), rotate: 0.0 }
+        Self {
+            translate: (0.0, 0.0),
+            scale: (1.0, 1.0),
+            rotate: 0.0,
+        }
     }
 }
 
@@ -188,7 +205,10 @@ pub fn parse_transform(s: &str) -> Option<SvgTransform> {
     if let Some(start) = s.find("translate(") {
         let rest = &s[start + 10..];
         if let Some(end) = rest.find(')') {
-            let args: Vec<f32> = rest[..end].split(',').filter_map(|x| x.trim().parse().ok()).collect();
+            let args: Vec<f32> = rest[..end]
+                .split(',')
+                .filter_map(|x| x.trim().parse().ok())
+                .collect();
             if args.len() >= 2 {
                 t.translate = (args[0], args[1]);
             } else if args.len() == 1 {
@@ -199,7 +219,10 @@ pub fn parse_transform(s: &str) -> Option<SvgTransform> {
     if let Some(start) = s.find("scale(") {
         let rest = &s[start + 6..];
         if let Some(end) = rest.find(')') {
-            let args: Vec<f32> = rest[..end].split(',').filter_map(|x| x.trim().parse().ok()).collect();
+            let args: Vec<f32> = rest[..end]
+                .split(',')
+                .filter_map(|x| x.trim().parse().ok())
+                .collect();
             if args.len() >= 2 {
                 t.scale = (args[0], args[1]);
             } else if args.len() == 1 {
@@ -210,7 +233,11 @@ pub fn parse_transform(s: &str) -> Option<SvgTransform> {
     if let Some(start) = s.find("rotate(") {
         let rest = &s[start + 7..];
         if let Some(end) = rest.find(')') {
-            let arg = rest[..end].trim().trim_end_matches("deg").parse().unwrap_or(0.0);
+            let arg = rest[..end]
+                .trim()
+                .trim_end_matches("deg")
+                .parse()
+                .unwrap_or(0.0);
             t.rotate = arg;
         }
     }
@@ -259,19 +286,25 @@ pub fn parse_path_d(d: &str) -> Vec<PathCommand> {
             'C' | 'c' => {
                 let nums = read_numbers(&mut chars, 6);
                 if nums.len() == 6 {
-                    commands.push(PathCommand::CubicBezier(nums[0], nums[1], nums[2], nums[3], nums[4], nums[5]));
+                    commands.push(PathCommand::CubicBezier(
+                        nums[0], nums[1], nums[2], nums[3], nums[4], nums[5],
+                    ));
                 }
             }
             'S' | 's' => {
                 let nums = read_numbers(&mut chars, 4);
                 if nums.len() == 4 {
-                    commands.push(PathCommand::SmoothCubicBezier(nums[0], nums[1], nums[2], nums[3]));
+                    commands.push(PathCommand::SmoothCubicBezier(
+                        nums[0], nums[1], nums[2], nums[3],
+                    ));
                 }
             }
             'Q' | 'q' => {
                 let nums = read_numbers(&mut chars, 4);
                 if nums.len() == 4 {
-                    commands.push(PathCommand::QuadraticBezier(nums[0], nums[1], nums[2], nums[3]));
+                    commands.push(PathCommand::QuadraticBezier(
+                        nums[0], nums[1], nums[2], nums[3],
+                    ));
                 }
             }
             'Z' | 'z' => {
@@ -289,14 +322,20 @@ pub fn parse_path_d(d: &str) -> Vec<PathCommand> {
 fn read_number(chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<f32> {
     // Skip whitespace and commas.
     while let Some(&c) = chars.peek() {
-        if c.is_whitespace() || c == ',' { chars.next(); } else { break; }
+        if c.is_whitespace() || c == ',' {
+            chars.next();
+        } else {
+            break;
+        }
     }
     let mut s = String::new();
     let mut has_digit = false;
     while let Some(&c) = chars.peek() {
         if c.is_ascii_digit() || c == '.' || c == '-' || c == '+' || c == 'e' || c == 'E' {
             s.push(c);
-            if c.is_ascii_digit() { has_digit = true; }
+            if c.is_ascii_digit() {
+                has_digit = true;
+            }
             chars.next();
         } else {
             break;
@@ -324,7 +363,8 @@ fn read_numbers(chars: &mut std::iter::Peekable<std::str::Chars>, count: usize) 
 /// Parse points attribute "10,20 30,40 50,60".
 pub fn parse_points(s: &str) -> Vec<(f32, f32)> {
     let mut points = Vec::new();
-    let nums: Vec<f32> = s.split(|c: char| c.is_whitespace() || c == ',')
+    let nums: Vec<f32> = s
+        .split(|c: char| c.is_whitespace() || c == ',')
         .filter(|s| !s.is_empty())
         .filter_map(|s| s.parse().ok())
         .collect();

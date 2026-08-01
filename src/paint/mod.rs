@@ -9,18 +9,54 @@ use crate::style::BorderRadius;
 #[derive(Debug, Clone)]
 pub enum PaintCommand {
     /// Filled rectangle (legacy, kept for compat).
-    Rect { x: f32, y: f32, w: f32, h: f32, color: Color },
+    Rect {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        color: Color,
+    },
     /// Filled rectangle with optional rounded corners.
-    RoundedRect { x: f32, y: f32, w: f32, h: f32, color: Color, radius: BorderRadius },
+    RoundedRect {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        color: Color,
+        radius: BorderRadius,
+    },
     /// Box shadow (blurred rect behind element).
-    Shadow { x: f32, y: f32, w: f32, h: f32, blur: f32, color: Color, opacity: f32 },
+    Shadow {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        blur: f32,
+        color: Color,
+        opacity: f32,
+    },
     /// Linear gradient fill.
-    Gradient { x: f32, y: f32, w: f32, h: f32, angle: f32, stops: Vec<(f32, Color)>, opacity: f32 },
+    Gradient {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        angle: f32,
+        stops: Vec<(f32, Color)>,
+        opacity: f32,
+    },
     /// Image (already loaded — pixel data is passed inline).
-    Image { x: f32, y: f32, w: f32, h: f32, image: crate::image::Image },
+    Image {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        image: crate::image::Image,
+    },
     /// Text (single line). x/y is the baseline-adjacent top-left.
     Text {
-        x: f32, y: f32,
+        x: f32,
+        y: f32,
         text: String,
         color: Color,
         font_size: f32,
@@ -39,12 +75,19 @@ pub struct Canvas {
 
 impl Canvas {
     pub fn new(width: u32, height: u32) -> Self {
-        Self { width, height, pixels: vec![0xFF; (width * height * 4) as usize] }
+        Self {
+            width,
+            height,
+            pixels: vec![0xFF; (width * height * 4) as usize],
+        }
     }
 
     pub fn clear_white(&mut self) {
         for px in self.pixels.chunks_exact_mut(4) {
-            px[0] = 255; px[1] = 255; px[2] = 255; px[3] = 255;
+            px[0] = 255;
+            px[1] = 255;
+            px[2] = 255;
+            px[3] = 255;
         }
     }
 
@@ -55,9 +98,13 @@ impl Canvas {
         let x1 = ((x + w).min(self.width as f32)).ceil() as i32;
         let y1 = ((y + h).min(self.height as f32)).ceil() as i32;
         for py in y0..y1 {
-            if py < 0 || py >= self.height as i32 { continue; }
+            if py < 0 || py >= self.height as i32 {
+                continue;
+            }
             for px in x0..x1 {
-                if px < 0 || px >= self.width as i32 { continue; }
+                if px < 0 || px >= self.width as i32 {
+                    continue;
+                }
                 let idx = ((py as u32 * self.width + px as u32) * 4) as usize;
                 blend(&mut self.pixels[idx..idx + 4], color);
             }
@@ -67,9 +114,21 @@ impl Canvas {
     /// Fill a rounded rect. Simple approach: fill the bounding rect, then
     /// carve out corners by drawing transparent circles. For small radii
     /// this looks good enough.
-    pub fn fill_rounded_rect(&mut self, x: f32, y: f32, w: f32, h: f32, color: Color, radius: BorderRadius) {
+    pub fn fill_rounded_rect(
+        &mut self,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        color: Color,
+        radius: BorderRadius,
+    ) {
         // If no radius, just fill a normal rect.
-        if radius.top_left == 0.0 && radius.top_right == 0.0 && radius.bottom_left == 0.0 && radius.bottom_right == 0.0 {
+        if radius.top_left == 0.0
+            && radius.top_right == 0.0
+            && radius.bottom_left == 0.0
+            && radius.bottom_right == 0.0
+        {
             self.fill_rect(x, y, w, h, color);
             return;
         }
@@ -79,9 +138,13 @@ impl Canvas {
         let x1 = ((x + w).min(self.width as f32)).ceil() as i32;
         let y1 = ((y + h).min(self.height as f32)).ceil() as i32;
         for py in y0..y1 {
-            if py < 0 || py >= self.height as i32 { continue; }
+            if py < 0 || py >= self.height as i32 {
+                continue;
+            }
             for px in x0..x1 {
-                if px < 0 || px >= self.width as i32 { continue; }
+                if px < 0 || px >= self.width as i32 {
+                    continue;
+                }
                 // Check corner regions.
                 let rel_x = px as f32 - x;
                 let rel_y = py as f32 - y;
@@ -90,27 +153,37 @@ impl Canvas {
                 if rel_x < radius.top_left && rel_y < radius.top_left {
                     let dx = radius.top_left - rel_x;
                     let dy = radius.top_left - rel_y;
-                    if dx * dx + dy * dy > radius.top_left * radius.top_left { skip = true; }
+                    if dx * dx + dy * dy > radius.top_left * radius.top_left {
+                        skip = true;
+                    }
                 }
                 // Top-right corner.
                 if rel_x > w - radius.top_right && rel_y < radius.top_right {
                     let dx = rel_x - (w - radius.top_right);
                     let dy = radius.top_right - rel_y;
-                    if dx * dx + dy * dy > radius.top_right * radius.top_right { skip = true; }
+                    if dx * dx + dy * dy > radius.top_right * radius.top_right {
+                        skip = true;
+                    }
                 }
                 // Bottom-left corner.
                 if rel_x < radius.bottom_left && rel_y > h - radius.bottom_left {
                     let dx = radius.bottom_left - rel_x;
                     let dy = rel_y - (h - radius.bottom_left);
-                    if dx * dx + dy * dy > radius.bottom_left * radius.bottom_left { skip = true; }
+                    if dx * dx + dy * dy > radius.bottom_left * radius.bottom_left {
+                        skip = true;
+                    }
                 }
                 // Bottom-right corner.
                 if rel_x > w - radius.bottom_right && rel_y > h - radius.bottom_right {
                     let dx = rel_x - (w - radius.bottom_right);
                     let dy = rel_y - (h - radius.bottom_right);
-                    if dx * dx + dy * dy > radius.bottom_right * radius.bottom_right { skip = true; }
+                    if dx * dx + dy * dy > radius.bottom_right * radius.bottom_right {
+                        skip = true;
+                    }
                 }
-                if skip { continue; }
+                if skip {
+                    continue;
+                }
                 let idx = ((py as u32 * self.width + px as u32) * 4) as usize;
                 blend(&mut self.pixels[idx..idx + 4], color);
             }
@@ -119,18 +192,25 @@ impl Canvas {
 
     /// Draw a single glyph (alpha mask) at (x, y), filled with `color`.
     pub fn draw_glyph(&mut self, x: i32, y: i32, glyph: &Glyph, color: Color) {
-        let w = glyph.width as i32;
-        let h = glyph.height as i32;
+        let w = glyph.width;
+        let h = glyph.height;
         for gy in 0..h {
             for gx in 0..w {
                 let alpha = glyph.mask[(gy * w + gx) as usize];
-                if alpha == 0 { continue; }
+                if alpha == 0 {
+                    continue;
+                }
                 let px = x + gx + glyph.offset_x;
                 let py = y + gy + glyph.offset_y;
-                if px < 0 || px >= self.width as i32 || py < 0 || py >= self.height as i32 { continue; }
+                if px < 0 || px >= self.width as i32 || py < 0 || py >= self.height as i32 {
+                    continue;
+                }
                 let idx = ((py as u32 * self.width + px as u32) * 4) as usize;
                 let a = (alpha as u32 * color.a as u32) / 255;
-                let c = Color { a: a as u8, ..color };
+                let c = Color {
+                    a: a as u8,
+                    ..color
+                };
                 blend(&mut self.pixels[idx..idx + 4], c);
             }
         }
@@ -138,7 +218,16 @@ impl Canvas {
 
     /// Draw a blurred shadow rect. Simple approach: draw the rect multiple
     /// times with decreasing alpha at increasing offsets.
-    pub fn draw_shadow(&mut self, x: f32, y: f32, w: f32, h: f32, blur: f32, color: Color, opacity: f32) {
+    pub fn draw_shadow(
+        &mut self,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        blur: f32,
+        color: Color,
+        opacity: f32,
+    ) {
         if blur <= 0.0 {
             let mut c = color;
             c.a = ((c.a as f32 * opacity) as u8).max(1);
@@ -151,15 +240,34 @@ impl Canvas {
             let t = i as f32 / passes as f32;
             let offset = blur * t;
             let alpha = (color.a as f32 * opacity * (1.0 - t) * 0.5) as u8;
-            if alpha == 0 { continue; }
+            if alpha == 0 {
+                continue;
+            }
             let c = Color { a: alpha, ..color };
-            self.fill_rect(x - offset, y - offset, w + offset * 2.0, h + offset * 2.0, c);
+            self.fill_rect(
+                x - offset,
+                y - offset,
+                w + offset * 2.0,
+                h + offset * 2.0,
+                c,
+            );
         }
     }
 
     /// Draw a linear gradient.
-    pub fn draw_gradient(&mut self, x: f32, y: f32, w: f32, h: f32, angle: f32, stops: &[(f32, Color)], opacity: f32) {
-        if stops.is_empty() { return; }
+    pub fn draw_gradient(
+        &mut self,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        angle: f32,
+        stops: &[(f32, Color)],
+        opacity: f32,
+    ) {
+        if stops.is_empty() {
+            return;
+        }
         let rad = (angle - 90.0).to_radians();
         let dx = rad.cos();
         let dy = rad.sin();
@@ -169,9 +277,13 @@ impl Canvas {
         let y1i = ((y + h).min(self.height as f32)).ceil() as i32;
         let len = (w * dx.abs() + h * dy.abs()).max(1.0);
         for py in y0i..y1i {
-            if py < 0 || py >= self.height as i32 { continue; }
+            if py < 0 || py >= self.height as i32 {
+                continue;
+            }
             for px in x0i..x1i {
-                if px < 0 || px >= self.width as i32 { continue; }
+                if px < 0 || px >= self.width as i32 {
+                    continue;
+                }
                 let rel_x = px as f32 - x;
                 let rel_y = py as f32 - y;
                 let proj = (rel_x * dx + rel_y * dy) / len;
@@ -185,10 +297,14 @@ impl Canvas {
                         color = lerp_color(c0, c1, local_t);
                         break;
                     }
-                    if t > p1 { color = c1; }
+                    if t > p1 {
+                        color = c1;
+                    }
                 }
                 let mut c = color;
-                if opacity < 1.0 { c.a = ((c.a as f32 * opacity) as u8).max(1); }
+                if opacity < 1.0 {
+                    c.a = ((c.a as f32 * opacity) as u8).max(1);
+                }
                 let idx = ((py as u32 * self.width + px as u32) * 4) as usize;
                 blend(&mut self.pixels[idx..idx + 4], c);
             }
@@ -206,15 +322,22 @@ fn lerp_color(a: Color, b: Color, t: f32) -> Color {
 }
 
 fn blend(dst: &mut [u8], src: Color) {
-    if src.a == 0 { return; }
+    if src.a == 0 {
+        return;
+    }
     if src.a == 255 {
-        dst[0] = src.r; dst[1] = src.g; dst[2] = src.b; dst[3] = 255;
+        dst[0] = src.r;
+        dst[1] = src.g;
+        dst[2] = src.b;
+        dst[3] = 255;
         return;
     }
     let sa = src.a as f32 / 255.0;
     let da = dst[3] as f32 / 255.0;
     let out_a = sa + da * (1.0 - sa);
-    if out_a == 0.0 { return; }
+    if out_a == 0.0 {
+        return;
+    }
     let out_r = (src.r as f32 * sa + dst[0] as f32 * da * (1.0 - sa)) / out_a;
     let out_g = (src.g as f32 * sa + dst[1] as f32 * da * (1.0 - sa)) / out_a;
     let out_b = (src.b as f32 * sa + dst[2] as f32 * da * (1.0 - sa)) / out_a;
@@ -267,36 +390,53 @@ impl FontRasterizer {
             "C:\\Windows\\Fonts\\cour.ttf",
             "C:\\Windows\\Fonts\\lucon.ttf",
         ];
-        let sans = load_font(&sans_paths)?;
-        let mono = load_font(&mono_paths).unwrap_or_else(|_| {
-            load_font(&sans_paths).expect("sans font must be loadable twice")
-        });
+        let sans = load_font(sans_paths)?;
+        let mono = load_font(mono_paths)
+            .unwrap_or_else(|_| load_font(sans_paths).expect("sans font must be loadable twice"));
         Ok(Self { sans, mono })
     }
 
-    pub fn rasterize(&self, c: char, size: f32, family: &str, bold: bool, italic: bool) -> Option<Glyph> {
+    pub fn rasterize(
+        &self,
+        c: char,
+        size: f32,
+        family: &str,
+        bold: bool,
+        italic: bool,
+    ) -> Option<Glyph> {
         use ab_glyph::{Font, FontVec, ScaleFont};
-        let font: &FontVec = if family.contains("mono") || family.contains("courier") || family.contains("consol") {
-            &self.mono
-        } else {
-            &self.sans
-        };
+        let font: &FontVec =
+            if family.contains("mono") || family.contains("courier") || family.contains("consol") {
+                &self.mono
+            } else {
+                &self.sans
+            };
         let scale = ab_glyph::PxScale::from(size);
         let _scaled = font.as_scaled(scale);
         let glyph_id = font.glyph_id(c);
-        if glyph_id.0 == 0 { return None; }
+        if glyph_id.0 == 0 {
+            return None;
+        }
         let glyph = glyph_id.with_scale_and_position(scale, ab_glyph::point(0.0, 0.0));
         if let Some(outline) = font.outline_glyph(glyph) {
             let bounds = outline.px_bounds();
             let mut width = bounds.width() as i32;
-            let mut height = bounds.height() as i32;
+            let height = bounds.height() as i32;
             if width <= 0 || height <= 0 {
-                return Some(Glyph { width: 1, height: 1, offset_x: 0, offset_y: 0, mask: vec![0] });
+                return Some(Glyph {
+                    width: 1,
+                    height: 1,
+                    offset_x: 0,
+                    offset_y: 0,
+                    mask: vec![0],
+                });
             }
             let mut mask = vec![0u8; (width * height) as usize];
             outline.draw(|x, y, cov| {
                 let idx = (y as i32 * width + x as i32) as usize;
-                if idx < mask.len() { mask[idx] = (cov * 255.0) as u8; }
+                if idx < mask.len() {
+                    mask[idx] = (cov * 255.0) as u8;
+                }
             });
             if italic {
                 let skew = (size * 0.2) as i32;
@@ -309,7 +449,9 @@ impl FontRasterizer {
                         if new_x < new_width {
                             let src_idx = (y * width + x) as usize;
                             let dst_idx = (y * new_width + new_x) as usize;
-                            if dst_idx < new_mask.len() { new_mask[dst_idx] = mask[src_idx]; }
+                            if dst_idx < new_mask.len() {
+                                new_mask[dst_idx] = mask[src_idx];
+                            }
                         }
                     }
                 }
@@ -324,22 +466,36 @@ impl FontRasterizer {
                         let src = mask[(y * width + x) as usize];
                         let dst_idx = (y * new_width + x) as usize;
                         let dst_idx2 = (y * new_width + x + 1) as usize;
-                        if dst_idx < new_mask.len() { new_mask[dst_idx] = new_mask[dst_idx].max(src); }
-                        if dst_idx2 < new_mask.len() { new_mask[dst_idx2] = new_mask[dst_idx2].max(src); }
+                        if dst_idx < new_mask.len() {
+                            new_mask[dst_idx] = new_mask[dst_idx].max(src);
+                        }
+                        if dst_idx2 < new_mask.len() {
+                            new_mask[dst_idx2] = new_mask[dst_idx2].max(src);
+                        }
                     }
                 }
                 width = new_width;
                 mask = new_mask;
             }
-            Some(Glyph { width, height, offset_x: bounds.min.x as i32, offset_y: bounds.min.y as i32, mask })
-        } else { None }
+            Some(Glyph {
+                width,
+                height,
+                offset_x: bounds.min.x as i32,
+                offset_y: bounds.min.y as i32,
+                mask,
+            })
+        } else {
+            None
+        }
     }
 }
 
 fn load_font(paths: &[&str]) -> anyhow::Result<ab_glyph::FontVec> {
     for p in paths {
         if let Ok(data) = std::fs::read(p) {
-            if let Ok(font) = ab_glyph::FontVec::try_from_vec(data) { return Ok(font); }
+            if let Ok(font) = ab_glyph::FontVec::try_from_vec(data) {
+                return Ok(font);
+            }
         }
     }
     // Last resort: try to find ANY .ttf file on the system.
@@ -361,7 +517,10 @@ fn try_load_dir(path: &std::path::Path) -> anyhow::Result<ab_glyph::FontVec> {
     if path.is_dir() {
         for entry in std::fs::read_dir(path)?.flatten() {
             let p = entry.path();
-            if p.extension().map(|e| e == "ttf" || e == "otf" || e == "TTF" || e == "OTF").unwrap_or(false) {
+            if p.extension()
+                .map(|e| e == "ttf" || e == "otf" || e == "TTF" || e == "OTF")
+                .unwrap_or(false)
+            {
                 if let Ok(data) = std::fs::read(&p) {
                     if let Ok(font) = ab_glyph::FontVec::try_from_vec(data) {
                         return Ok(font);
@@ -385,24 +544,57 @@ pub fn paint(commands: &[PaintCommand], canvas: &mut Canvas, rasterizer: &FontRa
             PaintCommand::Rect { x, y, w, h, color } => {
                 canvas.fill_rect(*x, *y, *w, *h, *color);
             }
-            PaintCommand::RoundedRect { x, y, w, h, color, radius } => {
+            PaintCommand::RoundedRect {
+                x,
+                y,
+                w,
+                h,
+                color,
+                radius,
+            } => {
                 canvas.fill_rounded_rect(*x, *y, *w, *h, *color, *radius);
             }
-            PaintCommand::Shadow { x, y, w, h, blur, color, opacity } => {
+            PaintCommand::Shadow {
+                x,
+                y,
+                w,
+                h,
+                blur,
+                color,
+                opacity,
+            } => {
                 canvas.draw_shadow(*x, *y, *w, *h, *blur, *color, *opacity);
             }
-            PaintCommand::Gradient { x, y, w, h, angle, stops, opacity } => {
+            PaintCommand::Gradient {
+                x,
+                y,
+                w,
+                h,
+                angle,
+                stops,
+                opacity,
+            } => {
                 canvas.draw_gradient(*x, *y, *w, *h, *angle, stops, *opacity);
             }
             PaintCommand::Image { x, y, w, h, image } => {
                 crate::image::draw_image_to_canvas(canvas, image, *x, *y, *w, *h);
             }
-            PaintCommand::Text { x, y, text, color, font_size, font_weight, italic, family } => {
+            PaintCommand::Text {
+                x,
+                y,
+                text,
+                color,
+                font_size,
+                font_weight,
+                italic,
+                family,
+            } => {
                 let mut cx = *x as i32;
                 let baseline = *y as i32 + (*font_size * 0.8) as i32;
                 let bold = *font_weight >= 600;
                 for c in text.chars() {
-                    if let Some(glyph) = rasterizer.rasterize(c, *font_size, family, bold, *italic) {
+                    if let Some(glyph) = rasterizer.rasterize(c, *font_size, family, bold, *italic)
+                    {
                         canvas.draw_glyph(cx, baseline, &glyph, *color);
                         cx += glyph.width + glyph.offset_x;
                     }

@@ -26,16 +26,14 @@
 //! macOS: not supported (would require sandboxd; we log a warning).
 //! Windows: not supported (would require restricted tokens).
 
-use std::collections::BTreeMap;
-
 #[cfg(all(target_os = "linux", feature = "sandbox"))]
 use seccompiler::{BpfProgram, SeccompAction, SeccompFilter, SeccompRule, TargetArch};
 
 #[cfg(all(target_os = "linux", feature = "sandbox"))]
 pub mod linux {
     use super::*;
-    use std::io;
     use std::convert::TryInto;
+    use std::io;
 
     /// Build a real seccomp-bpf filter for a renderer process.
     ///
@@ -62,8 +60,12 @@ pub mod linux {
 
         // === ALLOWED: Memory management ===
         for s in [
-            libc::SYS_mmap, libc::SYS_munmap, libc::SYS_mprotect,
-            libc::SYS_brk, libc::SYS_madvise, libc::SYS_mincore,
+            libc::SYS_mmap,
+            libc::SYS_munmap,
+            libc::SYS_mprotect,
+            libc::SYS_brk,
+            libc::SYS_madvise,
+            libc::SYS_mincore,
             libc::SYS_mremap,
         ] {
             syscalls.insert(s as i64, vec![]);
@@ -71,8 +73,11 @@ pub mod linux {
 
         // === ALLOWED: Thread management ===
         for s in [
-            libc::SYS_clone, libc::SYS_futex, libc::SYS_set_robust_list,
-            libc::SYS_get_robust_list, libc::SYS_sched_yield,
+            libc::SYS_clone,
+            libc::SYS_futex,
+            libc::SYS_set_robust_list,
+            libc::SYS_get_robust_list,
+            libc::SYS_sched_yield,
             libc::SYS_sched_getaffinity,
         ] {
             syscalls.insert(s as i64, vec![]);
@@ -80,30 +85,51 @@ pub mod linux {
 
         // === ALLOWED: File descriptors (only on already-open FDs) ===
         for s in [
-            libc::SYS_read, libc::SYS_write, libc::SYS_readv, libc::SYS_writev,
-            libc::SYS_close, libc::SYS_dup, libc::SYS_dup2, libc::SYS_dup3,
-            libc::SYS_lseek, libc::SYS_pread64, libc::SYS_pwrite64,
-            libc::SYS_fstat, libc::SYS_newfstatat, libc::SYS_stat,
-            libc::SYS_fcntl, libc::SYS_ioctl, libc::SYS_epoll_wait,
-            libc::SYS_epoll_ctl, libc::SYS_epoll_create1, libc::SYS_poll,
-            libc::SYS_ppoll, libc::SYS_pselect6,
+            libc::SYS_read,
+            libc::SYS_write,
+            libc::SYS_readv,
+            libc::SYS_writev,
+            libc::SYS_close,
+            libc::SYS_dup,
+            libc::SYS_dup2,
+            libc::SYS_dup3,
+            libc::SYS_lseek,
+            libc::SYS_pread64,
+            libc::SYS_pwrite64,
+            libc::SYS_fstat,
+            libc::SYS_newfstatat,
+            libc::SYS_stat,
+            libc::SYS_fcntl,
+            libc::SYS_ioctl,
+            libc::SYS_epoll_wait,
+            libc::SYS_epoll_ctl,
+            libc::SYS_epoll_create1,
+            libc::SYS_poll,
+            libc::SYS_ppoll,
+            libc::SYS_pselect6,
         ] {
             syscalls.insert(s as i64, vec![]);
         }
 
         // === ALLOWED: Time ===
         for s in [
-            libc::SYS_clock_gettime, libc::SYS_clock_getres,
-            libc::SYS_gettimeofday, libc::SYS_time, libc::SYS_nanosleep,
+            libc::SYS_clock_gettime,
+            libc::SYS_clock_getres,
+            libc::SYS_gettimeofday,
+            libc::SYS_time,
+            libc::SYS_nanosleep,
         ] {
             syscalls.insert(s as i64, vec![]);
         }
 
         // === ALLOWED: Signal handling ===
         for s in [
-            libc::SYS_rt_sigaction, libc::SYS_rt_sigprocmask,
-            libc::SYS_rt_sigreturn, libc::SYS_sigaltstack,
-            libc::SYS_rt_sigtimedwait, libc::SYS_rt_sigpending,
+            libc::SYS_rt_sigaction,
+            libc::SYS_rt_sigprocmask,
+            libc::SYS_rt_sigreturn,
+            libc::SYS_sigaltstack,
+            libc::SYS_rt_sigtimedwait,
+            libc::SYS_rt_sigpending,
             libc::SYS_rt_sigsuspend,
         ] {
             syscalls.insert(s as i64, vec![]);
@@ -111,17 +137,25 @@ pub mod linux {
 
         // === ALLOWED: IPC (for talking to browser process via shared FDs) ===
         for s in [
-            libc::SYS_recvmsg, libc::SYS_sendmsg, libc::SYS_recvfrom,
-            libc::SYS_sendto, libc::SYS_socketpair,
+            libc::SYS_recvmsg,
+            libc::SYS_sendmsg,
+            libc::SYS_recvfrom,
+            libc::SYS_sendto,
+            libc::SYS_socketpair,
         ] {
             syscalls.insert(s as i64, vec![]);
         }
 
         // === ALLOWED: Misc ===
         for s in [
-            libc::SYS_getpid, libc::SYS_gettid, libc::SYS_getrandom,
-            libc::SYS_getuid, libc::SYS_geteuid, libc::SYS_getgid,
-            libc::SYS_getegid, libc::SYS_getppid,
+            libc::SYS_getpid,
+            libc::SYS_gettid,
+            libc::SYS_getrandom,
+            libc::SYS_getuid,
+            libc::SYS_geteuid,
+            libc::SYS_getgid,
+            libc::SYS_getegid,
+            libc::SYS_getppid,
         ] {
             syscalls.insert(s as i64, vec![]);
         }
@@ -134,30 +168,27 @@ pub mod linux {
         // process via IPC.
 
         // Resolve target architecture.
-        let arch: TargetArch = std::env::consts::ARCH.try_into()
-            .map_err(|e| io::Error::new(
-                io::ErrorKind::Other,
-                format!("unsupported arch: {:?}", e)
-            ))?;
+        let arch: TargetArch = std::env::consts::ARCH.try_into().map_err(|e| {
+            io::Error::new(io::ErrorKind::Other, format!("unsupported arch: {:?}", e))
+        })?;
 
         // Build the SeccompFilter.
         let filter = SeccompFilter::new(
-            syscalls,
-            // mismatch_action: when no rule matches.
-            kill,
-            // match_action: when a rule matches.
-            allow,
-            arch,
-        ).map_err(|e| io::Error::new(
-            io::ErrorKind::Other,
-            format!("seccomp filter build: {:?}", e)
-        ))?;
+            syscalls, // mismatch_action: when no rule matches.
+            kill,     // match_action: when a rule matches.
+            allow, arch,
+        )
+        .map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("seccomp filter build: {:?}", e),
+            )
+        })?;
 
         // Compile to BPF program.
-        let bpf: BpfProgram = filter.try_into().map_err(|e| io::Error::new(
-            io::ErrorKind::Other,
-            format!("seccomp compile: {:?}", e)
-        ))?;
+        let bpf: BpfProgram = filter.try_into().map_err(|e| {
+            io::Error::new(io::ErrorKind::Other, format!("seccomp compile: {:?}", e))
+        })?;
         Ok(bpf)
     }
 
@@ -180,40 +211,77 @@ pub mod linux {
             }
         }
         // Load the BPF program into the kernel.
-        seccompiler::apply_filter(&bpf).map_err(|e| io::Error::new(
-            io::ErrorKind::Other,
-            format!("seccomp apply: {:?}", e)
-        ))
+        seccompiler::apply_filter(&bpf)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("seccomp apply: {:?}", e)))
     }
 
     /// Get the list of allowed syscalls (for inspection / testing).
     pub fn list_allowed_syscalls() -> Vec<i64> {
         vec![
-            libc::SYS_mmap, libc::SYS_munmap, libc::SYS_mprotect,
-            libc::SYS_brk, libc::SYS_madvise, libc::SYS_mincore,
+            libc::SYS_mmap,
+            libc::SYS_munmap,
+            libc::SYS_mprotect,
+            libc::SYS_brk,
+            libc::SYS_madvise,
+            libc::SYS_mincore,
             libc::SYS_mremap,
-            libc::SYS_clone, libc::SYS_futex, libc::SYS_set_robust_list,
-            libc::SYS_get_robust_list, libc::SYS_sched_yield,
+            libc::SYS_clone,
+            libc::SYS_futex,
+            libc::SYS_set_robust_list,
+            libc::SYS_get_robust_list,
+            libc::SYS_sched_yield,
             libc::SYS_sched_getaffinity,
-            libc::SYS_read, libc::SYS_write, libc::SYS_readv, libc::SYS_writev,
-            libc::SYS_close, libc::SYS_dup, libc::SYS_dup2, libc::SYS_dup3,
-            libc::SYS_lseek, libc::SYS_pread64, libc::SYS_pwrite64,
-            libc::SYS_fstat, libc::SYS_newfstatat, libc::SYS_stat,
-            libc::SYS_fcntl, libc::SYS_ioctl, libc::SYS_epoll_wait,
-            libc::SYS_epoll_ctl, libc::SYS_epoll_create1, libc::SYS_poll,
-            libc::SYS_ppoll, libc::SYS_pselect6,
-            libc::SYS_clock_gettime, libc::SYS_clock_getres,
-            libc::SYS_gettimeofday, libc::SYS_time, libc::SYS_nanosleep,
-            libc::SYS_rt_sigaction, libc::SYS_rt_sigprocmask,
-            libc::SYS_rt_sigreturn, libc::SYS_sigaltstack,
-            libc::SYS_rt_sigtimedwait, libc::SYS_rt_sigpending,
+            libc::SYS_read,
+            libc::SYS_write,
+            libc::SYS_readv,
+            libc::SYS_writev,
+            libc::SYS_close,
+            libc::SYS_dup,
+            libc::SYS_dup2,
+            libc::SYS_dup3,
+            libc::SYS_lseek,
+            libc::SYS_pread64,
+            libc::SYS_pwrite64,
+            libc::SYS_fstat,
+            libc::SYS_newfstatat,
+            libc::SYS_stat,
+            libc::SYS_fcntl,
+            libc::SYS_ioctl,
+            libc::SYS_epoll_wait,
+            libc::SYS_epoll_ctl,
+            libc::SYS_epoll_create1,
+            libc::SYS_poll,
+            libc::SYS_ppoll,
+            libc::SYS_pselect6,
+            libc::SYS_clock_gettime,
+            libc::SYS_clock_getres,
+            libc::SYS_gettimeofday,
+            libc::SYS_time,
+            libc::SYS_nanosleep,
+            libc::SYS_rt_sigaction,
+            libc::SYS_rt_sigprocmask,
+            libc::SYS_rt_sigreturn,
+            libc::SYS_sigaltstack,
+            libc::SYS_rt_sigtimedwait,
+            libc::SYS_rt_sigpending,
             libc::SYS_rt_sigsuspend,
-            libc::SYS_recvmsg, libc::SYS_sendmsg, libc::SYS_recvfrom,
-            libc::SYS_sendto, libc::SYS_socketpair,
-            libc::SYS_getpid, libc::SYS_gettid, libc::SYS_getrandom,
-            libc::SYS_getuid, libc::SYS_geteuid, libc::SYS_getgid,
-            libc::SYS_getegid, libc::SYS_getppid,
-        ].into_iter().map(|s| s as i64).collect()
+            libc::SYS_recvmsg,
+            libc::SYS_sendmsg,
+            libc::SYS_recvfrom,
+            libc::SYS_sendto,
+            libc::SYS_socketpair,
+            libc::SYS_getpid,
+            libc::SYS_gettid,
+            libc::SYS_getrandom,
+            libc::SYS_getuid,
+            libc::SYS_geteuid,
+            libc::SYS_getgid,
+            libc::SYS_getegid,
+            libc::SYS_getppid,
+        ]
+        .into_iter()
+        .map(|s| s as i64)
+        .collect()
     }
 }
 
@@ -317,10 +385,10 @@ pub fn apply_sandbox(config: &SandboxConfig) -> std::io::Result<()> {
 #[cfg(target_os = "windows")]
 mod windows {
     use std::io;
-    use winapi::um::jobapi2::*;
-    use winapi::um::winnt::*;
     use winapi::um::handleapi::INVALID_HANDLE_VALUE;
+    use winapi::um::jobapi2::*;
     use winapi::um::processthreadsapi::GetCurrentProcess;
+    use winapi::um::winnt::*;
 
     /// Apply Windows Job Object sandbox.
     ///
@@ -340,21 +408,19 @@ mod windows {
 
             // Set extended limit info.
             let mut ext_info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
-            ext_info.BasicLimitInformation.LimitFlags =
-                JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE |
-                JOB_OBJECT_LIMIT_ACTIVE_PROCESS |
-                JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION;
+            ext_info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+                | JOB_OBJECT_LIMIT_ACTIVE_PROCESS
+                | JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION;
             // Only allow 1 active process (prevent spawning children).
             ext_info.BasicLimitInformation.ActiveProcessLimit = 1;
 
             // Set UI restrictions.
             let mut ui_info: JOBOBJECT_BASIC_UI_RESTRICTIONS = std::mem::zeroed();
-            ui_info.UIRestrictionsClass =
-                JOB_OBJECT_UILIMIT_READCLIPBOARD |
-                JOB_OBJECT_UILIMIT_WRITECLIPBOARD |
-                JOB_OBJECT_UILIMIT_EXITWINDOWS |
-                JOB_OBJECT_UILIMIT_GLOBALATOMS |
-                JOB_OBJECT_UILIMIT_DISPLAYSETTINGS;
+            ui_info.UIRestrictionsClass = JOB_OBJECT_UILIMIT_READCLIPBOARD
+                | JOB_OBJECT_UILIMIT_WRITECLIPBOARD
+                | JOB_OBJECT_UILIMIT_EXITWINDOWS
+                | JOB_OBJECT_UILIMIT_GLOBALATOMS
+                | JOB_OBJECT_UILIMIT_DISPLAYSETTINGS;
 
             // Apply limits.
             let result = SetInformationJobObject(
@@ -425,7 +491,9 @@ mod macos {
             );
             if result != 0 {
                 let msg = if !error_buf.is_null() {
-                    std::ffi::CStr::from_ptr(error_buf).to_string_lossy().into_owned()
+                    std::ffi::CStr::from_ptr(error_buf)
+                        .to_string_lossy()
+                        .into_owned()
                 } else {
                     "unknown sandbox error".to_string()
                 };
@@ -451,7 +519,10 @@ pub fn describe_active_sandbox() -> String {
         let mut parts = Vec::new();
         parts.push("seccomp-bpf (real BPF program via seccompiler)".to_string());
         parts.push("capabilities dropped".to_string());
-        parts.push(format!("{} syscalls in allowlist", linux::list_allowed_syscalls().len()));
+        parts.push(format!(
+            "{} syscalls in allowlist",
+            linux::list_allowed_syscalls().len()
+        ));
         format!("Linux: {}", parts.join(", "))
     }
     #[cfg(target_os = "windows")]
@@ -512,7 +583,11 @@ mod tests {
         // Each BPF instruction is 8 bytes. We should have at least 10
         // instructions (allow list for ~50 syscalls typically compiles
         // to ~200 instructions).
-        assert!(bpf.len() > 10, "BPF program suspiciously small: {} instructions", bpf.len());
+        assert!(
+            bpf.len() > 10,
+            "BPF program suspiciously small: {} instructions",
+            bpf.len()
+        );
     }
 
     #[cfg(all(target_os = "linux", feature = "sandbox"))]

@@ -69,7 +69,10 @@ impl CspPolicy {
             return sources.clone();
         }
         // Fall back to default-src.
-        self.directives.get("default-src").cloned().unwrap_or_default()
+        self.directives
+            .get("default-src")
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Check if a source is allowed for a directive.
@@ -115,7 +118,9 @@ impl CspPolicy {
 
     fn host_matches(expr: &str, url: &str, page_origin: &Origin) -> bool {
         let url_origin = Origin::parse(url);
-        if url_origin.opaque { return false; }
+        if url_origin.opaque {
+            return false;
+        }
         // Strip scheme from expr if present.
         let (expr_scheme, expr_host) = if let Some(i) = expr.find("://") {
             (Some(&expr[..i]), &expr[i + 3..])
@@ -124,23 +129,31 @@ impl CspPolicy {
         };
         // Check scheme.
         if let Some(s) = expr_scheme {
-            if s != url_origin.scheme { return false; }
+            if s != url_origin.scheme {
+                return false;
+            }
         } else {
             // No scheme — inherit from page origin.
-            if url_origin.scheme != page_origin.scheme { return false; }
+            if url_origin.scheme != page_origin.scheme {
+                return false;
+            }
         }
         // Check host (with wildcard support).
         let expr_host = expr_host.trim_end_matches('/');
         if expr_host.starts_with("*.") {
             let suffix = &expr_host[1..]; // ".example.com"
-            return url_origin.host.ends_with(suffix) || url_origin.host == &expr_host[2..];
+            return url_origin.host.ends_with(suffix) || url_origin.host == expr_host[2..];
         }
-        if expr_host != url_origin.host { return false; }
+        if expr_host != url_origin.host {
+            return false;
+        }
         // Check port (if specified in expr).
         if let Some(colon) = expr_host.find(':') {
             let port_str = &expr_host[colon + 1..];
             if let Ok(port) = port_str.parse::<u16>() {
-                if url_origin.port != Some(port) { return false; }
+                if url_origin.port != Some(port) {
+                    return false;
+                }
             }
         }
         true
@@ -150,13 +163,21 @@ impl CspPolicy {
     /// or a nonce/hash matches).
     pub fn allows_inline_script(&self, nonce: Option<&str>, hash: Option<&str>) -> bool {
         let sources = self.get_sources("script-src");
-        if sources.is_empty() { return true; }
-        if sources.iter().any(|s| s == "'unsafe-inline'") { return true; }
+        if sources.is_empty() {
+            return true;
+        }
+        if sources.iter().any(|s| s == "'unsafe-inline'") {
+            return true;
+        }
         if let Some(n) = nonce {
-            if sources.iter().any(|s| s == &format!("'nonce-{}'", n)) { return true; }
+            if sources.iter().any(|s| s == &format!("'nonce-{}'", n)) {
+                return true;
+            }
         }
         if let Some(h) = hash {
-            if sources.iter().any(|s| s == &format!("'{}'", h)) { return true; }
+            if sources.iter().any(|s| s == &format!("'{}'", h)) {
+                return true;
+            }
         }
         false
     }
@@ -164,7 +185,9 @@ impl CspPolicy {
     /// Check if `eval()` is allowed.
     pub fn allows_eval(&self) -> bool {
         let sources = self.get_sources("script-src");
-        if sources.is_empty() { return true; }
+        if sources.is_empty() {
+            return true;
+        }
         sources.iter().any(|s| s == "'unsafe-eval'")
     }
 
@@ -193,7 +216,11 @@ pub struct CspViolationReport {
 ///
 /// This is the entry point for #91 — Content Security for javascript: URLs.
 /// Returns Ok(()) if the URL is allowed, or an error describing why.
-pub fn check_javascript_url(url: &str, policy: &CspPolicy, page_origin: &Origin) -> Result<(), CspViolation> {
+pub fn check_javascript_url(
+    url: &str,
+    policy: &CspPolicy,
+    page_origin: &Origin,
+) -> Result<(), CspViolation> {
     if !url.starts_with("javascript:") {
         return Ok(()); // Not a javascript: URL — nothing to check.
     }
@@ -255,10 +282,12 @@ pub fn is_safe_attribute(tag: &str, attr_name: &str, attr_value: &str) -> bool {
         return false;
     }
     // Block javascript: URLs in href/src/action/etc.
-    if matches!(name_lower.as_str(), "href" | "src" | "action" | "formaction" | "data" | "xlink:href") {
-        if attr_value.trim().to_lowercase().starts_with("javascript:") {
-            return false;
-        }
+    if matches!(
+        name_lower.as_str(),
+        "href" | "src" | "action" | "formaction" | "data" | "xlink:href"
+    ) && attr_value.trim().to_lowercase().starts_with("javascript:")
+    {
+        return false;
     }
     // Block `style` attribute with `expression()` (IE legacy).
     if name_lower == "style" && attr_value.contains("expression(") {
@@ -282,7 +311,10 @@ mod tests {
     fn parses_csp_header() {
         let p = CspPolicy::parse("default-src 'self'; script-src 'self' https://cdn.example.com");
         assert_eq!(p.get_sources("default-src"), vec!["'self'"]);
-        assert_eq!(p.get_sources("script-src"), vec!["'self'", "https://cdn.example.com"]);
+        assert_eq!(
+            p.get_sources("script-src"),
+            vec!["'self'", "https://cdn.example.com"]
+        );
     }
 
     #[test]
@@ -406,7 +438,11 @@ mod tests {
 
     #[test]
     fn blocks_expression_in_style() {
-        assert!(!is_safe_attribute("div", "style", "width: expression(alert(1))"));
+        assert!(!is_safe_attribute(
+            "div",
+            "style",
+            "width: expression(alert(1))"
+        ));
         assert!(is_safe_attribute("div", "style", "color: red"));
     }
 }

@@ -18,43 +18,40 @@
 //! * **Permission abuse** — a site requests camera/mic without consent.
 //!   Permission model requires user approval.
 
+pub mod cert;
+pub mod csp;
+pub mod devtools;
+pub mod extensions;
 pub mod origin;
+pub mod permissions;
 pub mod process;
 pub mod sandbox;
-pub mod csp;
-pub mod cert;
-pub mod permissions;
-pub mod extensions;
-pub mod devtools;
 
-pub use origin::{Origin, SopError, check_same_origin, check_cors, check_navigation, registrable_domain};
-pub use process::{
-    Process, ProcessId, ProcessKind, ProcessManager, CrashPolicy, CrashAction,
-    SiteIsolationPolicy, should_share_process,
-};
-pub use sandbox::{SandboxConfig, apply_sandbox, describe_active_sandbox};
-pub use csp::{
-    CspPolicy, CspViolation, CspViolationReport,
-    check_javascript_url, escape_html,
-    is_safe_for_inner_html, is_safe_attribute,
-};
 pub use cert::{
-    Certificate, TrustStore, CertError,
-    validate_chain, check_ocsp, PinStore, CtLog, check_ct,
+    check_ct, check_ocsp, validate_chain, CertError, Certificate, CtLog, PinStore, TrustStore,
 };
-pub use permissions::{
-    Permission, PermissionState, PermissionSource, PermissionEntry,
-    PermissionRegistry, IframeAllow,
-};
-pub use extensions::{
-    ExtensionManifest, Extension, ExtensionRegistry,
-    ContentScriptConfig, BackgroundConfig, ActionConfig,
-    match_pattern,
+pub use csp::{
+    check_javascript_url, escape_html, is_safe_attribute, is_safe_for_inner_html, CspPolicy,
+    CspViolation, CspViolationReport,
 };
 pub use devtools::{
-    DevToolsServer, Request, Response, Event, RpcError, ConsoleMessage,
-    RemoteObject,
+    ConsoleMessage, DevToolsServer, Event, RemoteObject, Request, Response, RpcError,
 };
+pub use extensions::{
+    match_pattern, ActionConfig, BackgroundConfig, ContentScriptConfig, Extension,
+    ExtensionManifest, ExtensionRegistry,
+};
+pub use origin::{
+    check_cors, check_navigation, check_same_origin, registrable_domain, Origin, SopError,
+};
+pub use permissions::{
+    IframeAllow, Permission, PermissionEntry, PermissionRegistry, PermissionSource, PermissionState,
+};
+pub use process::{
+    should_share_process, CrashAction, CrashPolicy, Process, ProcessId, ProcessKind,
+    ProcessManager, SiteIsolationPolicy,
+};
+pub use sandbox::{apply_sandbox, describe_active_sandbox, SandboxConfig};
 
 #[cfg(test)]
 mod integration_tests {
@@ -172,24 +169,40 @@ mod integration_tests {
             content_security_policy: None,
         };
         reg.install(manifest, std::path::PathBuf::from("/tmp/adblock"));
-        assert_eq!(reg.content_scripts_for_url("https://www.example.com/page").len(), 1);
-        assert_eq!(reg.content_scripts_for_url("https://other.com/page").len(), 0);
+        assert_eq!(
+            reg.content_scripts_for_url("https://www.example.com/page")
+                .len(),
+            1
+        );
+        assert_eq!(
+            reg.content_scripts_for_url("https://other.com/page").len(),
+            0
+        );
     }
 
     /// DevTools protocol rejects requests until enabled.
     #[test]
     fn devtools_requires_enable_first() {
         let mut s = DevToolsServer::new();
-        let req = Request { id: 1, method: "Page.navigate".into(), params: devtools::serde_json_lite::Value::Null };
+        let req = Request {
+            id: 1,
+            method: "Page.navigate".into(),
+            params: devtools::serde_json_lite::Value::Null,
+        };
         let resp = s.handle_request(req);
         assert!(resp.error.is_some());
         s.enable();
-        let req2 = Request { id: 2, method: "Page.navigate".into(),
+        let req2 = Request {
+            id: 2,
+            method: "Page.navigate".into(),
             params: devtools::serde_json_lite::Value::Object({
                 let mut m = std::collections::HashMap::new();
-                m.insert("url".to_string(), devtools::serde_json_lite::Value::String("https://x.com".into()));
+                m.insert(
+                    "url".to_string(),
+                    devtools::serde_json_lite::Value::String("https://x.com".into()),
+                );
                 m
-            })
+            }),
         };
         let resp2 = s.handle_request(req2);
         assert!(resp2.result.is_some());

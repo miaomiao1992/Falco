@@ -13,7 +13,11 @@ pub fn resolve_redirect(original_url: &str, location: &str) -> String {
     }
     // Protocol-relative URL (//example.com/path).
     if location.starts_with("//") {
-        let scheme = if original_url.starts_with("https://") { "https:" } else { "http:" };
+        let scheme = if original_url.starts_with("https://") {
+            "https:"
+        } else {
+            "http:"
+        };
         return format!("{}{}", scheme, location);
     }
     // Absolute path (/path).
@@ -21,7 +25,11 @@ pub fn resolve_redirect(original_url: &str, location: &str) -> String {
         if let Some(scheme_end) = original_url.find("://") {
             let after_scheme = &original_url[scheme_end + 3..];
             let path_start = after_scheme.find('/').unwrap_or(after_scheme.len());
-            return format!("{}{}", &original_url[..scheme_end + 3 + path_start], location);
+            return format!(
+                "{}{}",
+                &original_url[..scheme_end + 3 + path_start],
+                location
+            );
         }
     }
     // Relative path — append to the original URL's directory.
