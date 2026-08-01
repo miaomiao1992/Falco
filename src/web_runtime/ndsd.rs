@@ -977,8 +977,14 @@ mod tests {
     #[test]
     fn ndsd_creation() {
         let ndsd = Ndsd::new();
-        // On Linux (test env), backend should be ClearKey.
-        assert_eq!(ndsd.backend, DrmBackend::ClearKey);
+        // Backend depends on platform — just assert it's a known variant
+        // (not Unsupported). On Linux: ClearKey, on macOS: AvFoundation,
+        // on Windows: MediaFoundation.
+        assert_ne!(
+            ndsd.backend,
+            DrmBackend::Unsupported,
+            "Ndsd::new() should detect a usable backend on every CI runner"
+        );
     }
 
     #[test]
