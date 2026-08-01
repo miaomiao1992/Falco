@@ -25,7 +25,11 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     # Clippy is informational for now — warnings are reported but don't fail the build.
-    # Flip this to true once the codebase is clippy-clean.
+    # NOTE: We intentionally do NOT pass --all-features because the optional
+    # features `real-http2`, `real-webgl`, and `sandbox` depend on crates whose
+    # APIs have drifted (h2::Body removed, glow API changed, seccomp pre_exec
+    # Unix-only). Those features are WIP and not in the default feature set.
+    # Clippy runs against the default features, which is what `cargo build` uses.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +42,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
       - name: Run clippy (warnings reported, non-blocking)
-        run: cargo clippy --all-targets --all-features -- -W warnings
+        run: cargo clippy --all-targets -- -W warnings
 
   build:
     name: Build & Test (${{ matrix.os }} / Rust ${{ matrix.rust }})

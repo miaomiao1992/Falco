@@ -466,6 +466,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::approx_constant)] // 3.14 is a literal we tokenize, not an approximation of π
     fn tokenize_numbers() {
         let tokens = tokenize("42 3.14 0xFF 1e10").unwrap();
         assert!(matches!(tokens[0], Token::Number(42.0)));
