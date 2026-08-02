@@ -1,4 +1,4 @@
-//! Falco — a tiny, fast, experimental browser engine written in Rust.
+//! Falco — a tiny, from-scratch browser engine written in Rust.
 //!
 //! Pipeline:
 //!   HTML source → DOM → (CSS source → Stylesheet) → Style tree
@@ -9,13 +9,48 @@
 //! let opts = RenderOptions { width: 1200, height: 800, ..Default::default() };
 //! render_to_png("<h1>Hello</h1>", "h1 { color: red; }", opts, "out.png").unwrap();
 //! ```
+//!
+//! ## Module status (honest)
+//!
+//! The render pipeline currently uses the *legacy* modules below. They are
+//! the ones actually called by [`render_with_base_url`]:
+//!   - [`html`] — HTML parser (legacy)
+//!   - [`dom`] — DOM types (legacy)
+//!   - [`css`] — CSS parser + selector matching (legacy)
+//!   - [`style`] — cascade + UA styles
+//!   - [`layout`] — block/inline/flex/grid/table/float/absolute layout
+//!   - [`paint`] — canvas + fonts + compositing
+//!   - [`svg`] — SVG parser + renderer
+//!   - [`png`] — hand-written PNG encoder
+//!   - [`image`] — image loader (HTTP, data: URLs, local files)
+//!   - [`js_tjs`], [`js_runner`] — JS execution via the TJS VM
+//!   - [`tjs`] — the JavaScript VM itself
+//!   - [`window`] — interactive `--window` mode
+//!   - [`net`] — HTTP fetch, cookies, cache, websocket, redirect
+//!
+//! The following modules are **structurally complete and pass their own
+//! unit tests, but NOT YET wired into the render pipeline**. They exist as
+//! spec-compliant replacements for the legacy types above and are the
+//! planned v0.2.0 milestone. Until then they are exported for review and
+//! experimentation, but `render_with_base_url` does not call into them:
+//!   - [`html::spec`] — WHATWG §13.2 tokenizer + tree builder + serializer + XML
+//!   - [`dom::spec`] — spec DOM, MutationObserver, Shadow DOM, custom elements, a11y
+//!   - [`css::spec`] — Selectors Level 4, cascade specificity, @-rules
+//!   - [`tjs_ext`] — Symbol, BigInt, Promise, Map/Set, WeakMap/WeakSet, Reflect
+//!
+//! The following modules are **implemented but not enforced in the
+//! renderer** — same situation, planned for a later milestone:
+//!   - [`security`] — SOP, multi-process, sandbox, CSP, certs, permissions
+//!   - [`web_runtime`] — fetch, XHR, event loop, WebGL/video/MSE/EME/NDSD stubs
+//!   - [`media`] — media queries (parsed but always applied)
 
+// === Render pipeline (active) ===
+// dom/, css/, html/ each contain:
+//   - the legacy (currently active) types at the module root
+//   - the spec-compliant replacement under `spec/` (WIP, not yet wired in)
 pub mod css;
-pub mod css2;
 pub mod dom;
-pub mod dom2;
 pub mod html;
-pub mod html5;
 pub mod image;
 pub mod js_runner;
 pub mod js_tjs;
@@ -24,13 +59,20 @@ pub mod media;
 pub mod net;
 pub mod paint;
 pub mod png;
-pub mod security;
 pub mod style;
 pub mod svg;
 pub mod tjs;
-pub mod tjs_ext;
-pub mod web_runtime;
 pub mod window;
+
+// === Spec-compliant runtime extensions (NOT yet wired into render pipeline) ===
+// These extend the active `tjs/` VM with Symbol, BigInt, Promise, etc.
+// They compile and pass their own unit tests, but the JS bindings exposed
+// to `onclick=` handlers don't yet surface all of these to user scripts.
+pub mod tjs_ext;
+
+// === Security / web runtime (implemented but not enforced in renderer) ===
+pub mod security;
+pub mod web_runtime;
 
 use paint::{Canvas, FontRasterizer, PaintCommand};
 

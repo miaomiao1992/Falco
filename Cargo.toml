@@ -2,12 +2,13 @@
 name = "falco"
 version = "0.1.0"
 edition = "2021"
-description = "Falco — a tiny, fast, experimental browser engine written in Rust. Parses HTML + CSS, computes layout, paints to a canvas, outputs PNG."
+description = "Falco — a tiny, from-scratch browser engine in Rust. HTML, CSS, JS, SVG, layout, paint → PNG or interactive window."
 license = "MIT"
-authors = ["Falco contributors"]
-repository = "https://github.com/your-org/falco"
-keywords = ["browser", "html", "css", "layout", "rendering"]
-categories = ["graphics", "rendering", "web-programming"]
+authors = ["poxk"]
+repository = "https://github.com/poxk/Falco"
+homepage = "https://github.com/poxk/Falco"
+keywords = ["browser", "html", "css", "javascript", "rendering"]
+categories = ["graphics", "rendering", "web-programming", "parsers"]
 
 [[bin]]
 name = "falco"

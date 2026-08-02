@@ -1,9 +1,18 @@
 //! CSS parser — lexer, parser, selector matching.
 //!
 //! Supports 300+ CSS properties (see `registry.rs` for the full list).
+//!
+//! # Spec-compliant replacement
+//!
+//! The [`spec`] submodule contains the Selectors-Level-4-compliant
+//! replacement (full cascade specificity, `:has()`/`:is()`/`:where()`,
+//! cascade layers, container queries, @-rules, animations, containment,
+//! filters, clip-path). It is **not yet wired into the render pipeline** —
+//! `render_with_base_url` still uses the legacy types in this file.
 
 pub mod pseudo;
 pub mod registry;
+pub mod spec;
 
 use crate::dom::{ElementData, Node};
 use std::collections::HashMap;

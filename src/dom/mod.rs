@@ -4,6 +4,16 @@
 //! Comment nodes, and a Document root. Siblings are stored as a Vec; children
 //! live inside Element. This avoids the classic `Rc<RefCell<Vec<Node>>>` cycle
 //! headache and lets the layout engine traverse by reference efficiently.
+//!
+//! # Spec-compliant replacement
+//!
+//! The [`spec`] submodule contains the WHATWG-DOM-compliant replacement
+//! (live parent/child/sibling links via `Rc<RefCell<Node>>`, MutationObserver,
+//! Shadow DOM, custom elements, accessibility tree). It is **not yet wired
+//! into the render pipeline** — `render_with_base_url` still uses the legacy
+//! types in this file. See [`spec`] for details.
+
+pub mod spec;
 
 use std::collections::HashMap;
 

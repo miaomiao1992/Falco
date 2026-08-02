@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question / discussion
-    url: https://github.com/falco-engine/falco/discussions
+    url: https://github.com/poxk/Falco/discussions
     about: For questions and general discussion, please use GitHub Discussions.
   - name: Security report
-    url: https://github.com/falco-engine/falco/security/policy
+    url: https://github.com/poxk/Falco/security/policy
     about: Found a security issue? Please report it privately via the security policy.

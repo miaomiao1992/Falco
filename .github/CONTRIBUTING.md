@@ -61,10 +61,9 @@ Major modules:
 
 | Module            | Purpose                                                |
 | ----------------- | ------------------------------------------------------ |
-| `html5/`          | WHATWG tokenizer + tree builder (the spec-compliant one) |
-| `html.rs`         | Legacy HTML parser (still used in the render pipeline)  |
-| `dom/`, `dom2/`   | Legacy DOM + spec-compliant DOM (live links, observers) |
-| `css/`, `css2/`   | CSS parser + selectors level 4 + cascade                |
+| `html/`           | Legacy HTML parser (active) + `html::spec/` WHATWG tokenizer + tree builder (WIP) |
+| `dom/`            | Legacy DOM types (active) + `dom::spec/` spec DOM with live links, observers, shadow DOM (WIP) |
+| `css/`            | Legacy CSS parser (active) + `css::spec/` Selectors L4 + cascade + @-rules (WIP) |
 | `style/`          | Cascade + inheritance + UA stylesheet                  |
 | `layout/`         | Block / inline / flex / table / grid / float / absolute |
 | `paint/`          | Canvas + font rasterizer + compositing                 |
@@ -73,6 +72,11 @@ Major modules:
 | `security/`       | SOP / CSP / sandbox / cert / permissions / DevTools    |
 | `window/`         | Interactive window mode (events, scrolling, forms)     |
 | `net/`            | HTTP fetch, cookies, cache, websocket, redirect        |
+
+Each of `html/`, `dom/`, `css/` has a `spec/` subfolder containing the
+spec-compliant replacement that is **not yet wired into the render
+pipeline**. The active render path uses the legacy types at the module
+root.
 
 When adding a feature, look for the matching module. If you're unsure,
 open an issue and ask.

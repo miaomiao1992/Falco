@@ -18,6 +18,7 @@
   <img alt="Built with Rust" src="https://img.shields.io/badge/built%20with-rust-orange.svg">
   <img alt="Binary size" src="https://img.shields.io/badge/binary-~10%20MB-blue.svg">
   <img alt="Lines of Rust" src="https://img.shields.io/badge/LOC-~36%2C000-9cf.svg">
+  <a href="https://github.com/poxk/Falco/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/poxk/Falco/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://send.monobank.ua/jar/21T9ZRwZq3"><img alt="Donate" src="https://img.shields.io/badge/donate-MonoBank-7c3aed.svg"></a>
 </p>
 
@@ -54,6 +55,50 @@ HTML ──▶ DOM ──▶ Style tree ──▶ Layout tree ──▶ Paint co
 Falco is **not** a wrapper around WebKit, Gecko, or Chromium. Every
 module — HTML tokenizer, CSS parser, layout engine, JS VM, font
 rasterizer, PNG encoder — is written from scratch in Rust.
+
+## Honest status (what works vs what's a stub)
+
+To set expectations clearly — this is v0.1.0, an early release by a
+single developer. Not everything listed in this README is production-ready.
+Here's what is actually wired into the render pipeline and what is
+structurally complete but not yet called:
+
+### ✅ Actually works (called by `render_with_base_url`)
+- HTML parser (`html/`) — legacy parser, not spec-compliant but functional
+- DOM types (`dom/`) — minimal node types, no observers/shadow
+- CSS parser (`css/`) — selectors, properties, cascade, color parsing
+- Style cascade (`style/`) — UA styles + inheritance + flex/grid props
+- Layout (`layout/`) — block / inline / flex / **CSS Grid** / **table** / float / absolute
+- Painting (`paint/`) — fonts (ab_glyph), gradients, shadows, alpha compositing
+- SVG renderer (`svg/`) — paths, basic shapes, gradients, stroke + fill
+- Hand-written PNG encoder (`png/`)
+- Image loader (`image/`) — HTTP, data: URLs, local files
+- JS VM (`tjs/`) — bytecode interpreter + JIT (x86_64, Linux-only)
+- JS-DOM bindings (`js_tjs/`, `js_runner/`) — `document.getElementById`, `console.log`, `alert`, `onclick`
+- Networking (`net/`) — HTTP/1.1 (ureq), cookies, cache, websocket, redirect
+- Interactive `--window` mode — scrolling, forms, navigation, history
+
+### ⚠️ Structurally complete, passes own unit tests, **NOT wired into renderer**
+These exist as spec-compliant replacements for the legacy modules. They
+compile and have their own unit tests, but `render_with_base_url` does
+not call into them yet. This is the v0.2.0 milestone.
+- `html::spec` — WHATWG §13.2 tokenizer (all 80 states) + tree builder (all 22 insertion modes) + serializer + XML parser + encoding detection
+- `dom::spec` — spec DOM with MutationObserver, Shadow DOM, custom elements, accessibility tree
+- `css::spec` — Selectors Level 4 (`:has()`, `:is()`, `:where()`, cascade layers, container queries)
+- `tjs_ext/` — Symbol, BigInt, Promise, microtasks, Map/Set, WeakMap/WeakSet, Reflect
+
+### ⚠️ Implemented algorithms, **NOT enforced in renderer**
+- `security/` — SOP, multi-process, seccomp sandbox, CSP, TLS cert chain validation, permissions, extensions, DevTools protocol. All algorithms are in place and unit-tested, but the renderer doesn't enforce them yet.
+- `web_runtime/` — `fetch()`, `XMLHttpRequest`, event loop, Promise. The Promise / event loop integration is real and unit-tested, but `fetch` and `XHR` are stubbed (no real network behind them in the JS context). WebGL, video, MSE, EME, NDSD are **headless stubs** — they implement the API surface but don't actually render WebGL frames, decode H.264 video, or do DRM. They exist as scaffolding for future work.
+- `media/` — `@media` queries are parsed but always applied (no conditional cascade yet)
+
+### ❌ Known broken / unfinished
+- `real-http2`, `real-webgl`, `sandbox` Cargo features do not compile with `--all-features` because their upstream APIs have drifted (h2::Body removed, glow API changed, seccomp pre_exec is Unix-only). They are disabled by default and the CI clippy step does not check them.
+- The JIT (`tjs/jit.rs`) works on Linux x86_64 but fails on macOS CI runners because `mmap(MAP_JIT)` requires code signing with the `com.apple.security.cs.allow-jit` entitlement. JIT tests are marked `#[ignore]` on macOS.
+- DOM mutation from JS (`element.innerHTML = ...`, `element.style.color = ...`) does not trigger re-render.
+- HTML5 spec-compliant tree repair (adoption agency, foster parenting) is in `html/spec/tree_builder.rs` but the legacy parser is what actually runs.
+
+**Bottom line:** if you `cargo build && ./falco https://example.com --out out.png`, you get a real PNG render. The HTML/CSS/layout/paint path works end-to-end. The spec-compliant parsers, security enforcement, and advanced web runtime (WebGL/video/DRM) are **scaffolding for future milestones**, not working features. Please read the code before claiming otherwise.
 
 ## Quick start
 
@@ -185,7 +230,7 @@ fn main() -> anyhow::Result<()> {
 - **innerHTML / outerHTML serialization** — void elements, `<template>`
   contents fragment, raw text elements, full attribute value escaping
 
-### DOM (spec-compliant, `dom2/`)
+### DOM (spec-compliant, `dom::spec`)
 - `NodeRef = Rc<RefCell<Node>>` with `parent`, `firstChild`,
   `lastChild`, `previousSibling`, `nextSibling` pointers per spec
 - `DocumentHandle = Rc<RefCell<Document>>` with weak back-ref from
@@ -208,7 +253,7 @@ fn main() -> anyhow::Result<()> {
   `role=""`, `aria-hidden`, `hidden`, `display:none`, accessible name
   computation (aria-label > aria-labelledby > element-specific > title)
 
-### CSS (`css/` + `css2/`)
+### CSS (`css/` + `css::spec`)
 - **Selectors Level 4** — type, class, id, universal (`*`), descendant,
   child (`>`), adjacent sibling (`+`), general sibling (`~`),
   attribute (`[attr]`, `=`, `~=`, `|=`, `^=`, `$=`, `*=`)
@@ -387,31 +432,31 @@ inline caching, hidden classes, and a JIT tier-up.
 
 ## What it does NOT do (yet)
 
-- The `html5/`, `dom2/`, `css2/`, `tjs_ext/`, `security/` modules are
+- The `html::spec`, `dom::spec`, `css::spec`, `tjs_ext/`, `security/` modules are
   **structurally complete but not yet wired into the render pipeline**.
   Falco still uses the legacy `html` / `dom` / `css` modules for
   actual rendering. The new modules exist as the spec-compliant
   replacements and pass their own unit tests, but the renderer has
   not been switched over yet.
 - No CSS animations / transitions in the renderer (the data structures
-  exist in `css2/advanced.rs`, but the paint loop does not interpolate
+  exist in `css/spec/advanced.rs`, but the paint loop does not interpolate
   them).
 - No `@media` query value matching in the renderer (queries are
   parsed; the cascade does not yet apply them conditionally).
 - No real DOM mutation from JS in the renderer (`element.innerHTML =
   ...`, `element.style.color = ...` are stubs).
 - No HTML5 spec-compliant tree repair in the renderer (the algorithm
-  exists in `html5/tree_builder.rs` but the legacy parser is used).
+  exists in `html/spec/tree_builder.rs` but the legacy parser is used).
 
 ## Architecture
 
 | Module             | Lines  | Description                                                                |
 |--------------------|--------|----------------------------------------------------------------------------|
-| `html5/`           | ~4,900 | WHATWG HTML5 tokenizer + tree builder + serializer + XML parser + encoding |
+| `html::spec`           | ~4,900 | WHATWG HTML5 tokenizer + tree builder + serializer + XML parser + encoding |
 | `html.rs`          | ~540   | Legacy HTML parser (still used in render pipeline)                         |
-| `dom2/`            | ~2,280 | Spec-compliant DOM, MutationObserver, Shadow DOM, custom elements, a11y    |
+| `dom::spec`            | ~2,280 | Spec-compliant DOM, MutationObserver, Shadow DOM, custom elements, a11y    |
 | `dom.rs`           | ~140   | Legacy DOM (still used in render pipeline)                                 |
-| `css2/`            | ~2,020 | Selectors L4, cascade specificity, @-rules, animations, containment, filters |
+| `css::spec`            | ~2,020 | Selectors L4, cascade specificity, @-rules, animations, containment, filters |
 | `css/`             | ~1,660 | Legacy CSS parser + selector matching + color parsing                      |
 | `style/`           | ~1,720 | Style cascade + UA styles + inheritance + flex/grid properties             |
 | `layout/`          | ~1,950 | Block / inline / flex / grid / table / float / absolute layout             |
@@ -449,11 +494,11 @@ falco/
 ├── src/
 │   ├── main.rs
 │   ├── lib.rs
-│   ├── html5/                # WHATWG HTML5 (tokenizer, tree builder, ...)
+│   ├── html/spec/                # WHATWG HTML5 (tokenizer, tree builder, ...)
 │   ├── html.rs               # legacy HTML parser
-│   ├── dom2/                 # spec DOM (observer, shadow, custom elements, a11y)
+│   ├── dom/spec/                 # spec DOM (observer, shadow, custom elements, a11y)
 │   ├── dom.rs                # legacy DOM
-│   ├── css2/                 # selectors L4, cascade, @-rules
+│   ├── css/spec/                 # selectors L4, cascade, @-rules
 │   ├── css/                  # legacy CSS parser
 │   ├── style/                # cascade + inheritance + UA styles
 │   ├── layout/               # block/inline/flex/grid/table/float/absolute
@@ -477,10 +522,10 @@ falco/
 
 The next big pieces of work, roughly in priority order:
 
-1. **Wire `html5/` + `dom2/` into the render pipeline** — switch off
+1. **Wire `html::spec` + `dom::spec` into the render pipeline** — switch off
    the legacy `html` + `dom` modules. This unlocks spec-compliant tree
    repair, full MutationObserver, and real custom elements.
-2. **Wire `css2/` into the cascade** — get `:is` / `:where` / `:has`
+2. **Wire `css::spec` into the cascade** — get `:is` / `:where` / `:has`
    working in real rendering, plus cascade layers and container
    queries.
 3. **DOM mutation from JS** — `element.innerHTML = ...`,

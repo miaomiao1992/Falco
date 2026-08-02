@@ -12,7 +12,7 @@
 //! * **Video/audio decoding** via ffmpeg (when the `ffmpeg` feature is
 //!   enabled).
 //! * **WebGL** via glow (when the `glow` feature is enabled).
-//! * **Shadow DOM** (in `dom2::shadow`).
+//! * **Shadow DOM** (in `dom::spec::shadow`).
 //!
 //! # Integration with TJS
 //!

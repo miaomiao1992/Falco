@@ -2,7 +2,7 @@
 //!
 //! TJS engine and connects it to the dom2 DOM tree, so that:
 //! * `document.createElement('div')` creates a real NodeRef
-//! * `element.appendChild(child)` calls dom2::append_child
+//! * `element.appendChild(child)` calls spec::append_child
 //! * `element.innerHTML = '...'` parses HTML and inserts nodes
 //! * `document.getElementById('id')` searches the DOM
 //! * `fetch(url)` makes a real HTTP request (blocking, simplified)
@@ -12,7 +12,7 @@
 //! After JS execution, the DOM tree is re-serialized to HTML and fed back
 //! into the render pipeline (CSS → Layout → Paint).
 
-use crate::dom2::{
+use crate::dom::spec::{
     self, append_child, set_attribute, tag_name, Document, DocumentHandle, NodeKind, NodeRef,
 };
 use crate::tjs::{value::Value, TjsContext};
@@ -453,11 +453,11 @@ fn create_element_proxy(
     obj.set("nodeType", Value::Number(1.0)); // ELEMENT_NODE
 
     // Store the id attribute.
-    let id = dom2::get_attribute(&node, "id").unwrap_or_default();
+    let id = spec::get_attribute(&node, "id").unwrap_or_default();
     obj.set("id", Value::String(id));
 
     // className
-    let class = dom2::get_attribute(&node, "class").unwrap_or_default();
+    let class = spec::get_attribute(&node, "class").unwrap_or_default();
     obj.set("className", Value::String(class));
 
     // innerHTML — getter returns serialized children, setter parses HTML.
@@ -475,7 +475,7 @@ fn create_element_proxy(
             func: Rc::new(move |args| {
                 let html = args.first().map(|v| v.to_string()).unwrap_or_default();
                 // Remove all existing children.
-                dom2::remove_all_children(&node_c);
+                spec::remove_all_children(&node_c);
                 // Parse the HTML and append the resulting nodes.
                 // We use the legacy HTML parser for simplicity.
                 let parsed = crate::html::parse(&html);
@@ -534,7 +534,7 @@ fn create_element_proxy(
             name: "getAttribute".to_string(),
             func: Rc::new(move |args| {
                 let name = args.first().map(|v| v.to_string()).unwrap_or_default();
-                match dom2::get_attribute(&node_c, &name) {
+                match spec::get_attribute(&node_c, &name) {
                     Some(v) => Ok(Value::String(v)),
                     None => Ok(Value::Undefined),
                 }
@@ -554,7 +554,7 @@ fn create_element_proxy(
                 let prop = args.first().map(|v| v.to_string()).unwrap_or_default();
                 let val = args.get(1).map(|v| v.to_string()).unwrap_or_default();
                 // Update the style attribute on the element.
-                let current = dom2::get_attribute(&node_c, "style").unwrap_or_default();
+                let current = spec::get_attribute(&node_c, "style").unwrap_or_default();
                 let new_style = if current.is_empty() {
                     format!("{}:{}", prop, val)
                 } else {
@@ -686,7 +686,7 @@ fn serialize_children(node: &NodeRef) -> String {
 fn serialize_node(node: &NodeRef, out: &mut String) {
     let kind = node.borrow().kind.clone();
     match kind {
-        dom2::NodeKind::Text(t) => out.push_str(&t),
+        spec::NodeKind::Text(t) => out.push_str(&t),
         NodeKind::Comment(c) => {
             out.push_str("<!--");
             out.push_str(&c);
@@ -730,7 +730,7 @@ fn get_text_content(node: &NodeRef) -> String {
 
 fn collect_text(node: &NodeRef, out: &mut String) {
     let kind = node.borrow().kind.clone();
-    if let dom2::NodeKind::Text(t) = kind {
+    if let spec::NodeKind::Text(t) = kind {
         out.push_str(&t);
         return;
     }
@@ -745,7 +745,7 @@ fn collect_text(node: &NodeRef, out: &mut String) {
     }
 }
 
-/// Convert a legacy dom::Node to a dom2::NodeRef, as a child of the given parent.
+/// Convert a legacy dom::Node to a spec::NodeRef, as a child of the given parent.
 fn convert_legacy_node(node: &crate::dom::Node, parent: &NodeRef) -> NodeRef {
     let doc = parent.borrow().doc.as_ref().and_then(|w| w.upgrade());
     match node {
@@ -753,22 +753,22 @@ fn convert_legacy_node(node: &crate::dom::Node, parent: &NodeRef) -> NodeRef {
             let new_el = if let Some(doc) = &doc {
                 Document::create_element(doc, &e.tag)
             } else {
-                NodeRef::new(std::cell::RefCell::new(dom2::Node {
+                NodeRef::new(std::cell::RefCell::new(spec::Node {
                     id: 0,
-                    kind: dom2::NodeKind::Element(dom2::ElementData {
+                    kind: spec::NodeKind::Element(spec::ElementData {
                         tag: e.tag.clone(),
                         namespace: None,
                         attrs: e
                             .attrs
                             .iter()
-                            .map(|(k, v)| dom2::Attribute {
+                            .map(|(k, v)| spec::Attribute {
                                 name: k.clone(),
                                 value: v.clone(),
                                 namespace: None,
                                 prefix: None,
                             })
                             .collect(),
-                        custom: dom2::CustomElementState::default(),
+                        custom: spec::CustomElementState::default(),
                         shadow: None,
                         template_contents: None,
                         inline_style: Vec::new(),
@@ -800,9 +800,9 @@ fn convert_legacy_node(node: &crate::dom::Node, parent: &NodeRef) -> NodeRef {
             if let Some(doc) = &doc {
                 Document::create_text(doc, &t.text)
             } else {
-                NodeRef::new(std::cell::RefCell::new(dom2::Node {
+                NodeRef::new(std::cell::RefCell::new(spec::Node {
                     id: 0,
-                    kind: dom2::NodeKind::Text(t.text.clone()),
+                    kind: spec::NodeKind::Text(t.text.clone()),
                     owner_document: None,
                     doc: None,
                     parent: None,
@@ -820,9 +820,9 @@ fn convert_legacy_node(node: &crate::dom::Node, parent: &NodeRef) -> NodeRef {
             if let Some(doc) = &doc {
                 Document::create_text(doc, "")
             } else {
-                NodeRef::new(std::cell::RefCell::new(dom2::Node {
+                NodeRef::new(std::cell::RefCell::new(spec::Node {
                     id: 0,
-                    kind: dom2::NodeKind::Text(String::new()),
+                    kind: spec::NodeKind::Text(String::new()),
                     owner_document: None,
                     doc: None,
                     parent: None,

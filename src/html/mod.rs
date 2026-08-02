@@ -12,6 +12,17 @@
 //! These omissions are acceptable for our rendering target — the layout
 //! engine handles block/inline flow and doesn't depend on HTML5's exotic
 //! tree-repair rules.
+//!
+//! # Spec-compliant replacement
+//!
+//! The [`spec`] submodule contains the WHATWG-§13.2-compliant replacement
+//! (all 80 tokenizer states, all 22 tree-builder insertion modes, adoption
+//! agency algorithm, foster parenting, XML parser, encoding detection,
+//! innerHTML/outerHTML serializer). It is **not yet wired into the render
+//! pipeline** — `render_with_base_url` still uses the legacy `parse()`
+//! function in this file.
+
+pub mod spec;
 
 use crate::dom::{DoctypeData, DocumentData, ElementData, Node, TextData};
 use std::borrow::Cow;
