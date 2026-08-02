@@ -1,0 +1,6 @@
+/target
+Cargo.lock
+*.swp
+.DS_Store
+*.png
+!tests/fixtures/sample_render.png
